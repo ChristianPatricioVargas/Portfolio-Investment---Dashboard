@@ -1,0 +1,36 @@
+# Le istruzioni per GitHub Actions: "ogni 30 minuti, nei giorni di Borsa,
+# esegui il programma che scarica i prezzi e salva il risultato".
+
+name: Aggiorna prezzi
+
+on:
+  schedule:
+    # Lunedì-venerdì, ai minuti 7 e 37 di ogni ora dalle 7 alle 20 (ora UTC).
+    # In Italia sono le 8-21 d'inverno e le 9-22 d'estate.
+    - cron: "7,37 7-20 * * 1-5"
+  workflow_dispatch:   # aggiunge un pulsante "Run workflow" per farlo partire a mano
+
+permissions:
+  contents: write      # serve per salvare data/prezzi.json nel repository
+
+concurrency:
+  group: aggiorna-prezzi   # mai due aggiornamenti nello stesso momento
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il codice del repository
+        uses: actions/checkout@v4
+
+      - name: Scarica i prezzi da Yahoo Finance
+        run: python3 scripts/aggiorna_prezzi.py
+
+      - name: Salva i nuovi prezzi (solo se sono cambiati)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/prezzi.json
+          git diff --cached --quiet && echo "Nessun cambiamento" && exit 0
+          git commit -m "Aggiorna prezzi"
+          git push
