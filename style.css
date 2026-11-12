@@ -1,0 +1,211 @@
+/*
+  style.css = l'ASPETTO della pagina: colori, caratteri, spazi.
+  Le "variabili" qui sotto (--sfondo, --testo...) sono colori con un nome:
+  se vuoi cambiare un colore, lo cambi in un punto solo.
+*/
+:root {
+  --sfondo: #0b0d12;        /* nero-blu dello sfondo */
+  --carta: #151922;         /* grigio scuro delle schede */
+  --carta-2: #232a38;       /* grigio un po' più chiaro (etichette, campi) */
+  --testo: #eef1f6;
+  --testo-tenue: #8a93a6;
+  --verde: #4be3a0;
+  --verde-sfondo: #0f3324;
+  --rosso: #ff8a7a;
+  --rosso-sfondo: #3a1717;
+  --accento: #8fb0ff;
+  --accento-forte: #3d63e0;
+  color-scheme: dark;       /* dice a Safari di usare menu e tastiera scuri */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--sfondo);
+  color: var(--testo);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: 780px;
+  margin: 0 auto;
+  /* env(safe-area-inset-...) = spazio per la barra in alto dell'iPad */
+  padding: calc(32px + env(safe-area-inset-top)) 16px 48px;
+}
+
+/* ---------- Testata con il totale ---------- */
+
+.etichetta-alta {
+  color: var(--testo-tenue);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.totale {
+  font-size: clamp(2.6rem, 9vw, 3.6rem);   /* grande, ma si adatta allo schermo */
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 4px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.totale.vuota { color: var(--testo-tenue); }
+
+.sotto { color: var(--testo-tenue); margin-top: 10px; }
+
+/* L'etichetta arrotondata verde o rossa */
+.chip {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--carta-2);
+  color: var(--testo-tenue);
+}
+.chip:empty { display: none; }
+.chip.positivo { background: var(--verde-sfondo); color: var(--verde); }
+.chip.negativo { background: var(--rosso-sfondo); color: var(--rosso); }
+
+.avviso {
+  background: var(--carta);
+  border-left: 3px solid var(--accento);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 24px 0 0;
+  color: var(--testo-tenue);
+  font-size: 0.95rem;
+}
+
+/* ---------- Le schede dei titoli ---------- */
+
+.intestazione-sezione {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 36px 0 12px;
+}
+
+h2 { font-size: 1.05rem; color: var(--testo-tenue); font-weight: 500; margin: 0; }
+
+.scheda {
+  width: 100%;
+  background: var(--carta);
+  border: none;
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.scheda:active { transform: scale(0.99); }
+
+/* Il quadratino colorato con la sigla del titolo */
+.sigla {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+}
+
+.info { flex: 1; min-width: 0; }
+.info .nome { font-weight: 600; font-size: 1.05rem; }
+.info .dettaglio { color: var(--testo-tenue); font-size: 0.85rem; }
+
+.tag {
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--carta-2);
+  color: var(--testo-tenue);
+  margin-left: 6px;
+  vertical-align: 2px;
+  font-weight: 500;
+}
+
+.cifre { text-align: right; font-variant-numeric: tabular-nums; }
+.cifre .valore { display: block; font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; }
+.cifre .chip { font-size: 0.8rem; padding: 3px 10px; }
+
+.positivo { color: var(--verde); }
+.negativo { color: var(--rosso); }
+
+.vuoto { color: var(--testo-tenue); }
+
+/* ---------- Pulsanti ---------- */
+
+.pulsante {
+  font: inherit;
+  font-weight: 600;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accento-forte);
+  color: #fff;
+  cursor: pointer;
+}
+.pulsante.secondario { background: var(--carta-2); color: var(--testo); }
+
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accento);
+  cursor: pointer;
+}
+.link.pericolo { color: var(--rosso); justify-self: center; }
+
+footer { margin-top: 36px; color: var(--testo-tenue); font-size: 0.85rem; }
+footer p { margin: 6px 0; }
+
+/* ---------- La finestra del modulo ---------- */
+
+dialog {
+  width: min(440px, calc(100% - 32px));
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  background: var(--carta);
+  color: var(--testo);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+form { display: grid; gap: 14px; padding: 20px; }
+form h3 { margin: 0 0 4px; font-size: 1.2rem; }
+
+label { display: grid; gap: 6px; font-size: 0.9rem; color: var(--testo-tenue); min-width: 0; }
+
+input, select {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 1rem;     /* 16px: evita lo zoom automatico di Safari */
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--carta-2);
+  color: var(--testo);
+}
+input:focus, select:focus { outline: none; border-color: var(--accento); }
+
+.pulsanti-modulo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.pulsanti-modulo .pulsante { padding: 12px; }
+
+.errore { color: var(--rosso); margin: 0; }
