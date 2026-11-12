@@ -1,0 +1,6 @@
+[
+  { "ticker": "VWCE.DE", "nome": "Vanguard FTSE All-World (Acc)", "tipo": "ETF", "isin": "IE00BK5BQT80" },
+  { "ticker": "IUSN.DE", "nome": "iShares MSCI World Small Cap (Acc)", "tipo": "ETF", "isin": "IE00BF4RFH31" },
+  { "ticker": "AIR.DE", "nome": "Airbus", "tipo": "Azione", "isin": "NL0000235190" },
+  { "ticker": "SAP.DE", "nome": "SAP", "tipo": "Azione", "isin": "DE0007164600" }
+]
