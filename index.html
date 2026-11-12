@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  index.html = lo "scheletro" della pagina.
+  Qui decidiamo COSA c'è sulla pagina (totale, schede dei titoli, modulo).
+  L'aspetto (colori, spazi) è in style.css.
+  Il comportamento (calcoli, salvataggio) è in app.js.
+-->
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- Fa sì che la pagina si adatti bene allo schermo di iPad e telefono -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Il mio portafoglio</title>
+  <!-- Quando aggiungi la pagina alla schermata Home, si apre come un'app -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Portafoglio">
+  <meta name="theme-color" content="#0b0d12">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <!-- In alto: il valore totale, in grande -->
+    <header class="testata">
+      <div class="etichetta-alta">Valore del portafoglio</div>
+      <div class="totale" id="tot-valore">–</div>
+      <span class="chip" id="tot-gp"></span>
+      <div class="sotto" id="tot-investito"></div>
+    </header>
+
+    <!-- Avviso che compare quando i prezzi non sono ancora arrivati -->
+    <p class="avviso" id="avviso" hidden></p>
+
+    <!-- Le schede dei titoli: le crea app.js -->
+    <div class="intestazione-sezione">
+      <h2>I miei titoli</h2>
+      <button class="pulsante" id="apri-modulo" type="button">+ Aggiungi</button>
+    </div>
+    <div id="schede"></div>
+    <p class="vuoto" id="vuoto" hidden>
+      Nessun titolo ancora. Tocca <strong>+ Aggiungi</strong> per inserire il primo.
+    </p>
+
+    <footer>
+      <p id="aggiornamento"></p>
+      <p>🔒 Quote e capitale investito restano salvati solo su questo dispositivo.</p>
+      <p>
+        <button class="link" id="backup" type="button">Copia backup</button> ·
+        <button class="link" id="ripristina" type="button">Ripristina backup</button>
+      </p>
+    </footer>
+  </main>
+
+  <!-- Il modulo per aggiungere o modificare un titolo.
+       <dialog> è una finestra che si apre sopra la pagina. -->
+  <dialog id="finestra">
+    <form id="modulo">
+      <h3 id="titolo-modulo">Aggiungi titolo</h3>
+      <label>
+        Titolo
+        <select id="campo-titolo" required></select>
+      </label>
+      <label>
+        Numero di quote
+        <input id="campo-quote" type="text" inputmode="decimal" placeholder="es. 1,234567" required>
+      </label>
+      <label>
+        Capitale investito (€, commissioni incluse)
+        <input id="campo-investito" type="text" inputmode="decimal" placeholder="es. 250,00" required>
+      </label>
+      <p class="errore" id="errore" hidden></p>
+      <div class="pulsanti-modulo">
+        <button type="button" class="pulsante secondario" id="annulla">Annulla</button>
+        <button type="submit" class="pulsante">Salva</button>
+      </div>
+      <button type="button" class="link pericolo" id="elimina" hidden>Elimina questo titolo</button>
+    </form>
+  </dialog>
+
+  <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
+  <script src="app.js"></script>
+</body>
+</html>
