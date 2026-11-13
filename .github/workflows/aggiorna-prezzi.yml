@@ -11,7 +11,7 @@ on:
   workflow_dispatch:   # aggiunge un pulsante "Run workflow" per farlo partire a mano
     inputs:
       prova_notifica:
-        description: "Manda solo una notifica di prova (per controllare ntfy)"
+        description: "Manda anche una notifica di prova ntfy (i prezzi si aggiornano comunque)"
         type: boolean
         default: false
 
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Scarica il codice del repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Scarica i prezzi e controlla gli allarmi
         run: python3 scripts/aggiorna_prezzi.py
