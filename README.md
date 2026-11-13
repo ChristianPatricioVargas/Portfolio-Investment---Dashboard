@@ -35,7 +35,13 @@ La pagina li somma da sola:
 - **Guadagno/perdita (€)** = valore attuale − capitale investito
 - **Guadagno/perdita (%)** = guadagno/perdita ÷ capitale investito
 
-Nel grafico ogni acquisto entra dal suo giorno: la linea dell'investito sale "a gradini".
+Il grafico della panoramica mostra di default il **rendimento in %** (valore ÷ investito − 1, giorno per giorno):
+così i nuovi acquisti non creano "gradini" e si vede come stanno andando davvero i soldi investiti.
+Con il selettore **€** si passa al valore in euro.
+
+Toccando un titolo si apre la sua pagina: a sinistra i numeri e il rendimento del titolo dal primo
+acquisto, confrontato con quello di tutto il portafoglio; a destra l'elenco degli acquisti, da aggiungere,
+modificare o eliminare. Con "‹ Tutti i titoli" o il gesto indietro si torna alla panoramica.
 
 ## Allarmi (ntfy)
 

@@ -20,69 +20,108 @@
 </head>
 <body>
   <main>
-    <!-- In alto: il valore totale, in grande -->
-    <header class="testata">
-      <div class="etichetta-alta">Valore del portafoglio</div>
-      <div class="totale" id="tot-valore">–</div>
-      <span class="chip" id="tot-gp"></span>
-      <div class="sotto" id="tot-investito"></div>
-    </header>
+    <!-- ===== VISTA 1: la panoramica di tutto il portafoglio ===== -->
+    <div id="vista-panoramica">
+      <!-- In alto: il valore totale, in grande -->
+      <header class="testata">
+        <div class="etichetta-alta">Valore del portafoglio</div>
+        <div class="totale" id="tot-valore">–</div>
+        <span class="chip" id="tot-gp"></span>
+        <div class="sotto" id="tot-investito"></div>
+      </header>
 
-    <!-- Avviso che compare quando i prezzi non sono ancora arrivati -->
-    <p class="avviso" id="avviso" hidden></p>
+      <!-- Avviso che compare quando i prezzi non sono ancora arrivati -->
+      <p class="avviso" id="avviso" hidden></p>
 
-    <!-- Il grafico dell'andamento: lo disegna app.js -->
-    <section class="grafico" aria-label="Andamento del portafoglio">
-      <div class="intestazione-grafico">
-        <h2>Andamento dal primo acquisto</h2>
-        <div class="legenda">
-          <span><i class="linea-valore"></i>Valore</span>
-          <span><i class="linea-investito"></i>Investito</span>
+      <!-- Il grafico del portafoglio: lo disegna app.js -->
+      <section class="grafico" id="sezione-grafico" aria-label="Andamento del portafoglio">
+        <div class="intestazione-grafico">
+          <h2 id="titolo-grafico">Rendimento del portafoglio</h2>
+          <!-- Il "selettore": rendimento in % oppure valore in € -->
+          <div class="selettore" role="group" aria-label="Unità del grafico">
+            <button type="button" id="mostra-perc" class="attivo">%</button>
+            <button type="button" id="mostra-euro">€</button>
+          </div>
         </div>
-      </div>
-      <div class="area-grafico" id="area-grafico">
-        <svg id="grafico" role="img"></svg>
-        <div class="fumetto" id="fumetto" hidden></div>
-      </div>
-      <p class="nota-grafico" id="nota-grafico" hidden></p>
-    </section>
+        <div class="legenda" id="legenda-grafico"></div>
+        <div class="area-grafico" id="area-grafico">
+          <svg id="grafico" role="img"></svg>
+          <div class="fumetto" id="fumetto" hidden></div>
+        </div>
+        <p class="nota-grafico" id="nota-grafico" hidden></p>
+      </section>
 
-    <!-- Le schede dei titoli: le crea app.js -->
-    <div class="intestazione-sezione">
-      <h2>I miei titoli</h2>
-      <button class="pulsante" id="apri-modulo" type="button">+ Aggiungi</button>
-    </div>
-    <div id="schede"></div>
-    <p class="vuoto" id="vuoto" hidden>
-      Nessun acquisto ancora. Tocca <strong>+ Aggiungi</strong> per inserire il primo.
-    </p>
-
-    <footer>
-      <p id="aggiornamento"></p>
-      <p>🔒 Quote e capitale investito restano salvati solo su questo dispositivo.</p>
-      <p>
-        <button class="link" id="backup" type="button">Copia backup</button> ·
-        <button class="link" id="ripristina" type="button">Ripristina backup</button>
+      <!-- Le schede dei titoli: le crea app.js -->
+      <div class="intestazione-sezione">
+        <h2>I miei titoli</h2>
+        <button class="pulsante" id="apri-modulo" type="button">+ Aggiungi</button>
+      </div>
+      <div id="schede"></div>
+      <p class="vuoto" id="vuoto" hidden>
+        Nessun acquisto ancora. Tocca <strong>+ Aggiungi</strong> per inserire il primo.
       </p>
-    </footer>
+
+      <footer>
+        <p id="aggiornamento"></p>
+        <p>🔒 Quote e capitale investito restano salvati solo su questo dispositivo.</p>
+        <p>
+          <button class="link" id="backup" type="button">Copia backup</button> ·
+          <button class="link" id="ripristina" type="button">Ripristina backup</button>
+        </p>
+      </footer>
+    </div>
+
+    <!-- ===== VISTA 2: la pagina di un singolo titolo ===== -->
+    <div id="vista-titolo" hidden>
+      <button type="button" class="link indietro" id="indietro">‹ Tutti i titoli</button>
+
+      <div class="colonne">
+        <!-- Colonna sinistra: numeri e grafico del titolo -->
+        <section class="colonna-sinistra">
+          <div class="testata-titolo">
+            <div class="sigla" id="sigla-titolo"></div>
+            <div>
+              <h1 id="nome-titolo"></h1>
+              <span class="tag" id="tipo-titolo"></span>
+            </div>
+          </div>
+          <div class="totale piccolo" id="valore-titolo">–</div>
+          <span class="chip" id="gp-titolo"></span>
+
+          <!-- Una griglia di numeri: quote, prezzo medio, ecc. (la riempie app.js) -->
+          <dl class="numeri-titolo" id="numeri-titolo"></dl>
+
+          <section class="grafico" aria-label="Rendimento del titolo">
+            <div class="intestazione-grafico">
+              <h2>Rendimento dal primo acquisto</h2>
+            </div>
+            <div class="legenda" id="legenda-titolo"></div>
+            <div class="area-grafico" id="area-grafico-titolo">
+              <svg id="grafico-titolo" role="img"></svg>
+              <div class="fumetto" id="fumetto-titolo" hidden></div>
+            </div>
+            <p class="nota-grafico" id="nota-grafico-titolo" hidden></p>
+          </section>
+        </section>
+
+        <!-- Colonna destra: gli acquisti, da aggiungere, modificare, eliminare -->
+        <section class="colonna-destra">
+          <div class="intestazione-sezione">
+            <h2>Acquisti</h2>
+            <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
+          </div>
+          <p class="suggerimento">Tocca un acquisto per modificarlo o eliminarlo.</p>
+          <div id="elenco-acquisti"></div>
+          <!-- Qui dentro app.js sposta il modulo quando modifichi un acquisto -->
+          <div class="posto-modulo" id="posto-modulo" hidden></div>
+        </section>
+      </div>
+    </div>
   </main>
 
-  <!-- La finestra di un titolo: l'elenco dei suoi acquisti.
-       <dialog> è una finestra che si apre sopra la pagina. -->
-  <dialog id="finestra-titolo">
-    <div class="contenuto-finestra">
-      <h3 id="nome-titolo"></h3>
-      <p class="riepilogo-titolo" id="riepilogo-titolo"></p>
-      <p class="suggerimento">Tocca un acquisto per modificarlo o eliminarlo.</p>
-      <div id="elenco-acquisti"></div>
-      <div class="pulsanti-modulo">
-        <button type="button" class="pulsante secondario" id="chiudi-titolo">Chiudi</button>
-        <button type="button" class="pulsante" id="aggiungi-acquisto">+ Acquisto</button>
-      </div>
-    </div>
-  </dialog>
-
-  <!-- Il modulo per aggiungere o modificare UN acquisto -->
+  <!-- Il modulo per aggiungere o modificare UN acquisto.
+       Nella panoramica si apre come finestra (<dialog>);
+       nella pagina di un titolo app.js lo sposta nella colonna di destra. -->
   <dialog id="finestra">
     <form id="modulo">
       <h3 id="titolo-modulo">Nuovo acquisto</h3>
