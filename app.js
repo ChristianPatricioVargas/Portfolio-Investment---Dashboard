@@ -447,20 +447,46 @@ function ripristinaBackup() {
 }
 
 // ---------- I grafici ----------
-// Per ogni giorno di Borsa dal primo acquisto in poi calcoliamo:
-//   valore     = somma di (quote × prezzo di chiusura di quel giorno)
-//   investito  = somma degli importi degli acquisti già fatti a quella data
-//   rendimento = valore ÷ investito − 1   (es. +0,05 = +5%)
-// Il RENDIMENTO non fa "gradini" quando compri: mostra solo come stanno andando i soldi investiti.
+// Per ogni giorno di Borsa (o ogni 5 minuti, per "1 giorno") calcoliamo:
+//   valore    = somma di (quote × prezzo di quel momento)
+//   investito = somma degli importi degli acquisti già fatti a quel momento
+//
+// Poi scegliamo un PERIODO (1 giorno, 1 settimana, 1 mese, anno, tutto) e calcoliamo
+// il rendimento DEL PERIODO:
+//   guadagno nel periodo = (valore − investito) adesso − (valore − investito) all'inizio del periodo
+//   base                 = valore all'inizio del periodo + soldi investiti dopo
+//   rendimento           = guadagno nel periodo ÷ base
+// Così un nuovo acquisto non conta come "guadagno": aumenta solo la base.
+// Con "Tutto" la base è il totale investito: è il guadagno/perdita dall'inizio.
 
 const MARGINI = { sinistra: 8, destra: 58, sopra: 14, sotto: 28 };   // spazio per le scritte
 const ALTEZZA_GRAFICO = 220;
 let unitaGrafico = "perc";   // "perc" = rendimento %, "euro" = valore in €
+let periodo = "tutto";       // "1g", "1s", "1m", "anno", "tutto"
+let intraday = {};           // prezzi ogni 5 minuti dell'ultimo giorno di Borsa (da data/intraday.json)
+
+const PERIODI = [
+  ["1g", "1G", "Oggi"],
+  ["1s", "1S", "Ultima settimana"],
+  ["1m", "1M", "Ultimo mese"],
+  ["anno", "Anno", "Da inizio anno"],
+  ["tutto", "Tutto", "Dal primo acquisto"],
+];
 
 // "2026-10-03" → oggetto data (senza problemi di fuso orario)
 function leggiData(testo) {
-  const [anno, mese, giorno] = testo.split("-").map(Number);
+  const [anno, mese, giorno] = testo.slice(0, 10).split("-").map(Number);
   return new Date(anno, mese - 1, giorno);
+}
+
+// Le etichette dei momenti: "13 nov" per i giorni, "10:35" per le ore
+const conOra = (chiave) => chiave.includes("T");
+function etichettaBreve(chiave) {
+  return conOra(chiave) ? chiave.slice(11, 16) : leggiData(chiave).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+}
+function etichettaLunga(chiave) {
+  const giorno = leggiData(chiave).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+  return conOra(chiave) ? `${giorno}, ${chiave.slice(11, 16)}` : giorno;
 }
 
 const euroTondo = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
@@ -473,53 +499,101 @@ function lotti(ticker = null) {
     .flatMap((p) => p.acquisti.map((a) => ({ ticker: p.ticker, data: a.data, quote: a.quote, investito: a.investito })));
 }
 
-// Calcola i punti del grafico per una lista di acquisti
-function calcolaSerie(acquisti) {
-  // Entrano solo gli acquisti con la data e con lo storico dei prezzi
-  const validi = acquisti.filter((a) => a.data && storico[a.ticker]);
+// Calcola valore e investito in ogni momento per cui abbiamo i prezzi.
+// fonte = storico (un prezzo al giorno) oppure intraday (un prezzo ogni 5 minuti)
+function calcolaSerie(acquisti, fonte) {
+  // Entrano solo gli acquisti con la data e con i prezzi
+  const validi = acquisti.filter((a) => a.data && fonte[a.ticker]);
   const esclusi = acquisti.length - validi.length;
   if (validi.length === 0) return { punti: [], esclusi };
 
   const inizio = validi.map((a) => a.data).sort()[0];
-
-  // Tutti i giorni di Borsa dal primo acquisto in poi
-  const giorni = new Set();
+  const momenti = new Set();
   for (const a of validi) {
-    for (const giorno of Object.keys(storico[a.ticker])) {
-      if (giorno >= inizio) giorni.add(giorno);
+    for (const momento of Object.keys(fonte[a.ticker])) {
+      if (momento >= inizio) momenti.add(momento);
     }
   }
 
   const ultimoPrezzo = {};   // l'ultimo prezzo conosciuto di ogni titolo
   const punti = [];
-  for (const giorno of [...giorni].sort()) {
+  for (const momento of [...momenti].sort()) {
     for (const a of validi) {
-      const chiusura = storico[a.ticker][giorno];
-      if (chiusura !== undefined) ultimoPrezzo[a.ticker] = chiusura;
+      const prezzo = fonte[a.ticker][momento];
+      if (prezzo !== undefined) ultimoPrezzo[a.ticker] = prezzo;
     }
     let valore = 0, investito = 0, completo = true;
+    // "2026-10-03" > "2026-10-03T10:00" è falso: un acquisto di oggi conta già da stamattina
     for (const a of validi) {
-      if (a.data > giorno) continue;                 // non ancora comprato quel giorno
+      if (a.data > momento) continue;                // non ancora comprato in quel momento
       const prezzo = ultimoPrezzo[a.ticker];
       if (prezzo === undefined) { completo = false; break; }
       valore += a.quote * prezzo;
       investito += a.investito;
     }
-    if (completo && investito > 0) punti.push({ giorno, valore, investito, rend: valore / investito - 1 });
+    if (completo && investito > 0) punti.push({ giorno: momento, valore, investito });
   }
 
-  // Ultimo punto: il prezzo di adesso, se è più recente dell'ultima chiusura
+  // Per i giorni: l'ultimo punto usa il prezzo di ADESSO (come il totale in alto),
+  // non la chiusura salvata, che durante la giornata può essere vecchia
   const oggi = oggiISO();
-  const ultimoGiorno = punti.length ? punti[punti.length - 1].giorno : "";
-  if (oggi > ultimoGiorno && validi.every((a) => prezzi[a.ticker])) {
+  if (fonte === storico && validi.every((a) => prezzi[a.ticker])) {
     let valore = 0, investito = 0;
     for (const a of validi) {
+      if (a.data > oggi) continue;
       valore += a.quote * prezzi[a.ticker].prezzo;
       investito += a.investito;
     }
-    punti.push({ giorno: oggi, valore, investito, rend: valore / investito - 1 });
+    if (punti.length && punti[punti.length - 1].giorno >= oggi) punti.pop();   // sostituiamo il punto di oggi
+    punti.push({ giorno: oggi, valore, investito });
+  }
+  return { punti, esclusi };
+}
+
+// Il primo giorno del periodo scelto (null = da sempre)
+function inizioPeriodo() {
+  const d = new Date();
+  if (periodo === "1s") d.setDate(d.getDate() - 7);
+  else if (periodo === "1m") d.setMonth(d.getMonth() - 1);
+  else if (periodo === "anno") return `${d.getFullYear()}-01-01`;
+  else return null;
+  return d.toISOString().slice(0, 10);
+}
+
+// Prepara i punti del periodo scelto, con il rendimento del periodo (campo "rendP")
+function serieDelPeriodo(acquisti) {
+  let punti, esclusi, base = null;
+
+  if (periodo === "1g") {
+    ({ punti, esclusi } = calcolaSerie(acquisti, intraday));
+    if (punti.length) {
+      // La base è la chiusura del giorno prima, per ciò che avevi già prima di quel giorno
+      const giorno = punti[0].giorno.slice(0, 10);
+      const prima = acquisti.filter((a) => a.data && a.data < giorno && prezzi[a.ticker]);
+      base = {
+        giorno: null,
+        valore: prima.reduce((s, a) => s + a.quote * prezzi[a.ticker].chiusuraIeri, 0),
+        investito: prima.reduce((s, a) => s + a.investito, 0),
+      };
+    }
+  } else {
+    ({ punti, esclusi } = calcolaSerie(acquisti, storico));
+    const inizio = inizioPeriodo();
+    if (inizio) {
+      const precedenti = punti.filter((p) => p.giorno < inizio);
+      base = precedenti.length ? precedenti[precedenti.length - 1] : null;   // l'ultimo prima del periodo
+      punti = punti.filter((p) => p.giorno >= inizio);
+      if (base) punti.unshift(base);   // il grafico parte dallo zero, all'inizio del periodo
+    }
   }
 
+  const b = base || { valore: 0, investito: 0 };
+  const gpBase = b.valore - b.investito;
+  punti = punti.map((p) => {
+    const gpP = p.valore - p.investito - gpBase;                 // guadagno nel periodo
+    const denominatore = b.valore + (p.investito - b.investito); // valore iniziale + soldi aggiunti dopo
+    return { ...p, gpP, rendP: denominatore > 0 ? gpP / denominatore : 0 };
+  });
   return { punti, esclusi };
 }
 
@@ -528,17 +602,26 @@ function scriviNota(nota, area, punti, esclusi, acquisti) {
   if (punti.length < 2) {
     area.hidden = true;
     nota.hidden = false;
-    nota.textContent = acquisti.some((a) => a.data)
-      ? "⏳ Il grafico comparirà dopo il prossimo aggiornamento automatico dei prezzi."
-      : "📅 Inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
+    if (!acquisti.some((a) => a.data)) nota.textContent = "📅 Inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
+    else if (periodo === "1g") nota.textContent = "⏳ Il grafico di oggi comparirà dopo l'apertura della Borsa e il prossimo aggiornamento dei prezzi.";
+    else nota.textContent = "⏳ Il grafico comparirà dopo il prossimo aggiornamento automatico dei prezzi.";
     return false;
   }
   area.hidden = false;
   nota.hidden = esclusi === 0;
   nota.textContent = esclusi === 1
-    ? "1 acquisto senza data (o senza prezzi passati) non è nel grafico."
-    : `${esclusi} acquisti senza data (o senza prezzi passati) non sono nel grafico.`;
+    ? "1 acquisto senza data (o senza prezzi) non è nel grafico."
+    : `${esclusi} acquisti senza data (o senza prezzi) non sono nel grafico.`;
   return true;
+}
+
+// La riga sopra il grafico: "Ultimo mese: +12,30 € · +1,62%"
+function scriviRiepilogo(elemento, punti) {
+  const nome = PERIODI.find(([chiave]) => chiave === periodo)[2];
+  if (punti.length < 2) { elemento.textContent = nome; elemento.className = "riepilogo-periodo"; return; }
+  const ultimo = punti[punti.length - 1];
+  elemento.textContent = `${nome}: ${euro(ultimo.gpP, true)} · ${percentuale(ultimo.rendP)}`;
+  elemento.className = "riepilogo-periodo " + classeColore(ultimo.gpP);
 }
 
 // Scrive la legenda: una lineetta e un nome per ogni linea
@@ -560,11 +643,12 @@ function disegnaGrafico() {
   if (posizioni.length === 0) return;
 
   const acquisti = lotti();
-  const { punti, esclusi } = calcolaSerie(acquisti);
+  const { punti, esclusi } = serieDelPeriodo(acquisti);
+  scriviRiepilogo($("riepilogo-periodo"), punti);
   if (!scriviNota($("nota-grafico"), $("area-grafico"), punti, esclusi, acquisti)) return;
 
   const linee = unitaGrafico === "perc"
-    ? [{ campo: "rend", classe: "linea-valore", nome: "Rendimento" }]
+    ? [{ campo: "rendP", classe: "linea-valore", nome: "Rendimento" }]
     : [{ campo: "valore", classe: "linea-valore", nome: "Valore" },
        { campo: "investito", classe: "linea-investito", nome: "Investito" }];
   $("titolo-grafico").textContent = unitaGrafico === "perc" ? "Rendimento del portafoglio" : "Valore del portafoglio";
@@ -577,20 +661,20 @@ function disegnaGraficoTitolo() {
   const svg = $("grafico-titolo");
   nascondiFumetto(svg);
   const acquisti = lotti(tickerAperto);
-  const { punti, esclusi } = calcolaSerie(acquisti);
+  const { punti, esclusi } = serieDelPeriodo(acquisti);
+  scriviRiepilogo($("riepilogo-periodo-titolo"), punti);
   if (!scriviNota($("nota-grafico-titolo"), $("area-grafico-titolo"), punti, esclusi, acquisti)) return;
 
-  // Il rendimento di tutto il portafoglio negli stessi giorni, per fare il confronto
+  // Il rendimento di tutto il portafoglio negli stessi momenti, per fare il confronto
   const portafoglio = {};
-  for (const p of calcolaSerie(lotti()).punti) portafoglio[p.giorno] = p.rend;
+  for (const p of serieDelPeriodo(lotti()).punti) portafoglio[p.giorno] = p.rendP;
   let ultimo = null;
   for (const p of punti) {
     if (portafoglio[p.giorno] !== undefined) ultimo = portafoglio[p.giorno];
     p.rendPortafoglio = ultimo;
   }
 
-  const nome = infoTitolo(tickerAperto).nome;
-  const linee = [{ campo: "rend", classe: "linea-valore", nome }];
+  const linee = [{ campo: "rendP", classe: "linea-valore", nome: infoTitolo(tickerAperto).nome }];
   if (posizioni.length > 1) linee.push({ campo: "rendPortafoglio", classe: "linea-investito", nome: "Tutto il portafoglio" });
   scriviLegenda($("legenda-titolo"), linee);
   disegnaLinee(svg, $("area-grafico-titolo"), punti, linee, "perc");
@@ -601,7 +685,7 @@ function disegnaGraficoTitolo() {
 function disegnaLinee(svg, area, punti, linee, unita) {
   const formatoAsse = unita === "perc" ? percTonda : (n) => euroTondo.format(n);
 
-  // ---- Le misure: da "euro (o %) e giorni" a "pixel sullo schermo" ----
+  // ---- Le misure: da "euro (o %) e momenti" a "pixel sullo schermo" ----
   const larghezza = area.clientWidth;
   const altezza = ALTEZZA_GRAFICO;
   const tuttiIValori = punti.flatMap((p) => linee.map((l) => p[l.campo])).filter((v) => v !== null && v !== undefined);
@@ -644,11 +728,10 @@ function disegnaLinee(svg, area, punti, linee, unita) {
       <text class="asse" x="${larghezza - MARGINI.destra + 8}" y="${y(0) + 4}">0%</text>`;
   }
 
-  // Tre date in basso: inizio, metà, fine
+  // Tre etichette in basso: inizio, metà, fine
   let date = "";
   for (const [i, allineamento] of [[0, "start"], [Math.floor((punti.length - 1) / 2), "middle"], [punti.length - 1, "end"]]) {
-    const testo = leggiData(punti[i].giorno).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-    date += `<text class="asse" x="${x(i)}" y="${altezza - 8}" text-anchor="${allineamento}">${testo}</text>`;
+    date += `<text class="asse" x="${x(i)}" y="${altezza - 8}" text-anchor="${allineamento}">${etichettaBreve(punti[i].giorno)}</text>`;
   }
 
   // Le linee: la prima (principale) disegnata per ultima, così sta sopra
@@ -678,7 +761,7 @@ function disegnaLinee(svg, area, punti, linee, unita) {
   svg._dati = { punti, linee, unita, x, y, larghezzaUtile };
 }
 
-// Il "fumetto": quando tocchi il grafico mostra i numeri di quel giorno
+// Il "fumetto": quando tocchi il grafico mostra i numeri di quel momento
 function mostraFumetto(evento) {
   const svg = evento.currentTarget;
   if (!svg._dati) return;
@@ -698,14 +781,13 @@ function mostraFumetto(evento) {
   punto.setAttribute("visibility", "visible");
 
   const fumetto = svg.parentElement.querySelector(".fumetto");
-  const data = leggiData(p.giorno).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
   let righe = linee.map((l) => {
     const v = p[l.campo];
     const testo = v === null || v === undefined ? "–" : unita === "perc" ? percentuale(v) : euro(v);
     return `<div><i class="${l.classe}"></i><span class="nome-linea"></span> <b>${testo}</b></div>`;
   }).join("");
-  righe += `<div class="fumetto-data">${euro(p.valore)} su ${euro(p.investito)} investiti</div>`;
-  fumetto.innerHTML = `<div class="fumetto-data">${data}</div>${righe}`;
+  righe += `<div class="fumetto-data">Nel periodo ${euro(p.gpP, true)} · valore ${euro(p.valore)}</div>`;
+  fumetto.innerHTML = `<div class="fumetto-data">${p.giorno ? etichettaLunga(p.giorno) : ""}</div>${righe}`;
   fumetto.querySelectorAll(".nome-linea").forEach((el, k) => (el.textContent = linee[k].nome));
   fumetto.hidden = false;
   // Il fumetto sta vicino al dito, ma senza uscire dal grafico
@@ -722,6 +804,12 @@ function nascondiFumetto(svgOEvento) {
   svg.querySelector(".punto")?.setAttribute("visibility", "hidden");
 }
 
+// Ridisegna il grafico della vista che stai guardando
+function ridisegnaGrafici() {
+  if (tickerAperto) disegnaGraficoTitolo();
+  else disegnaGrafico();
+}
+
 // Il selettore "%" / "€" del grafico della panoramica
 function scegliUnita(unita) {
   unitaGrafico = unita;
@@ -729,6 +817,28 @@ function scegliUnita(unita) {
   $("mostra-euro").classList.toggle("attivo", unita === "euro");
   try { localStorage.setItem("unita-grafico", unita); } catch (errore) { /* non importa */ }
   disegnaGrafico();
+}
+
+// I pulsanti dei periodi: uguali nella panoramica e nella pagina del titolo
+function creaPulsantiPeriodo() {
+  for (const contenitore of document.querySelectorAll(".periodi")) {
+    for (const [chiave, etichetta, descrizione] of PERIODI) {
+      const pulsante = document.createElement("button");
+      pulsante.type = "button";
+      pulsante.textContent = etichetta;
+      pulsante.title = descrizione;
+      pulsante.dataset.periodo = chiave;
+      pulsante.onclick = () => scegliPeriodo(chiave);
+      contenitore.appendChild(pulsante);
+    }
+  }
+}
+
+function scegliPeriodo(chiave) {
+  periodo = chiave;
+  document.querySelectorAll(".periodi button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === chiave));
+  try { localStorage.setItem("periodo-grafico", chiave); } catch (errore) { /* non importa */ }
+  ridisegnaGrafici();
 }
 
 // ---------- Avvio ----------
@@ -759,12 +869,16 @@ async function avvia() {
     $("avviso").hidden = false;
   }
 
-  // Lo storico serve solo per il grafico: se manca, la pagina funziona lo stesso
+  // Storico e prezzi di oggi servono solo per i grafici: se mancano, la pagina funziona lo stesso
   try {
-    const rispostaStorico = await fetch("data/storico.json", { cache: "no-store" });
+    const [rispostaStorico, rispostaIntraday] = await Promise.all([
+      fetch("data/storico.json", { cache: "no-store" }),
+      fetch("data/intraday.json", { cache: "no-store" }),
+    ]);
     if (rispostaStorico.ok) storico = await rispostaStorico.json();
+    if (rispostaIntraday.ok) intraday = await rispostaIntraday.json();
   } catch (errore) {
-    storico = {};
+    /* niente grafici, pazienza */
   }
 
   // Riempiamo il menu a tendina con i titoli disponibili
@@ -783,14 +897,20 @@ async function avvia() {
   $("indietro").onclick = tornaAllaPanoramica;
   $("mostra-perc").onclick = () => scegliUnita("perc");
   $("mostra-euro").onclick = () => scegliUnita("euro");
-  try { if (localStorage.getItem("unita-grafico") === "euro") scegliUnita("euro"); } catch (errore) { /* non importa */ }
+  try { if (localStorage.getItem("unita-grafico") === "euro") unitaGrafico = "euro"; } catch (errore) { /* non importa */ }
+  $("mostra-perc").classList.toggle("attivo", unitaGrafico === "perc");
+  $("mostra-euro").classList.toggle("attivo", unitaGrafico === "euro");
+  creaPulsantiPeriodo();
+  try { periodo = localStorage.getItem("periodo-grafico") || "tutto"; } catch (errore) { /* non importa */ }
+  if (!PERIODI.some(([chiave]) => chiave === periodo)) periodo = "tutto";
+  document.querySelectorAll(".periodi button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodo));
   $("elimina").onclick = elimina;
   $("modulo").addEventListener("submit", quandoSalvi);
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 
   // Se giri l'iPad, ridisegniamo i grafici con la nuova larghezza
-  window.addEventListener("resize", () => (tickerAperto ? disegnaGraficoTitolo() : disegnaGrafico()));
+  window.addEventListener("resize", ridisegnaGrafici);
   // Tocchi e movimenti sui grafici mostrano il "fumetto" con i valori
   for (const id of ["grafico", "grafico-titolo"]) {
     $(id).addEventListener("pointermove", mostraFumetto);

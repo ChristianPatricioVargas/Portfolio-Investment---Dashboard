@@ -43,6 +43,9 @@
             <button type="button" id="mostra-euro">€</button>
           </div>
         </div>
+        <!-- I pulsanti dei periodi (1G, 1S, 1M, Anno, Tutto): li crea app.js -->
+        <div class="periodi" role="group" aria-label="Periodo del grafico"></div>
+        <p class="riepilogo-periodo" id="riepilogo-periodo"></p>
         <div class="legenda" id="legenda-grafico"></div>
         <div class="area-grafico" id="area-grafico">
           <svg id="grafico" role="img"></svg>
@@ -93,8 +96,10 @@
 
           <section class="grafico" aria-label="Rendimento del titolo">
             <div class="intestazione-grafico">
-              <h2>Rendimento dal primo acquisto</h2>
+              <h2>Rendimento</h2>
             </div>
+            <div class="periodi" role="group" aria-label="Periodo del grafico"></div>
+            <p class="riepilogo-periodo" id="riepilogo-periodo-titolo"></p>
             <div class="legenda" id="legenda-titolo"></div>
             <div class="area-grafico" id="area-grafico-titolo">
               <svg id="grafico-titolo" role="img"></svg>
