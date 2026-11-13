@@ -8,6 +8,7 @@ Cosa fa, passo per passo:
   1. legge l'elenco dei titoli da data/titoli.json
   2. per ogni titolo chiede a Yahoo Finance:
        - il prezzo attuale e la chiusura di ieri  -> data/prezzi.json
+       - i prezzi ogni 5 minuti dell'ultimo giorno di Borsa -> data/intraday.json (grafico "1 giorno")
        - i prezzi di chiusura dell'ultimo anno    -> data/storico.json (per il grafico)
   3. se un titolo scende troppo in giornata manda una notifica con ntfy:
        - Azione: -5% o peggio
@@ -28,9 +29,10 @@ CARTELLA_DATI = Path(__file__).resolve().parent.parent / "data"
 FILE_TITOLI = CARTELLA_DATI / "titoli.json"
 FILE_PREZZI = CARTELLA_DATI / "prezzi.json"
 FILE_STORICO = CARTELLA_DATI / "storico.json"
+FILE_INTRADAY = CARTELLA_DATI / "intraday.json"
 FILE_ALLARMI = CARTELLA_DATI / "allarmi.json"
 
-INDIRIZZO_YAHOO = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={periodo}&interval=1d"
+INDIRIZZO_YAHOO = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={periodo}&interval={intervallo}"
 
 # Di quanto deve scendere un titolo in giornata per far scattare l'allarme
 SOGLIE_ALLARME = {"Azione": -0.05, "ETF": -0.03}
@@ -52,10 +54,11 @@ def scrivi_json(percorso, dati):
 
 # ---------- Parlare con Yahoo Finance ----------
 
-def chiedi_a_yahoo(ticker, periodo):
-    """Scarica i dati grezzi di un titolo. periodo: "1d" = oggi, "1y" = un anno."""
+def chiedi_a_yahoo(ticker, periodo, intervallo="1d"):
+    """Scarica i dati grezzi di un titolo.
+    periodo: "1d" = l'ultimo giorno, "1y" = un anno.  intervallo: "5m" = ogni 5 minuti, "1d" = un prezzo al giorno."""
     richiesta = urllib.request.Request(
-        INDIRIZZO_YAHOO.format(ticker=ticker, periodo=periodo),
+        INDIRIZZO_YAHOO.format(ticker=ticker, periodo=periodo, intervallo=intervallo),
         headers={"User-Agent": "Mozilla/5.0"},   # Yahoo vuole sapere "chi" chiede
     )
     with urllib.request.urlopen(richiesta, timeout=20) as risposta:
@@ -73,8 +76,9 @@ def estrai_prezzi(dati):
     }
 
 
-def estrai_storico(dati):
-    """Dalla risposta di Yahoo costruisce { "2026-10-01": 171.2, ... }."""
+def estrai_storico(dati, formato="%Y-%m-%d"):
+    """Dalla risposta di Yahoo costruisce { "2026-10-01": 171.2, ... }.
+    Con formato="%Y-%m-%dT%H:%M" le chiavi hanno anche l'ora (per i prezzi ogni 5 minuti)."""
     risultato = dati["chart"]["result"][0]
     if risultato["meta"].get("currency") != "EUR":
         raise ValueError("storico non in euro")
@@ -85,7 +89,7 @@ def estrai_storico(dati):
     for istante, chiusura in zip(risultato.get("timestamp", []), chiusure):
         if chiusura is None:          # giorni senza scambi: li saltiamo
             continue
-        giorno = (datetime.fromtimestamp(istante, timezone.utc) + fuso).strftime("%Y-%m-%d")
+        giorno = (datetime.fromtimestamp(istante, timezone.utc) + fuso).strftime(formato)
         storico[giorno] = round(float(chiusura), 4)
     return storico
 
@@ -165,12 +169,16 @@ def main():
     # Partiamo dai dati vecchi: se un titolo non risponde, teniamo gli ultimi noti
     prezzi = leggi_json(FILE_PREZZI, {}).get("prezzi", {})
     storico = leggi_json(FILE_STORICO, {})
+    intraday = leggi_json(FILE_INTRADAY, {})
 
     riusciti = 0
     for titolo in titoli:
         ticker = titolo["ticker"]
         try:
-            prezzi[ticker] = estrai_prezzi(chiedi_a_yahoo(ticker, "1d"))
+            # Una sola richiesta dà sia il prezzo attuale sia i prezzi ogni 5 minuti di oggi
+            dati = chiedi_a_yahoo(ticker, "1d", "5m")
+            prezzi[ticker] = estrai_prezzi(dati)
+            intraday[ticker] = estrai_storico(dati, "%Y-%m-%dT%H:%M")
             riusciti += 1
             print(f"OK   {ticker}: {prezzi[ticker]['prezzo']} €")
         except Exception as errore:   # qualsiasi problema: lo scriviamo e andiamo avanti
@@ -191,6 +199,7 @@ def main():
         "prezzi": prezzi,
     })
     scrivi_json(FILE_STORICO, storico)
+    scrivi_json(FILE_INTRADAY, intraday)
     print(f"Salvati {riusciti} prezzi su {len(titoli)}.")
 
     if canale:
