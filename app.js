@@ -27,7 +27,6 @@ let storico = {};      // prezzi di chiusura passati (da data/storico.json)
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
 let posizioni = [];
 let inModifica = null;    // l'acquisto che stai modificando: { ticker, indice } (null = nuovo)
-let titoloAperto = null;  // il titolo di cui stai guardando gli acquisti
 
 // Una scorciatoia: $("x") prende l'elemento della pagina con id="x"
 const $ = (id) => document.getElementById(id);
@@ -179,7 +178,7 @@ function disegna() {
     if (r) riga2 += " · ora " + euro(r.prezzo);
     if (r && r.oggi !== null) riga2 += " · oggi " + percentuale(r.oggi);
 
-    // Creiamo la scheda: è un pulsante, se la tocchi si aprono i suoi acquisti
+    // Creiamo la scheda: è un pulsante, se la tocchi si apre la pagina del titolo
     const scheda = document.createElement("button");
     scheda.type = "button";
     scheda.className = "scheda";
@@ -203,7 +202,7 @@ function disegna() {
     scheda.querySelector(".tag").textContent = info.tipo;
     scheda.querySelector(".riga1").textContent = riga1;
     scheda.querySelector(".riga2").textContent = riga2;
-    scheda.onclick = () => apriTitolo(posizione.ticker);
+    scheda.onclick = () => vaiAlTitolo(posizione.ticker);
     contenitore.appendChild(scheda);
   }
 
@@ -230,23 +229,86 @@ function disegna() {
     $("tot-investito").textContent = "Investito " + euro(totInvestito);
   }
 
-  disegnaGrafico();
+  // Disegniamo il grafico della vista che stai guardando
+  if (tickerAperto) disegnaTitolo();
+  else disegnaGrafico();
 }
 
-// ---------- La finestra di un titolo: l'elenco dei suoi acquisti ----------
+// ---------- La pagina di un titolo ----------
+// L'indirizzo della pagina cambia in ".../#titolo=SAP.DE": così il gesto "indietro"
+// dell'iPad riporta alla panoramica, proprio come in un'app.
 
-function apriTitolo(ticker) {
-  titoloAperto = ticker;
-  const posizione = posizioni.find((p) => p.ticker === ticker);
-  if (!posizione) return $("finestra-titolo").close();
-  const info = infoTitolo(ticker);
+let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = panoramica)
+let arrivatoDallaPanoramica = false;
+
+function vaiAlTitolo(ticker) {
+  arrivatoDallaPanoramica = true;
+  location.hash = "titolo=" + encodeURIComponent(ticker);
+}
+
+function tornaAllaPanoramica() {
+  // Se sei arrivato dalla panoramica, "indietro" ti riporta lì; altrimenti puliamo l'indirizzo
+  if (arrivatoDallaPanoramica) history.back();
+  else location.hash = "";
+}
+
+// Guarda l'indirizzo e mostra la vista giusta
+function mostraVista() {
+  const trovato = location.hash.match(/^#titolo=(.+)$/);
+  const ticker = trovato ? decodeURIComponent(trovato[1]) : null;
+  const esiste = posizioni.some((p) => p.ticker === ticker);
+  if (!esiste) arrivatoDallaPanoramica = false;
+  tickerAperto = esiste ? ticker : null;
+
+  chiudiModulo();
+  $("vista-panoramica").hidden = Boolean(tickerAperto);
+  $("vista-titolo").hidden = !tickerAperto;
+  document.body.classList.toggle("dettaglio", Boolean(tickerAperto));   // pagina più larga
+  if (tickerAperto) disegnaTitolo();
+  else disegnaGrafico();
+  window.scrollTo(0, 0);
+}
+
+function disegnaTitolo() {
+  const posizione = posizioni.find((p) => p.ticker === tickerAperto);
+  if (!posizione) return;
+  const info = infoTitolo(tickerAperto);
   const t = totali(posizione);
+  const r = calcola(posizione);
 
+  // ---- In alto: sigla, nome, valore e guadagno ----
+  const sigla = $("sigla-titolo");
+  sigla.textContent = info.ticker.split(".")[0];
+  sigla.style.background = info.colori[0];
+  sigla.style.color = info.colori[1];
   $("nome-titolo").textContent = info.nome;
-  $("riepilogo-titolo").textContent =
-    `${quote(t.quote)} quote · investito ${euro(t.investito)} · prezzo medio ${euro(t.prezzoMedio)}`;
+  $("tipo-titolo").textContent = info.tipo;
+  $("valore-titolo").textContent = r ? euro(r.valore) : "–";
+  const chip = $("gp-titolo");
+  chip.textContent = r ? `${r.gp >= 0 ? "▲" : "▼"} ${euro(r.gp, true)} · ${percentuale(r.gpPerc)}` : "";
+  chip.className = "chip " + (r ? classeColore(r.gp) : "");
 
-  // Un pulsante per ogni acquisto, dal più vecchio al più recente
+  // ---- La griglia di numeri ----
+  const numeri = [
+    ["Quote", quote(t.quote)],
+    ["Investito", euro(t.investito)],
+    ["Prezzo medio", euro(t.prezzoMedio)],
+    ["Prezzo attuale", r ? euro(r.prezzo) : "–"],
+    ["Oggi", r && r.oggi !== null ? percentuale(r.oggi) : "–"],
+    ["Acquisti", String(posizione.acquisti.length)],
+  ];
+  const griglia = $("numeri-titolo");
+  griglia.innerHTML = "";
+  for (const [etichetta, valore] of numeri) {
+    const blocco = document.createElement("div");
+    blocco.innerHTML = "<dt></dt><dd></dd>";
+    blocco.querySelector("dt").textContent = etichetta;
+    blocco.querySelector("dd").textContent = valore;
+    if (etichetta === "Oggi" && r && r.oggi !== null) blocco.querySelector("dd").className = classeColore(r.oggi);
+    griglia.appendChild(blocco);
+  }
+
+  // ---- La colonna di destra: un pulsante per ogni acquisto ----
   const elenco = $("elenco-acquisti");
   elenco.innerHTML = "";
   posizione.acquisti
@@ -256,15 +318,16 @@ function apriTitolo(ticker) {
       const riga = document.createElement("button");
       riga.type = "button";
       riga.className = "riga-acquisto";
+      if (inModifica && inModifica.ticker === tickerAperto && inModifica.indice === a.indice) riga.classList.add("selezionata");
       riga.innerHTML = `<span class="data-acquisto"></span><span class="numeri-acquisto"></span>`;
       riga.querySelector(".data-acquisto").textContent = dataBreve(a.data);
       riga.querySelector(".numeri-acquisto").textContent =
         `${quote(a.quote)} quote · ${euro(a.investito)} · a ${euro(a.investito / a.quote)}`;
-      riga.onclick = () => apriModulo(ticker, a.indice);
+      riga.onclick = () => apriModulo(tickerAperto, a.indice);
       elenco.appendChild(riga);
     });
 
-  if (!$("finestra-titolo").open) $("finestra-titolo").showModal();
+  disegnaGraficoTitolo();
 }
 
 // ---------- Il modulo di un acquisto: aggiungi, modifica, elimina ----------
@@ -293,7 +356,26 @@ function apriModulo(ticker = null, indice = null) {
   $("campo-quote").value = a ? String(a.quote).replace(".", ",") : "";
   $("campo-investito").value = a ? String(a.investito).replace(".", ",") : "";
   $("elimina").hidden = !a;
-  $("finestra").showModal();
+
+  const modulo = $("modulo");
+  if (tickerAperto) {
+    // Nella pagina del titolo il modulo sta nella colonna di destra, sotto gli acquisti
+    $("posto-modulo").appendChild(modulo);
+    $("posto-modulo").hidden = false;
+    disegnaTitolo();   // evidenzia l'acquisto selezionato
+    modulo.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  } else {
+    // Nella panoramica il modulo si apre come finestra
+    $("finestra").appendChild(modulo);
+    $("finestra").showModal();
+  }
+}
+
+function chiudiModulo() {
+  inModifica = null;
+  if ($("finestra").open) $("finestra").close();
+  $("posto-modulo").hidden = true;
+  if (tickerAperto) disegnaTitolo();
 }
 
 function quandoSalvi(evento) {
@@ -310,7 +392,7 @@ function quandoSalvi(evento) {
   if (!(investito > 0)) return mostraErrore("L'importo pagato deve essere maggiore di zero.");
 
   const acquisto = { data, quote: numQuote, investito };
-  let posizione = posizioni.find((p) => p.ticker === ticker);
+  const posizione = posizioni.find((p) => p.ticker === ticker);
   if (inModifica) {
     posizione.acquisti[inModifica.indice] = acquisto;     // sostituiamo quello vecchio
   } else if (posizione) {
@@ -320,9 +402,8 @@ function quandoSalvi(evento) {
   }
 
   salvaPosizioni();
+  chiudiModulo();
   disegna();
-  $("finestra").close();
-  if ($("finestra-titolo").open) apriTitolo(ticker);      // aggiorniamo l'elenco aperto
 }
 
 function elimina() {
@@ -330,12 +411,13 @@ function elimina() {
   const { ticker, indice } = inModifica;
   const posizione = posizioni.find((p) => p.ticker === ticker);
   posizione.acquisti.splice(indice, 1);
-  // Se non resta nessun acquisto, il titolo sparisce dalla dashboard
-  if (posizione.acquisti.length === 0) posizioni = posizioni.filter((p) => p !== posizione);
+  // Se non resta nessun acquisto, il titolo sparisce e torniamo alla panoramica
+  const ultimo = posizione.acquisti.length === 0;
+  if (ultimo) posizioni = posizioni.filter((p) => p !== posizione);
   salvaPosizioni();
+  chiudiModulo();
   disegna();
-  $("finestra").close();
-  if ($("finestra-titolo").open) apriTitolo(ticker);
+  if (ultimo && tickerAperto) tornaAllaPanoramica();
 }
 
 // ---------- Backup ----------
@@ -358,22 +440,22 @@ function ripristinaBackup() {
     posizioni = normalizza(JSON.parse(testo));   // va bene anche un backup della versione vecchia
     salvaPosizioni();
     disegna();
+    mostraVista();
   } catch (errore) {
     alert("Il testo incollato non è un backup valido.");
   }
 }
 
-// ---------- Grafico dell'andamento ----------
-// Idea: per ogni giorno di Borsa dal primo acquisto in poi calcoliamo
-//   valore    = somma di (quote × prezzo di chiusura di quel giorno)
-//   investito = somma degli importi degli acquisti già fatti a quella data
-// Ogni acquisto entra nel grafico dal suo giorno: la linea dell'investito sale "a gradini".
-// e disegniamo due linee: il valore (blu) e l'investito (grigia tratteggiata).
-// Se la linea blu sta sopra quella grigia, sei in guadagno.
+// ---------- I grafici ----------
+// Per ogni giorno di Borsa dal primo acquisto in poi calcoliamo:
+//   valore     = somma di (quote × prezzo di chiusura di quel giorno)
+//   investito  = somma degli importi degli acquisti già fatti a quella data
+//   rendimento = valore ÷ investito − 1   (es. +0,05 = +5%)
+// Il RENDIMENTO non fa "gradini" quando compri: mostra solo come stanno andando i soldi investiti.
 
 const MARGINI = { sinistra: 8, destra: 58, sopra: 14, sotto: 28 };   // spazio per le scritte
 const ALTEZZA_GRAFICO = 220;
-let datiGrafico = null;   // ricordiamo i punti disegnati, servono al "fumetto"
+let unitaGrafico = "perc";   // "perc" = rendimento %, "euro" = valore in €
 
 // "2026-10-03" → oggetto data (senza problemi di fuso orario)
 function leggiData(testo) {
@@ -382,25 +464,28 @@ function leggiData(testo) {
 }
 
 const euroTondo = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const percTonda = (n) => (n > 0 ? "+" : "") + (n * 100).toFixed(1).replace(".", ",") + "%";
 
-// Tutti gli acquisti di tutti i titoli in un'unica lista
-function tuttiGliAcquisti() {
-  return posizioni.flatMap((p) => p.acquisti.map((a) => ({ ticker: p.ticker, dataAcquisto: a.data, quote: a.quote, investito: a.investito })));
+// Tutti gli acquisti (di un titolo, o di tutti) in un'unica lista
+function lotti(ticker = null) {
+  return posizioni
+    .filter((p) => !ticker || p.ticker === ticker)
+    .flatMap((p) => p.acquisti.map((a) => ({ ticker: p.ticker, data: a.data, quote: a.quote, investito: a.investito })));
 }
 
-function calcolaSerie() {
-  // Nel grafico entrano solo gli acquisti con la data e con lo storico dei prezzi
-  const acquisti = tuttiGliAcquisti();
-  const conData = acquisti.filter((p) => p.dataAcquisto && storico[p.ticker]);
-  const esclusi = acquisti.length - conData.length;
-  if (conData.length === 0) return { punti: [], esclusi };
+// Calcola i punti del grafico per una lista di acquisti
+function calcolaSerie(acquisti) {
+  // Entrano solo gli acquisti con la data e con lo storico dei prezzi
+  const validi = acquisti.filter((a) => a.data && storico[a.ticker]);
+  const esclusi = acquisti.length - validi.length;
+  if (validi.length === 0) return { punti: [], esclusi };
 
-  const inizio = conData.map((p) => p.dataAcquisto).sort()[0];
+  const inizio = validi.map((a) => a.data).sort()[0];
 
-  // Tutti i giorni di Borsa dall'acquisto più vecchio in poi
+  // Tutti i giorni di Borsa dal primo acquisto in poi
   const giorni = new Set();
-  for (const p of conData) {
-    for (const giorno of Object.keys(storico[p.ticker])) {
+  for (const a of validi) {
+    for (const giorno of Object.keys(storico[a.ticker])) {
       if (giorno >= inizio) giorni.add(giorno);
     }
   }
@@ -408,150 +493,220 @@ function calcolaSerie() {
   const ultimoPrezzo = {};   // l'ultimo prezzo conosciuto di ogni titolo
   const punti = [];
   for (const giorno of [...giorni].sort()) {
-    for (const p of conData) {
-      const chiusura = storico[p.ticker][giorno];
-      if (chiusura !== undefined) ultimoPrezzo[p.ticker] = chiusura;
+    for (const a of validi) {
+      const chiusura = storico[a.ticker][giorno];
+      if (chiusura !== undefined) ultimoPrezzo[a.ticker] = chiusura;
     }
     let valore = 0, investito = 0, completo = true;
-    for (const p of conData) {
-      if (p.dataAcquisto > giorno) continue;          // non ancora comprato quel giorno
-      const prezzo = ultimoPrezzo[p.ticker];
+    for (const a of validi) {
+      if (a.data > giorno) continue;                 // non ancora comprato quel giorno
+      const prezzo = ultimoPrezzo[a.ticker];
       if (prezzo === undefined) { completo = false; break; }
-      valore += p.quote * prezzo;
-      investito += p.investito;
+      valore += a.quote * prezzo;
+      investito += a.investito;
     }
-    if (completo && investito > 0) punti.push({ giorno, valore, investito });
+    if (completo && investito > 0) punti.push({ giorno, valore, investito, rend: valore / investito - 1 });
   }
 
   // Ultimo punto: il prezzo di adesso, se è più recente dell'ultima chiusura
-  const oggi = new Date().toISOString().slice(0, 10);
+  const oggi = oggiISO();
   const ultimoGiorno = punti.length ? punti[punti.length - 1].giorno : "";
-  if (oggi > ultimoGiorno && conData.every((p) => prezzi[p.ticker])) {
+  if (oggi > ultimoGiorno && validi.every((a) => prezzi[a.ticker])) {
     let valore = 0, investito = 0;
-    for (const p of conData) {
-      if (p.dataAcquisto > oggi) continue;
-      valore += p.quote * prezzi[p.ticker].prezzo;
-      investito += p.investito;
+    for (const a of validi) {
+      valore += a.quote * prezzi[a.ticker].prezzo;
+      investito += a.investito;
     }
-    if (investito > 0) punti.push({ giorno: oggi, valore, investito });
+    punti.push({ giorno: oggi, valore, investito, rend: valore / investito - 1 });
   }
 
   return { punti, esclusi };
 }
 
-function disegnaGrafico() {
-  const svg = $("grafico");
-  const nota = $("nota-grafico");
-  const area = $("area-grafico");
-  nascondiFumetto();
-
-  // Senza titoli il grafico non serve
-  document.querySelector(".grafico").hidden = posizioni.length === 0;
-  if (posizioni.length === 0) return;
-
-  const { punti, esclusi } = calcolaSerie();
-
+// Spiega perché il grafico manca, o quali acquisti non ci sono
+function scriviNota(nota, area, punti, esclusi, acquisti) {
   if (punti.length < 2) {
     area.hidden = true;
-    datiGrafico = null;
     nota.hidden = false;
-    nota.textContent = tuttiGliAcquisti().some((a) => a.dataAcquisto)
+    nota.textContent = acquisti.some((a) => a.data)
       ? "⏳ Il grafico comparirà dopo il prossimo aggiornamento automatico dei prezzi."
-      : "📅 Tocca una scheda e inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
-    return;
+      : "📅 Inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
+    return false;
   }
-
   area.hidden = false;
   nota.hidden = esclusi === 0;
   nota.textContent = esclusi === 1
     ? "1 acquisto senza data (o senza prezzi passati) non è nel grafico."
     : `${esclusi} acquisti senza data (o senza prezzi passati) non sono nel grafico.`;
+  return true;
+}
 
-  // ---- Le misure: da "euro e giorni" a "pixel sullo schermo" ----
+// Scrive la legenda: una lineetta e un nome per ogni linea
+function scriviLegenda(contenitore, linee) {
+  contenitore.innerHTML = "";
+  for (const l of linee) {
+    const voce = document.createElement("span");
+    voce.innerHTML = `<i class="${l.classe}"></i>`;
+    voce.append(l.nome);
+    contenitore.appendChild(voce);
+  }
+}
+
+// ---- Il grafico della panoramica ----
+function disegnaGrafico() {
+  const svg = $("grafico");
+  nascondiFumetto(svg);
+  $("sezione-grafico").hidden = posizioni.length === 0;
+  if (posizioni.length === 0) return;
+
+  const acquisti = lotti();
+  const { punti, esclusi } = calcolaSerie(acquisti);
+  if (!scriviNota($("nota-grafico"), $("area-grafico"), punti, esclusi, acquisti)) return;
+
+  const linee = unitaGrafico === "perc"
+    ? [{ campo: "rend", classe: "linea-valore", nome: "Rendimento" }]
+    : [{ campo: "valore", classe: "linea-valore", nome: "Valore" },
+       { campo: "investito", classe: "linea-investito", nome: "Investito" }];
+  $("titolo-grafico").textContent = unitaGrafico === "perc" ? "Rendimento del portafoglio" : "Valore del portafoglio";
+  scriviLegenda($("legenda-grafico"), linee);
+  disegnaLinee(svg, $("area-grafico"), punti, linee, unitaGrafico);
+}
+
+// ---- Il grafico della pagina di un titolo: il titolo contro tutto il portafoglio ----
+function disegnaGraficoTitolo() {
+  const svg = $("grafico-titolo");
+  nascondiFumetto(svg);
+  const acquisti = lotti(tickerAperto);
+  const { punti, esclusi } = calcolaSerie(acquisti);
+  if (!scriviNota($("nota-grafico-titolo"), $("area-grafico-titolo"), punti, esclusi, acquisti)) return;
+
+  // Il rendimento di tutto il portafoglio negli stessi giorni, per fare il confronto
+  const portafoglio = {};
+  for (const p of calcolaSerie(lotti()).punti) portafoglio[p.giorno] = p.rend;
+  let ultimo = null;
+  for (const p of punti) {
+    if (portafoglio[p.giorno] !== undefined) ultimo = portafoglio[p.giorno];
+    p.rendPortafoglio = ultimo;
+  }
+
+  const nome = infoTitolo(tickerAperto).nome;
+  const linee = [{ campo: "rend", classe: "linea-valore", nome }];
+  if (posizioni.length > 1) linee.push({ campo: "rendPortafoglio", classe: "linea-investito", nome: "Tutto il portafoglio" });
+  scriviLegenda($("legenda-titolo"), linee);
+  disegnaLinee(svg, $("area-grafico-titolo"), punti, linee, "perc");
+}
+
+// ---- Il disegno vero e proprio, uguale per tutti i grafici ----
+// linee: [{ campo, classe, nome }]   unita: "perc" oppure "euro"
+function disegnaLinee(svg, area, punti, linee, unita) {
+  const formatoAsse = unita === "perc" ? percTonda : (n) => euroTondo.format(n);
+
+  // ---- Le misure: da "euro (o %) e giorni" a "pixel sullo schermo" ----
   const larghezza = area.clientWidth;
   const altezza = ALTEZZA_GRAFICO;
-  const tuttiIValori = punti.flatMap((p) => [p.valore, p.investito]);
+  const tuttiIValori = punti.flatMap((p) => linee.map((l) => p[l.campo])).filter((v) => v !== null && v !== undefined);
+  if (unita === "perc") tuttiIValori.push(0);   // lo zero (né guadagno né perdita) si vede sempre
   let minimo = Math.min(...tuttiIValori);
   let massimo = Math.max(...tuttiIValori);
-  const margine = (massimo - minimo) * 0.15 || massimo * 0.02;
+  const margine = (massimo - minimo) * 0.15 || Math.abs(massimo) * 0.02 || 0.01;
   minimo -= margine;
   massimo += margine;
 
   const larghezzaUtile = larghezza - MARGINI.sinistra - MARGINI.destra;
   const altezzaUtile = altezza - MARGINI.sopra - MARGINI.sotto;
   const x = (i) => MARGINI.sinistra + (i / (punti.length - 1)) * larghezzaUtile;
-  const y = (euro) => MARGINI.sopra + (1 - (euro - minimo) / (massimo - minimo)) * altezzaUtile;
+  const y = (v) => MARGINI.sopra + (1 - (v - minimo) / (massimo - minimo)) * altezzaUtile;
+  const fondo = altezza - MARGINI.sotto;
 
   // Una "linea" SVG è una serie di comandi: M = vai a, L = traccia fino a
-  const linea = (campo) => punti.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[campo]).toFixed(1)}`).join(" ");
-  const fondo = altezza - MARGINI.sotto;
-  const areaSotto = `${linea("valore")} L${x(punti.length - 1).toFixed(1)},${fondo} L${x(0).toFixed(1)},${fondo} Z`;
+  const linea = (campo) => punti
+    .map((p, i) => [p[campo], i])
+    .filter(([v]) => v !== null && v !== undefined)
+    .map(([v, i], k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+    .join(" ");
 
-  // Tre righe orizzontali di riferimento, con l'importo a destra
+  // La sfumatura sotto la linea principale: fino allo zero per le %, fino in fondo per gli €
+  const base = unita === "perc" ? y(0) : fondo;
+  const areaSotto = `${linea(linee[0].campo)} L${x(punti.length - 1).toFixed(1)},${base} L${x(0).toFixed(1)},${base} Z`;
+
+  // Tre righe orizzontali di riferimento, con il valore a destra
   let griglia = "";
   for (let k = 0; k <= 2; k++) {
-    const euro = minimo + ((massimo - minimo) * (k + 0.5)) / 3;
-    griglia += `<line class="griglia" x1="${MARGINI.sinistra}" x2="${larghezza - MARGINI.destra}" y1="${y(euro)}" y2="${y(euro)}"/>
-      <text class="asse" x="${larghezza - MARGINI.destra + 8}" y="${y(euro) + 4}">${euroTondo.format(euro)}</text>`;
+    const v = minimo + ((massimo - minimo) * (k + 0.5)) / 3;
+    // Se la riga è troppo vicina a quella dello zero, la saltiamo: le scritte si sovrapporrebbero
+    if (unita === "perc" && Math.abs(y(v) - y(0)) < 16) continue;
+    griglia += `<line class="griglia" x1="${MARGINI.sinistra}" x2="${larghezza - MARGINI.destra}" y1="${y(v)}" y2="${y(v)}"/>
+      <text class="asse" x="${larghezza - MARGINI.destra + 8}" y="${y(v) + 4}">${formatoAsse(v)}</text>`;
+  }
+  // Per le %: la riga dello zero, più marcata
+  if (unita === "perc") {
+    griglia += `<line class="zero" x1="${MARGINI.sinistra}" x2="${larghezza - MARGINI.destra}" y1="${y(0)}" y2="${y(0)}"/>
+      <text class="asse" x="${larghezza - MARGINI.destra + 8}" y="${y(0) + 4}">0%</text>`;
   }
 
   // Tre date in basso: inizio, metà, fine
-  const formatoGiorno = { day: "numeric", month: "short" };
   let date = "";
   for (const [i, allineamento] of [[0, "start"], [Math.floor((punti.length - 1) / 2), "middle"], [punti.length - 1, "end"]]) {
-    const testo = leggiData(punti[i].giorno).toLocaleDateString("it-IT", formatoGiorno);
+    const testo = leggiData(punti[i].giorno).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
     date += `<text class="asse" x="${x(i)}" y="${altezza - 8}" text-anchor="${allineamento}">${testo}</text>`;
   }
+
+  // Le linee: la prima (principale) disegnata per ultima, così sta sopra
+  const tracciati = linee.slice().reverse()
+    .map((l) => `<path class="${l.classe}" d="${linea(l.campo)}"/>`).join("");
 
   svg.setAttribute("viewBox", `0 0 ${larghezza} ${altezza}`);
   svg.setAttribute("width", larghezza);
   svg.setAttribute("height", altezza);
   const ultimo = punti[punti.length - 1];
-  svg.setAttribute("aria-label",
-    `Valore da ${euro(punti[0].valore)} a ${euro(ultimo.valore)}, investito ${euro(ultimo.investito)}`);
+  svg.setAttribute("aria-label", linee.map((l) => `${l.nome}: ${unita === "perc" ? percentuale(ultimo[l.campo] ?? 0) : euro(ultimo[l.campo])}`).join(", "));
   svg.innerHTML = `
     <defs>
-      <linearGradient id="sfumatura" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id="sfumatura-${svg.id}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="var(--linea-valore)" stop-opacity="0.28"/>
         <stop offset="1" stop-color="var(--linea-valore)" stop-opacity="0"/>
       </linearGradient>
     </defs>
     ${griglia}
-    <path d="${areaSotto}" fill="url(#sfumatura)"/>
-    <path class="linea-investito" d="${linea("investito")}"/>
-    <path class="linea-valore" d="${linea("valore")}"/>
+    <path d="${areaSotto}" fill="url(#sfumatura-${svg.id})"/>
+    ${tracciati}
     ${date}
-    <line class="mirino" id="mirino" y1="${MARGINI.sopra}" y2="${fondo}" visibility="hidden"/>
-    <circle class="punto" id="punto" r="5" visibility="hidden"/>`;
+    <line class="mirino" y1="${MARGINI.sopra}" y2="${fondo}" visibility="hidden"/>
+    <circle class="punto" r="5" visibility="hidden"/>`;
 
-  datiGrafico = { punti, x, y, larghezzaUtile };
+  // Ricordiamo tutto ciò che serve al "fumetto"
+  svg._dati = { punti, linee, unita, x, y, larghezzaUtile };
 }
 
 // Il "fumetto": quando tocchi il grafico mostra i numeri di quel giorno
 function mostraFumetto(evento) {
-  if (!datiGrafico) return;
-  const { punti, x, y, larghezzaUtile } = datiGrafico;
-  const rettangolo = $("grafico").getBoundingClientRect();
+  const svg = evento.currentTarget;
+  if (!svg._dati) return;
+  const { punti, linee, unita, x, y, larghezzaUtile } = svg._dati;
+  const rettangolo = svg.getBoundingClientRect();
   const posizione = evento.clientX - rettangolo.left - MARGINI.sinistra;
   const i = Math.max(0, Math.min(punti.length - 1, Math.round((posizione / larghezzaUtile) * (punti.length - 1))));
   const p = punti[i];
-  const gp = p.valore - p.investito;
 
-  const mirino = $("mirino");
+  const mirino = svg.querySelector(".mirino");
   mirino.setAttribute("x1", x(i));
   mirino.setAttribute("x2", x(i));
   mirino.setAttribute("visibility", "visible");
-  const punto = $("punto");
+  const punto = svg.querySelector(".punto");
   punto.setAttribute("cx", x(i));
-  punto.setAttribute("cy", y(p.valore));
+  punto.setAttribute("cy", y(p[linee[0].campo]));
   punto.setAttribute("visibility", "visible");
 
-  const fumetto = $("fumetto");
-  fumetto.innerHTML = `
-    <div class="fumetto-data">${leggiData(p.giorno).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}</div>
-    <div><i class="linea-valore"></i>Valore <b>${euro(p.valore)}</b></div>
-    <div><i class="linea-investito"></i>Investito <b>${euro(p.investito)}</b></div>
-    <div class="${classeColore(gp)}">${euro(gp, true)} · ${percentuale(gp / p.investito)}</div>`;
+  const fumetto = svg.parentElement.querySelector(".fumetto");
+  const data = leggiData(p.giorno).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+  let righe = linee.map((l) => {
+    const v = p[l.campo];
+    const testo = v === null || v === undefined ? "–" : unita === "perc" ? percentuale(v) : euro(v);
+    return `<div><i class="${l.classe}"></i><span class="nome-linea"></span> <b>${testo}</b></div>`;
+  }).join("");
+  righe += `<div class="fumetto-data">${euro(p.valore)} su ${euro(p.investito)} investiti</div>`;
+  fumetto.innerHTML = `<div class="fumetto-data">${data}</div>${righe}`;
+  fumetto.querySelectorAll(".nome-linea").forEach((el, k) => (el.textContent = linee[k].nome));
   fumetto.hidden = false;
   // Il fumetto sta vicino al dito, ma senza uscire dal grafico
   const larghezzaFumetto = fumetto.offsetWidth;
@@ -559,10 +714,21 @@ function mostraFumetto(evento) {
   fumetto.style.left = sinistra + "px";
 }
 
-function nascondiFumetto() {
-  $("fumetto").hidden = true;
-  $("mirino")?.setAttribute("visibility", "hidden");
-  $("punto")?.setAttribute("visibility", "hidden");
+function nascondiFumetto(svgOEvento) {
+  const svg = svgOEvento instanceof Event ? svgOEvento.currentTarget : svgOEvento;
+  const fumetto = svg.parentElement.querySelector(".fumetto");
+  if (fumetto) fumetto.hidden = true;
+  svg.querySelector(".mirino")?.setAttribute("visibility", "hidden");
+  svg.querySelector(".punto")?.setAttribute("visibility", "hidden");
+}
+
+// Il selettore "%" / "€" del grafico della panoramica
+function scegliUnita(unita) {
+  unitaGrafico = unita;
+  $("mostra-perc").classList.toggle("attivo", unita === "perc");
+  $("mostra-euro").classList.toggle("attivo", unita === "euro");
+  try { localStorage.setItem("unita-grafico", unita); } catch (errore) { /* non importa */ }
+  disegnaGrafico();
 }
 
 // ---------- Avvio ----------
@@ -611,22 +777,31 @@ async function avvia() {
 
   // Colleghiamo i pulsanti alle loro azioni
   $("apri-modulo").onclick = () => apriModulo();
-  $("annulla").onclick = () => $("finestra").close();
-  $("aggiungi-acquisto").onclick = () => apriModulo(titoloAperto);
-  $("chiudi-titolo").onclick = () => $("finestra-titolo").close();
+  $("annulla").onclick = chiudiModulo;
+  $("finestra").addEventListener("close", () => { inModifica = null; });
+  $("aggiungi-acquisto").onclick = () => apriModulo(tickerAperto);
+  $("indietro").onclick = tornaAllaPanoramica;
+  $("mostra-perc").onclick = () => scegliUnita("perc");
+  $("mostra-euro").onclick = () => scegliUnita("euro");
+  try { if (localStorage.getItem("unita-grafico") === "euro") scegliUnita("euro"); } catch (errore) { /* non importa */ }
   $("elimina").onclick = elimina;
   $("modulo").addEventListener("submit", quandoSalvi);
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 
-  // Se giri l'iPad, ridisegniamo il grafico con la nuova larghezza
-  window.addEventListener("resize", disegnaGrafico);
-  // Tocchi e movimenti sul grafico mostrano il "fumetto" con i valori
-  $("grafico").addEventListener("pointermove", mostraFumetto);
-  $("grafico").addEventListener("pointerdown", mostraFumetto);
-  $("grafico").addEventListener("pointerleave", nascondiFumetto);
+  // Se giri l'iPad, ridisegniamo i grafici con la nuova larghezza
+  window.addEventListener("resize", () => (tickerAperto ? disegnaGraficoTitolo() : disegnaGrafico()));
+  // Tocchi e movimenti sui grafici mostrano il "fumetto" con i valori
+  for (const id of ["grafico", "grafico-titolo"]) {
+    $(id).addEventListener("pointermove", mostraFumetto);
+    $(id).addEventListener("pointerdown", mostraFumetto);
+    $(id).addEventListener("pointerleave", nascondiFumetto);
+  }
+  // Quando cambia l'indirizzo (tocchi un titolo, o "indietro") cambiamo vista
+  window.addEventListener("hashchange", mostraVista);
 
   disegna();
+  mostraVista();
 }
 
 avvia();
