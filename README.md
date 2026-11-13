@@ -18,7 +18,9 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 | `app.js` | Il cervello: legge i dati, fa i calcoli, salva sul dispositivo |
 | `data/titoli.json` | L'elenco dei titoli che si possono scegliere |
 | `data/prezzi.json` | I prezzi attuali, scritti in automatico (non modificarlo a mano) |
-| `scripts/aggiorna_prezzi.py` | Il programma che scarica i prezzi da Yahoo Finance |
+| `data/storico.json` | I prezzi di chiusura passati, per il grafico (scritto in automatico) |
+| `data/allarmi.json` | Quali allarmi sono già partiti oggi, per non ripeterli (scritto in automatico) |
+| `scripts/aggiorna_prezzi.py` | Il programma che scarica prezzi e storico da Yahoo Finance e manda gli allarmi |
 | `.github/workflows/aggiorna-prezzi.yml` | Dice a GitHub di eseguire quel programma ogni 30 minuti nei giorni di Borsa |
 
 ## Calcoli
@@ -27,11 +29,24 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 - **Guadagno/perdita (€)** = valore attuale − capitale investito
 - **Guadagno/perdita (%)** = guadagno/perdita ÷ capitale investito
 
+## Allarmi (ntfy)
+
+Se un titolo scende troppo in giornata arriva una notifica sull'app **ntfy**:
+**−5%** per le azioni, **−3%** per gli ETF (al massimo un avviso al giorno per titolo).
+
+Per attivarli:
+1. installa l'app gratuita **ntfy** e iscriviti a un canale con un nome lungo e casuale;
+2. salva quel nome in **Settings → Secrets and variables → Actions → New repository secret**
+   con nome `NTFY_TOPIC`;
+3. prova: **Actions → Aggiorna prezzi → Run workflow** con "Manda solo una notifica di prova" spuntato.
+
+Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non lasciano mai il dispositivo.
+
 ## Tabella di marcia
 
 1. ✅ Pagina con totale e schede dei titoli (stile scuro)
-2. Pubblicazione con GitHub Pages
-3. ✅ Prezzi automatici da Yahoo Finance con GitHub Actions (parte dopo l'unione in `main`)
-4. Grafici
-5. Allarmi (−5% giornaliero azioni, −3% ETF)
+2. ✅ Pubblicazione con GitHub Pages
+3. ✅ Prezzi automatici da Yahoo Finance con GitHub Actions
+4. ✅ Grafico dell'andamento dall'acquisto
+5. ✅ Allarmi (−5% giornaliero azioni, −3% ETF) con ntfy
 6. Notizie sui titoli

@@ -1,5 +1,5 @@
 # Le istruzioni per GitHub Actions: "ogni 30 minuti, nei giorni di Borsa,
-# esegui il programma che scarica i prezzi e salva il risultato".
+# esegui il programma che scarica i prezzi, controlla gli allarmi e salva il risultato".
 
 name: Aggiorna prezzi
 
@@ -9,9 +9,14 @@ on:
     # In Italia sono le 8-21 d'inverno e le 9-22 d'estate.
     - cron: "7,37 7-20 * * 1-5"
   workflow_dispatch:   # aggiunge un pulsante "Run workflow" per farlo partire a mano
+    inputs:
+      prova_notifica:
+        description: "Manda solo una notifica di prova (per controllare ntfy)"
+        type: boolean
+        default: false
 
 permissions:
-  contents: write      # serve per salvare data/prezzi.json nel repository
+  contents: write      # serve per salvare i file dei prezzi nel repository
 
 concurrency:
   group: aggiorna-prezzi   # mai due aggiornamenti nello stesso momento
@@ -23,14 +28,19 @@ jobs:
       - name: Scarica il codice del repository
         uses: actions/checkout@v4
 
-      - name: Scarica i prezzi da Yahoo Finance
+      - name: Scarica i prezzi e controlla gli allarmi
         run: python3 scripts/aggiorna_prezzi.py
+        env:
+          # Il nome segreto del canale ntfy: sta nella "cassaforte" di GitHub, non nel codice
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          PROVA_NOTIFICA: ${{ inputs.prova_notifica }}
 
-      - name: Salva i nuovi prezzi (solo se sono cambiati)
+      - name: Salva i nuovi dati (solo se sono cambiati)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/prezzi.json
+          git add data/
           git diff --cached --quiet && echo "Nessun cambiamento" && exit 0
           git commit -m "Aggiorna prezzi"
+          git pull --rebase
           git push

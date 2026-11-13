@@ -15,10 +15,15 @@
   --rosso-sfondo: #3a1717;
   --accento: #8fb0ff;
   --accento-forte: #3d63e0;
+  --linea-valore: #4c7dff;     /* linea blu del grafico: il valore */
+  --linea-investito: #a3abbd;  /* linea grigia tratteggiata: quanto hai investito */
   color-scheme: dark;       /* dice a Safari di usare menu e tastiera scuri */
 }
 
 * { box-sizing: border-box; }
+
+/* Ciò che ha l'attributo "hidden" resta sempre nascosto */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -209,3 +214,61 @@ input:focus, select:focus { outline: none; border-color: var(--accento); }
 .pulsanti-modulo .pulsante { padding: 12px; }
 
 .errore { color: var(--rosso); margin: 0; }
+
+/* ---------- Il grafico ---------- */
+
+.grafico {
+  background: var(--carta);
+  border-radius: 18px;
+  padding: 16px 16px 8px;
+  margin-top: 28px;
+}
+
+.intestazione-grafico {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.legenda { display: flex; gap: 14px; font-size: 0.8rem; color: var(--testo-tenue); }
+
+/* Le lineette colorate della legenda e del fumetto */
+i.linea-valore, i.linea-investito {
+  display: inline-block;
+  width: 16px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+i.linea-valore { border-top: 2px solid var(--linea-valore); }
+i.linea-investito { border-top: 2px dashed var(--linea-investito); }
+
+.area-grafico { position: relative; touch-action: pan-y; }
+#grafico { display: block; width: 100%; overflow: visible; }
+
+#grafico path.linea-valore { fill: none; stroke: var(--linea-valore); stroke-width: 2; stroke-linejoin: round; }
+#grafico path.linea-investito { fill: none; stroke: var(--linea-investito); stroke-width: 1.5; stroke-dasharray: 5 4; }
+#grafico .griglia { stroke: var(--carta-2); stroke-width: 1; }
+#grafico .asse { fill: var(--testo-tenue); font-size: 11px; font-variant-numeric: tabular-nums; }
+#grafico .mirino { stroke: var(--testo-tenue); stroke-width: 1; }
+#grafico .punto { fill: var(--linea-valore); stroke: var(--carta); stroke-width: 2; }
+
+.fumetto {
+  position: absolute;
+  top: 0;
+  background: var(--carta-2);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  pointer-events: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.fumetto-data { color: var(--testo-tenue); }
+.fumetto b { font-weight: 600; margin-left: 4px; }
+
+.nota-grafico { color: var(--testo-tenue); font-size: 0.9rem; margin: 4px 0 8px; }
