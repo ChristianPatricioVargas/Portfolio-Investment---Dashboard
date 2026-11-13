@@ -34,7 +34,7 @@
     <!-- Il grafico dell'andamento: lo disegna app.js -->
     <section class="grafico" aria-label="Andamento del portafoglio">
       <div class="intestazione-grafico">
-        <h2>Andamento dall'acquisto</h2>
+        <h2>Andamento dal primo acquisto</h2>
         <div class="legenda">
           <span><i class="linea-valore"></i>Valore</span>
           <span><i class="linea-investito"></i>Investito</span>
@@ -54,7 +54,7 @@
     </div>
     <div id="schede"></div>
     <p class="vuoto" id="vuoto" hidden>
-      Nessun titolo ancora. Tocca <strong>+ Aggiungi</strong> per inserire il primo.
+      Nessun acquisto ancora. Tocca <strong>+ Aggiungi</strong> per inserire il primo.
     </p>
 
     <footer>
@@ -67,33 +67,47 @@
     </footer>
   </main>
 
-  <!-- Il modulo per aggiungere o modificare un titolo.
+  <!-- La finestra di un titolo: l'elenco dei suoi acquisti.
        <dialog> è una finestra che si apre sopra la pagina. -->
+  <dialog id="finestra-titolo">
+    <div class="contenuto-finestra">
+      <h3 id="nome-titolo"></h3>
+      <p class="riepilogo-titolo" id="riepilogo-titolo"></p>
+      <p class="suggerimento">Tocca un acquisto per modificarlo o eliminarlo.</p>
+      <div id="elenco-acquisti"></div>
+      <div class="pulsanti-modulo">
+        <button type="button" class="pulsante secondario" id="chiudi-titolo">Chiudi</button>
+        <button type="button" class="pulsante" id="aggiungi-acquisto">+ Acquisto</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Il modulo per aggiungere o modificare UN acquisto -->
   <dialog id="finestra">
     <form id="modulo">
-      <h3 id="titolo-modulo">Aggiungi titolo</h3>
+      <h3 id="titolo-modulo">Nuovo acquisto</h3>
       <label>
         Titolo
         <select id="campo-titolo" required></select>
       </label>
       <label>
-        Numero di quote
+        Data dell'acquisto
+        <input id="campo-data" type="date" required>
+      </label>
+      <label>
+        Quote comprate
         <input id="campo-quote" type="text" inputmode="decimal" placeholder="es. 1,234567" required>
       </label>
       <label>
-        Capitale investito (€, commissioni incluse)
+        Importo pagato (€, commissioni incluse)
         <input id="campo-investito" type="text" inputmode="decimal" placeholder="es. 250,00" required>
-      </label>
-      <label>
-        Data di acquisto (serve per il grafico)
-        <input id="campo-data" type="date">
       </label>
       <p class="errore" id="errore" hidden></p>
       <div class="pulsanti-modulo">
         <button type="button" class="pulsante secondario" id="annulla">Annulla</button>
         <button type="submit" class="pulsante">Salva</button>
       </div>
-      <button type="button" class="link pericolo" id="elimina" hidden>Elimina questo titolo</button>
+      <button type="button" class="link pericolo" id="elimina" hidden>Elimina questo acquisto</button>
     </form>
   </dialog>
 
