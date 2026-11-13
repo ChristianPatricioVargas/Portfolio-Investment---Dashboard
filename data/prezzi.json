@@ -1,21 +1,21 @@
 {
   "fonte": "Yahoo Finance (Xetra)",
-  "aggiornato": "2026-11-13T12:29:01Z",
+  "aggiornato": "2026-11-13T13:44:41Z",
   "prezzi": {
     "VWCE.DE": {
       "prezzo": 171.18,
       "chiusuraIeri": 171.42
     },
     "IUSN.DE": {
-      "prezzo": 9.268,
+      "prezzo": 9.267,
       "chiusuraIeri": 9.295
     },
     "AIR.DE": {
-      "prezzo": 206.45,
+      "prezzo": 206.25,
       "chiusuraIeri": 208.3
     },
     "SAP.DE": {
-      "prezzo": 213.2,
+      "prezzo": 214.45,
       "chiusuraIeri": 212.55
     }
   }
