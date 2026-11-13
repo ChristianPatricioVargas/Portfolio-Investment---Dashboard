@@ -31,6 +31,22 @@
     <!-- Avviso che compare quando i prezzi non sono ancora arrivati -->
     <p class="avviso" id="avviso" hidden></p>
 
+    <!-- Il grafico dell'andamento: lo disegna app.js -->
+    <section class="grafico" aria-label="Andamento del portafoglio">
+      <div class="intestazione-grafico">
+        <h2>Andamento dall'acquisto</h2>
+        <div class="legenda">
+          <span><i class="linea-valore"></i>Valore</span>
+          <span><i class="linea-investito"></i>Investito</span>
+        </div>
+      </div>
+      <div class="area-grafico" id="area-grafico">
+        <svg id="grafico" role="img"></svg>
+        <div class="fumetto" id="fumetto" hidden></div>
+      </div>
+      <p class="nota-grafico" id="nota-grafico" hidden></p>
+    </section>
+
     <!-- Le schede dei titoli: le crea app.js -->
     <div class="intestazione-sezione">
       <h2>I miei titoli</h2>
@@ -67,6 +83,10 @@
       <label>
         Capitale investito (€, commissioni incluse)
         <input id="campo-investito" type="text" inputmode="decimal" placeholder="es. 250,00" required>
+      </label>
+      <label>
+        Data di acquisto (serve per il grafico)
+        <input id="campo-data" type="date">
       </label>
       <p class="errore" id="errore" hidden></p>
       <div class="pulsanti-modulo">
