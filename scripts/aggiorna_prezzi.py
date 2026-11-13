@@ -149,13 +149,18 @@ def main():
     titoli = leggi_json(FILE_TITOLI, [])
     canale = os.environ.get("NTFY_TOPIC", "").strip()
 
-    # Prova: fa partire solo una notifica di test e si ferma
+    # Prova: manda una notifica di test. In ogni caso poi aggiorna i prezzi,
+    # così il pulsante "Run workflow" funziona sempre, qualunque casella sia spuntata.
     if os.environ.get("PROVA_NOTIFICA") == "true":
         if not canale:
-            raise SystemExit("Manca il segreto NTFY_TOPIC: aggiungilo in Settings → Secrets.")
-        manda_notifica(canale, "✅ Prova riuscita", "Gli allarmi del tuo portafoglio funzionano.")
-        print("Notifica di prova inviata.")
-        return
+            print("AVVISO: prova notifica richiesta, ma ntfy non è configurato "
+                  "(manca il segreto NTFY_TOPIC). Aggiorno solo i prezzi.")
+        else:
+            try:
+                manda_notifica(canale, "✅ Prova riuscita", "Gli allarmi del tuo portafoglio funzionano.")
+                print("Notifica di prova inviata.")
+            except Exception as errore:
+                print(f"ERRORE notifica di prova: {errore}")
 
     # Partiamo dai dati vecchi: se un titolo non risponde, teniamo gli ultimi noti
     prezzi = leggi_json(FILE_PREZZI, {}).get("prezzi", {})
