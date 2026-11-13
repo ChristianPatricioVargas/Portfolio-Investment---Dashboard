@@ -1,13 +1,15 @@
 // app.js = il "cervello" della pagina.
-// Fa quattro cose:
+// Fa cinque cose:
 //   1. legge l'elenco dei titoli e i prezzi (file pubblici nella cartella data/)
-//   2. legge le TUE quote, salvate solo nel browser del tuo iPad
-//   3. fa i calcoli (valore, guadagno/perdita)
+//   2. legge i TUOI acquisti, salvati solo nel browser del tuo iPad
+//   3. fa i calcoli (quote totali, prezzo medio, valore, guadagno/perdita)
 //   4. disegna il totale e una scheda per ogni titolo
-//   5. disegna il grafico dell'andamento dal giorno dell'acquisto
+//   5. disegna il grafico dell'andamento dal primo acquisto
 
-// Il nome con cui salviamo i tuoi dati nel browser.
-const CHIAVE_SALVATAGGIO = "portafoglio-v1";
+// I nomi con cui salviamo i tuoi dati nel browser.
+// v2 = un titolo può avere più acquisti. v1 = la versione vecchia (un acquisto per titolo).
+const CHIAVE_SALVATAGGIO = "portafoglio-v2";
+const CHIAVE_VECCHIA = "portafoglio-v1";
 
 // I colori dei quadratini con la sigla: [sfondo, testo]
 const COLORI_SIGLA = [
@@ -21,8 +23,11 @@ const COLORI_SIGLA = [
 let titoli = [];       // elenco dei titoli disponibili (da data/titoli.json)
 let prezzi = {};       // prezzi di ogni titolo (da data/prezzi.json)
 let storico = {};      // prezzi di chiusura passati (da data/storico.json)
-let posizioni = [];    // le tue posizioni: [{ ticker, quote, investito, dataAcquisto }]
-let inModifica = null; // il titolo che stai modificando (null = ne aggiungi uno nuovo)
+// Le tue posizioni. Ogni titolo ha la sua lista di acquisti:
+// [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
+let posizioni = [];
+let inModifica = null;    // l'acquisto che stai modificando: { ticker, indice } (null = nuovo)
+let titoloAperto = null;  // il titolo di cui stai guardando gli acquisti
 
 // Una scorciatoia: $("x") prende l'elemento della pagina con id="x"
 const $ = (id) => document.getElementById(id);
@@ -47,6 +52,13 @@ function quote(numero) {
   return numero.toLocaleString("it-IT", { maximumFractionDigits: 6 });
 }
 
+// "2026-10-03" → "3 ott 2026"
+function dataBreve(testo) {
+  if (!testo) return "senza data";
+  const [anno, mese, giorno] = testo.split("-").map(Number);
+  return new Date(anno, mese - 1, giorno).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
+}
+
 // Il colore: verde se si guadagna, rosso se si perde
 function classeColore(numero) {
   if (numero > 0) return "positivo";
@@ -67,13 +79,39 @@ function leggiNumero(testo) {
 // localStorage è un piccolo "cassetto" del browser: ciò che ci metti
 // resta su questo iPad, anche se chiudi Safari.
 
+// Accetta sia il formato nuovo (con "acquisti") sia quello vecchio
+// ({ ticker, quote, investito, dataAcquisto }) e restituisce sempre quello nuovo.
+// Se i dati non hanno senso, dà errore.
+function normalizza(dati) {
+  if (!Array.isArray(dati)) throw new Error("non è una lista");
+  return dati.map((p) => {
+    const acquisti = Array.isArray(p.acquisti)
+      ? p.acquisti
+      : [{ data: p.dataAcquisto || "", quote: p.quote, investito: p.investito }];
+    const validi = acquisti.every((a) => a.quote > 0 && a.investito > 0);
+    if (!p.ticker || acquisti.length === 0 || !validi) throw new Error("dati non validi");
+    return {
+      ticker: p.ticker,
+      acquisti: acquisti.map((a) => ({ data: a.data || "", quote: Number(a.quote), investito: Number(a.investito) })),
+    };
+  });
+}
+
 function caricaPosizioni() {
   try {
-    const testo = localStorage.getItem(CHIAVE_SALVATAGGIO);
-    return testo ? JSON.parse(testo) : [];
+    const nuovo = localStorage.getItem(CHIAVE_SALVATAGGIO);
+    if (nuovo) return normalizza(JSON.parse(nuovo));
+    // Prima volta con la versione nuova: convertiamo i dati vecchi (che restano anche lì, per sicurezza)
+    const vecchio = localStorage.getItem(CHIAVE_VECCHIA);
+    if (vecchio) {
+      posizioni = normalizza(JSON.parse(vecchio));
+      salvaPosizioni();
+      return posizioni;
+    }
   } catch (errore) {
-    return [];
+    // dati illeggibili: si parte da vuoto
   }
+  return [];
 }
 
 function salvaPosizioni() {
@@ -86,16 +124,33 @@ function salvaPosizioni() {
 
 // ---------- Calcoli ----------
 
+// Somma tutti gli acquisti di un titolo
+function totali(posizione) {
+  let numQuote = 0, investito = 0;
+  for (const a of posizione.acquisti) {
+    numQuote += a.quote;
+    investito += a.investito;
+  }
+  return { quote: numQuote, investito, prezzoMedio: investito / numQuote };
+}
+
 // Per una posizione calcola valore attuale e guadagno/perdita
 function calcola(posizione) {
   const p = prezzi[posizione.ticker];
   if (!p) return null;                               // prezzo non ancora disponibile
-  const valore = posizione.quote * p.prezzo;         // quote × prezzo
-  const gp = valore - posizione.investito;           // quanto ho guadagnato (o perso)
-  const gpPerc = gp / posizione.investito;           // in proporzione all'investito
+  const t = totali(posizione);
+  const valore = t.quote * p.prezzo;                 // quote totali × prezzo di adesso
+  const gp = valore - t.investito;                   // quanto ho guadagnato (o perso)
+  const gpPerc = gp / t.investito;                   // in proporzione all'investito
   // Variazione di oggi: prezzo attuale rispetto alla chiusura di ieri
   const oggi = p.chiusuraIeri ? p.prezzo / p.chiusuraIeri - 1 : null;
   return { prezzo: p.prezzo, valore, gp, gpPerc, oggi };
+}
+
+function infoTitolo(ticker) {
+  const indice = titoli.findIndex((t) => t.ticker === ticker);
+  const info = titoli[indice] || { nome: ticker, tipo: "", ticker };
+  return { ...info, colori: COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length] };
 }
 
 // ---------- Disegno della pagina ----------
@@ -109,21 +164,22 @@ function disegna() {
   let prezziMancanti = 0;
 
   for (const posizione of posizioni) {
-    const indice = titoli.findIndex((t) => t.ticker === posizione.ticker);
-    const info = titoli[indice] || { nome: posizione.ticker, tipo: "", ticker: posizione.ticker };
-    const [coloreSfondo, coloreTesto] = COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length];
+    const info = infoTitolo(posizione.ticker);
+    const t = totali(posizione);
     const r = calcola(posizione);
 
-    totInvestito += posizione.investito;
+    totInvestito += t.investito;
     if (r) totValore += r.valore;
     else prezziMancanti++;
 
-    // La riga piccola sotto il nome: quote, prezzo e variazione di oggi
-    let dettaglio = quote(posizione.quote) + " quote";
-    if (r) dettaglio += " · " + euro(r.prezzo);
-    if (r && r.oggi !== null) dettaglio += " · oggi " + percentuale(r.oggi);
+    // Due righe piccole sotto il nome
+    const numAcquisti = posizione.acquisti.length;
+    const riga1 = `${quote(t.quote)} quote · prezzo medio ${euro(t.prezzoMedio)}`;
+    let riga2 = numAcquisti === 1 ? "1 acquisto" : `${numAcquisti} acquisti`;
+    if (r) riga2 += " · ora " + euro(r.prezzo);
+    if (r && r.oggi !== null) riga2 += " · oggi " + percentuale(r.oggi);
 
-    // Creiamo la scheda: è un pulsante, se la tocchi si apre la modifica
+    // Creiamo la scheda: è un pulsante, se la tocchi si aprono i suoi acquisti
     const scheda = document.createElement("button");
     scheda.type = "button";
     scheda.className = "scheda";
@@ -131,7 +187,8 @@ function disegna() {
       <div class="sigla"></div>
       <div class="info">
         <div class="nome"><span></span><span class="tag"></span></div>
-        <div class="dettaglio"></div>
+        <div class="dettaglio riga1"></div>
+        <div class="dettaglio riga2"></div>
       </div>
       <div class="cifre">
         <span class="valore">${r ? euro(r.valore) : "–"}</span>
@@ -140,12 +197,13 @@ function disegna() {
     // I testi li inseriamo come testo semplice, per sicurezza
     const sigla = scheda.querySelector(".sigla");
     sigla.textContent = info.ticker.split(".")[0];   // "VWCE.DE" → "VWCE"
-    sigla.style.background = coloreSfondo;
-    sigla.style.color = coloreTesto;
+    sigla.style.background = info.colori[0];
+    sigla.style.color = info.colori[1];
     scheda.querySelector(".nome span").textContent = info.nome;
     scheda.querySelector(".tag").textContent = info.tipo;
-    scheda.querySelector(".dettaglio").textContent = dettaglio;
-    scheda.onclick = () => apriModulo(posizione.ticker);
+    scheda.querySelector(".riga1").textContent = riga1;
+    scheda.querySelector(".riga2").textContent = riga2;
+    scheda.onclick = () => apriTitolo(posizione.ticker);
     contenitore.appendChild(scheda);
   }
 
@@ -175,61 +233,109 @@ function disegna() {
   disegnaGrafico();
 }
 
-// ---------- Il modulo: aggiungi, modifica, elimina ----------
+// ---------- La finestra di un titolo: l'elenco dei suoi acquisti ----------
+
+function apriTitolo(ticker) {
+  titoloAperto = ticker;
+  const posizione = posizioni.find((p) => p.ticker === ticker);
+  if (!posizione) return $("finestra-titolo").close();
+  const info = infoTitolo(ticker);
+  const t = totali(posizione);
+
+  $("nome-titolo").textContent = info.nome;
+  $("riepilogo-titolo").textContent =
+    `${quote(t.quote)} quote · investito ${euro(t.investito)} · prezzo medio ${euro(t.prezzoMedio)}`;
+
+  // Un pulsante per ogni acquisto, dal più vecchio al più recente
+  const elenco = $("elenco-acquisti");
+  elenco.innerHTML = "";
+  posizione.acquisti
+    .map((a, indice) => ({ ...a, indice }))
+    .sort((a, b) => (a.data || "").localeCompare(b.data || ""))
+    .forEach((a) => {
+      const riga = document.createElement("button");
+      riga.type = "button";
+      riga.className = "riga-acquisto";
+      riga.innerHTML = `<span class="data-acquisto"></span><span class="numeri-acquisto"></span>`;
+      riga.querySelector(".data-acquisto").textContent = dataBreve(a.data);
+      riga.querySelector(".numeri-acquisto").textContent =
+        `${quote(a.quote)} quote · ${euro(a.investito)} · a ${euro(a.investito / a.quote)}`;
+      riga.onclick = () => apriModulo(ticker, a.indice);
+      elenco.appendChild(riga);
+    });
+
+  if (!$("finestra-titolo").open) $("finestra-titolo").showModal();
+}
+
+// ---------- Il modulo di un acquisto: aggiungi, modifica, elimina ----------
 
 function mostraErrore(messaggio) {
   $("errore").textContent = messaggio;
   $("errore").hidden = !messaggio;
 }
 
-// Apre la finestra. Se passi un ticker, la riempie per la modifica.
-function apriModulo(ticker = null) {
-  inModifica = ticker;
+const oggiISO = () => new Date().toISOString().slice(0, 10);
+
+// Apre il modulo.
+//   apriModulo()               → nuovo acquisto, scegli tu il titolo
+//   apriModulo("SAP.DE")       → nuovo acquisto di SAP
+//   apriModulo("SAP.DE", 2)    → modifica il terzo acquisto di SAP
+function apriModulo(ticker = null, indice = null) {
+  inModifica = indice === null ? null : { ticker, indice };
   mostraErrore("");
-  const p = posizioni.find((x) => x.ticker === ticker);
-  $("titolo-modulo").textContent = p ? "Modifica titolo" : "Aggiungi titolo";
-  $("campo-titolo").value = p ? p.ticker : titoli[0]?.ticker;
-  $("campo-titolo").disabled = Boolean(p);   // in modifica il titolo non si cambia
-  $("campo-quote").value = p ? String(p.quote).replace(".", ",") : "";
-  $("campo-investito").value = p ? String(p.investito).replace(".", ",") : "";
-  $("campo-data").value = p?.dataAcquisto || "";
-  $("campo-data").max = new Date().toISOString().slice(0, 10);   // niente date future
-  $("elimina").hidden = !p;
+  const a = indice === null ? null : posizioni.find((p) => p.ticker === ticker).acquisti[indice];
+
+  $("titolo-modulo").textContent = a ? "Modifica acquisto" : "Nuovo acquisto";
+  $("campo-titolo").value = ticker || titoli[0]?.ticker;
+  $("campo-titolo").disabled = Boolean(ticker);   // titolo già scelto: non si cambia
+  $("campo-data").value = a ? a.data : oggiISO();
+  $("campo-data").max = oggiISO();                 // niente date future
+  $("campo-quote").value = a ? String(a.quote).replace(".", ",") : "";
+  $("campo-investito").value = a ? String(a.investito).replace(".", ",") : "";
+  $("elimina").hidden = !a;
   $("finestra").showModal();
 }
 
 function quandoSalvi(evento) {
   evento.preventDefault();   // impedisce alla pagina di ricaricarsi
-  const ticker = inModifica || $("campo-titolo").value;
+  const ticker = $("campo-titolo").value;
+  const data = $("campo-data").value;           // es. "2026-10-03"
   const numQuote = leggiNumero($("campo-quote").value);
   const investito = leggiNumero($("campo-investito").value);
-  const dataAcquisto = $("campo-data").value;   // es. "2026-10-03" oppure "" se vuota
 
-  // Controlliamo che i numeri abbiano senso
+  // Controlliamo che i dati abbiano senso
+  if (!data) return mostraErrore("Inserisci la data dell'acquisto.");
+  if (data > oggiISO()) return mostraErrore("La data non può essere nel futuro.");
   if (!(numQuote > 0)) return mostraErrore("Il numero di quote deve essere maggiore di zero.");
-  if (!(investito > 0)) return mostraErrore("Il capitale investito deve essere maggiore di zero.");
+  if (!(investito > 0)) return mostraErrore("L'importo pagato deve essere maggiore di zero.");
 
-  // Se il titolo c'è già lo aggiorniamo, altrimenti lo aggiungiamo
-  const esistente = posizioni.find((p) => p.ticker === ticker);
-  if (esistente) {
-    esistente.quote = numQuote;
-    esistente.investito = investito;
-    esistente.dataAcquisto = dataAcquisto;
+  const acquisto = { data, quote: numQuote, investito };
+  let posizione = posizioni.find((p) => p.ticker === ticker);
+  if (inModifica) {
+    posizione.acquisti[inModifica.indice] = acquisto;     // sostituiamo quello vecchio
+  } else if (posizione) {
+    posizione.acquisti.push(acquisto);                    // un acquisto in più su un titolo che hai già
   } else {
-    posizioni.push({ ticker, quote: numQuote, investito, dataAcquisto });
+    posizioni.push({ ticker, acquisti: [acquisto] });     // titolo nuovo
   }
 
   salvaPosizioni();
   disegna();
   $("finestra").close();
+  if ($("finestra-titolo").open) apriTitolo(ticker);      // aggiorniamo l'elenco aperto
 }
 
 function elimina() {
-  if (!confirm("Vuoi davvero eliminare questo titolo?")) return;
-  posizioni = posizioni.filter((p) => p.ticker !== inModifica);
+  if (!confirm("Vuoi davvero eliminare questo acquisto?")) return;
+  const { ticker, indice } = inModifica;
+  const posizione = posizioni.find((p) => p.ticker === ticker);
+  posizione.acquisti.splice(indice, 1);
+  // Se non resta nessun acquisto, il titolo sparisce dalla dashboard
+  if (posizione.acquisti.length === 0) posizioni = posizioni.filter((p) => p !== posizione);
   salvaPosizioni();
   disegna();
   $("finestra").close();
+  if ($("finestra-titolo").open) apriTitolo(ticker);
 }
 
 // ---------- Backup ----------
@@ -249,10 +355,7 @@ function ripristinaBackup() {
   const testo = prompt("Incolla qui il testo del backup:");
   if (!testo) return;
   try {
-    const dati = JSON.parse(testo);
-    const valido = Array.isArray(dati) && dati.every((p) => p.ticker && p.quote > 0 && p.investito > 0);
-    if (!valido) throw new Error();
-    posizioni = dati;
+    posizioni = normalizza(JSON.parse(testo));   // va bene anche un backup della versione vecchia
     salvaPosizioni();
     disegna();
   } catch (errore) {
@@ -261,9 +364,10 @@ function ripristinaBackup() {
 }
 
 // ---------- Grafico dell'andamento ----------
-// Idea: per ogni giorno di Borsa dall'acquisto in poi calcoliamo
+// Idea: per ogni giorno di Borsa dal primo acquisto in poi calcoliamo
 //   valore    = somma di (quote × prezzo di chiusura di quel giorno)
-//   investito = somma del capitale dei titoli già comprati a quella data
+//   investito = somma degli importi degli acquisti già fatti a quella data
+// Ogni acquisto entra nel grafico dal suo giorno: la linea dell'investito sale "a gradini".
 // e disegniamo due linee: il valore (blu) e l'investito (grigia tratteggiata).
 // Se la linea blu sta sopra quella grigia, sei in guadagno.
 
@@ -279,10 +383,16 @@ function leggiData(testo) {
 
 const euroTondo = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 
+// Tutti gli acquisti di tutti i titoli in un'unica lista
+function tuttiGliAcquisti() {
+  return posizioni.flatMap((p) => p.acquisti.map((a) => ({ ticker: p.ticker, dataAcquisto: a.data, quote: a.quote, investito: a.investito })));
+}
+
 function calcolaSerie() {
-  // Nel grafico entrano solo i titoli con data di acquisto e con lo storico dei prezzi
-  const conData = posizioni.filter((p) => p.dataAcquisto && storico[p.ticker]);
-  const esclusi = posizioni.length - conData.length;
+  // Nel grafico entrano solo gli acquisti con la data e con lo storico dei prezzi
+  const acquisti = tuttiGliAcquisti();
+  const conData = acquisti.filter((p) => p.dataAcquisto && storico[p.ticker]);
+  const esclusi = acquisti.length - conData.length;
   if (conData.length === 0) return { punti: [], esclusi };
 
   const inizio = conData.map((p) => p.dataAcquisto).sort()[0];
@@ -345,17 +455,17 @@ function disegnaGrafico() {
     area.hidden = true;
     datiGrafico = null;
     nota.hidden = false;
-    nota.textContent = posizioni.some((p) => p.dataAcquisto)
+    nota.textContent = tuttiGliAcquisti().some((a) => a.dataAcquisto)
       ? "⏳ Il grafico comparirà dopo il prossimo aggiornamento automatico dei prezzi."
-      : "📅 Tocca una scheda e inserisci la data di acquisto: così il grafico parte da quel giorno.";
+      : "📅 Tocca una scheda e inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
     return;
   }
 
   area.hidden = false;
   nota.hidden = esclusi === 0;
   nota.textContent = esclusi === 1
-    ? "1 titolo senza data di acquisto non è nel grafico."
-    : `${esclusi} titoli senza data di acquisto non sono nel grafico.`;
+    ? "1 acquisto senza data (o senza prezzi passati) non è nel grafico."
+    : `${esclusi} acquisti senza data (o senza prezzi passati) non sono nel grafico.`;
 
   // ---- Le misure: da "euro e giorni" a "pixel sullo schermo" ----
   const larghezza = area.clientWidth;
@@ -502,6 +612,8 @@ async function avvia() {
   // Colleghiamo i pulsanti alle loro azioni
   $("apri-modulo").onclick = () => apriModulo();
   $("annulla").onclick = () => $("finestra").close();
+  $("aggiungi-acquisto").onclick = () => apriModulo(titoloAperto);
+  $("chiudi-titolo").onclick = () => $("finestra-titolo").close();
   $("elimina").onclick = elimina;
   $("modulo").addEventListener("submit", quandoSalvi);
   $("backup").onclick = copiaBackup;

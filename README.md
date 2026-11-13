@@ -25,9 +25,17 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 
 ## Calcoli
 
-- **Valore attuale** = quote × prezzo attuale
+Ogni titolo può avere **più acquisti** (data, quote comprate, importo pagato commissioni incluse).
+La pagina li somma da sola:
+
+- **Quote totali** = somma delle quote di tutti gli acquisti
+- **Capitale investito** = somma degli importi pagati
+- **Prezzo medio di carico** = capitale investito ÷ quote totali
+- **Valore attuale** = quote totali × prezzo attuale
 - **Guadagno/perdita (€)** = valore attuale − capitale investito
 - **Guadagno/perdita (%)** = guadagno/perdita ÷ capitale investito
+
+Nel grafico ogni acquisto entra dal suo giorno: la linea dell'investito sale "a gradini".
 
 ## Allarmi (ntfy)
 

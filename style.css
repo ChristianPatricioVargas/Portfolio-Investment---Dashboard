@@ -192,8 +192,29 @@ dialog {
 }
 dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 
-form { display: grid; gap: 14px; padding: 20px; }
-form h3 { margin: 0 0 4px; font-size: 1.2rem; }
+form, .contenuto-finestra { display: grid; gap: 14px; padding: 20px; }
+form h3, .contenuto-finestra h3 { margin: 0 0 4px; font-size: 1.2rem; }
+
+/* La finestra con l'elenco degli acquisti di un titolo */
+.contenuto-finestra { gap: 10px; }
+.riepilogo-titolo { margin: 0; color: var(--testo); font-size: 0.9rem; }
+.suggerimento { margin: 0 0 4px; color: var(--testo-tenue); font-size: 0.8rem; }
+#elenco-acquisti { display: grid; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.riga-acquisto {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: var(--carta-2);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--testo);
+  font: inherit;
+  cursor: pointer;
+}
+.data-acquisto { font-weight: 600; font-size: 0.95rem; }
+.numeri-acquisto { color: var(--testo-tenue); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 
 label { display: grid; gap: 6px; font-size: 0.9rem; color: var(--testo-tenue); min-width: 0; }
 
