@@ -195,6 +195,26 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 form { display: grid; gap: 14px; padding: 20px; }
 form h3 { margin: 0 0 4px; font-size: 1.2rem; }
 
+/* La lista degli acquisti di un titolo */
+.suggerimento { margin: 0 0 10px; color: var(--testo-tenue); font-size: 0.8rem; }
+#elenco-acquisti { display: grid; gap: 8px; }
+.riga-acquisto {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: var(--carta);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--testo);
+  font: inherit;
+  cursor: pointer;
+}
+.riga-acquisto.selezionata { border-color: var(--accento); }
+.data-acquisto { font-weight: 600; font-size: 0.95rem; }
+.numeri-acquisto { color: var(--testo-tenue); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
 label { display: grid; gap: 6px; font-size: 0.9rem; color: var(--testo-tenue); min-width: 0; }
 
 input, select {
@@ -272,3 +292,84 @@ i.linea-investito { border-top: 2px dashed var(--linea-investito); }
 .fumetto b { font-weight: 600; margin-left: 4px; }
 
 .nota-grafico { color: var(--testo-tenue); font-size: 0.9rem; margin: 4px 0 8px; }
+
+/* La riga dello zero nei grafici in %: sopra = guadagno, sotto = perdita */
+#grafico .zero, #grafico-titolo .zero { stroke: var(--testo-tenue); stroke-width: 1; stroke-dasharray: 2 3; }
+#grafico-titolo path.linea-valore { fill: none; stroke: var(--linea-valore); stroke-width: 2; stroke-linejoin: round; }
+#grafico-titolo path.linea-investito { fill: none; stroke: var(--linea-investito); stroke-width: 1.5; stroke-dasharray: 5 4; }
+#grafico-titolo .griglia { stroke: var(--carta-2); stroke-width: 1; }
+#grafico-titolo .asse { fill: var(--testo-tenue); font-size: 11px; font-variant-numeric: tabular-nums; }
+#grafico-titolo .mirino { stroke: var(--testo-tenue); stroke-width: 1; }
+#grafico-titolo .punto { fill: var(--linea-valore); stroke: var(--carta); stroke-width: 2; }
+.legenda { margin-bottom: 6px; }
+
+/* Il selettore % / € */
+.selettore { display: inline-flex; background: var(--carta-2); border-radius: 999px; padding: 3px; }
+.selettore button {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 40px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--testo-tenue);
+  cursor: pointer;
+}
+.selettore button.attivo { background: var(--accento-forte); color: #fff; }
+
+/* ---------- La pagina di un titolo ---------- */
+
+/* Nella pagina di un titolo usiamo più larghezza, per le due colonne */
+body.dettaglio main { max-width: 1100px; }
+
+.indietro { font-size: 1rem; margin-bottom: 16px; padding: 6px 0; }
+
+/* Due colonne affiancate su iPad, una sotto l'altra sul telefono */
+.colonne { display: grid; gap: 24px; }
+@media (min-width: 760px) {
+  .colonne { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+  /* la colonna destra resta visibile mentre scorri la sinistra */
+  .colonna-destra { position: sticky; top: 16px; }
+}
+.colonna-sinistra, .colonna-destra { min-width: 0; }
+.colonna-destra .intestazione-sezione { margin-top: 0; }
+
+.testata-titolo { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.testata-titolo h1 { margin: 0 0 4px; font-size: 1.3rem; line-height: 1.2; }
+.testata-titolo .tag { margin-left: 0; }
+.totale.piccolo { font-size: clamp(2rem, 6vw, 2.6rem); margin: 0 0 8px; }
+
+/* La griglia di numeri: quote, prezzo medio, ecc. */
+.numeri-titolo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 0;
+  background: var(--carta);
+  border-radius: 18px;
+  padding: 16px;
+}
+.numeri-titolo dt { color: var(--testo-tenue); font-size: 0.75rem; }
+.numeri-titolo dd { margin: 2px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Il modulo dentro la colonna di destra */
+.posto-modulo { margin-top: 14px; background: var(--carta); border-radius: 18px; border: 1px solid var(--accento); }
+.posto-modulo form { padding: 16px; }
+
+/* I pulsanti dei periodi: 1G 1S 1M Anno Tutto */
+.periodi { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 10px; }
+.periodi button {
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--carta-2);
+  color: var(--testo-tenue);
+  cursor: pointer;
+}
+.periodi button.attivo { background: var(--testo); color: var(--sfondo); }
+.riepilogo-periodo { margin: 0 0 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
