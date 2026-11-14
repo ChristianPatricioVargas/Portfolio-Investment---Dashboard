@@ -32,6 +32,10 @@ let notizieTutte = false; // true = mostra tutte le notizie, non solo le prime 5
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
 let posizioni = [];
 let inModifica = null;    // l'acquisto che stai modificando: { ticker, indice } (null = nuovo)
+// Il lavoro degli agenti (da data/analisi.json): per ogni titolo fondamentali, analisi tecnica, rischi...
+let analisi = { titoli: {} };
+// Le tue schede tesi, salvate solo nel browser (vedi agenti/fondamentale.js)
+let tesi = {};
 
 // Una scorciatoia: $("x") prende l'elemento della pagina con id="x"
 const $ = (id) => document.getElementById(id);
@@ -299,6 +303,7 @@ function mostraVista() {
   tickerAperto = esiste ? ticker : null;
 
   chiudiModulo();
+  $("modulo-tesi").hidden = true;
   notizieTutte = false;
   $("vista-panoramica").hidden = Boolean(tickerAperto);
   $("vista-titolo").hidden = !tickerAperto;
@@ -369,6 +374,10 @@ function disegnaTitolo() {
 
   disegnaGraficoTitolo();
   disegnaNotizie();
+  // Le parti degli agenti (vedi la cartella agenti/)
+  disegnaSeVendo();
+  disegnaFondamentali();
+  disegnaTesi();
 }
 
 // ---------- Le notizie del titolo ----------
@@ -515,9 +524,14 @@ function elimina() {
 
 // ---------- Backup ----------
 // Copia i tuoi dati come testo: puoi incollarlo in Note per tenerlo al sicuro.
+// Dentro ci sono TUTTI i dati personali: acquisti e tesi.
+
+function datiPersonali() {
+  return { versione: 3, posizioni, tesi };
+}
 
 async function copiaBackup() {
-  const testo = JSON.stringify(posizioni);
+  const testo = JSON.stringify(datiPersonali());
   try {
     await navigator.clipboard.writeText(testo);
     alert("Backup copiato! Incollalo in Note per conservarlo.");
@@ -530,8 +544,15 @@ function ripristinaBackup() {
   const testo = prompt("Incolla qui il testo del backup:");
   if (!testo) return;
   try {
-    posizioni = normalizza(JSON.parse(testo));   // va bene anche un backup della versione vecchia
+    const dati = JSON.parse(testo);
+    // I backup vecchi erano solo la lista degli acquisti: vanno ancora bene
+    const vecchioFormato = Array.isArray(dati);
+    posizioni = normalizza(vecchioFormato ? dati : dati.posizioni);
     salvaPosizioni();
+    if (!vecchioFormato) {
+      tesi = pulisciTesi(dati.tesi);
+      salvaTesi();
+    }
     disegna();
     mostraVista();
   } catch (errore) {
@@ -938,6 +959,7 @@ function scegliPeriodo(chiave) {
 
 async function avvia() {
   posizioni = caricaPosizioni();
+  tesi = caricaTesi();
 
   try {
     // fetch = "vai a prendere" un file. await = "aspetta che arrivi".
@@ -966,10 +988,11 @@ async function avvia() {
 
   // Storico, prezzi di oggi e notizie non sono indispensabili: se mancano, la pagina funziona lo stesso
   try {
-    const [rispostaStorico, rispostaIntraday, rispostaNotizie] = await Promise.all([
+    const [rispostaStorico, rispostaIntraday, rispostaNotizie, rispostaAnalisi] = await Promise.all([
       fetch("data/storico.json", { cache: "no-store" }),
       fetch("data/intraday.json", { cache: "no-store" }),
       fetch("data/notizie.json", { cache: "no-store" }),
+      fetch("data/analisi.json", { cache: "no-store" }),
     ]);
     if (rispostaStorico.ok) storico = await rispostaStorico.json();
     if (rispostaIntraday.ok) intraday = await rispostaIntraday.json();
@@ -978,6 +1001,10 @@ async function avvia() {
       notizie = datiNotizie.notizie || {};
       notizieAggiornateIl = datiNotizie.aggiornato || null;
       notizieServizi = datiNotizie.servizi || {};
+    }
+    if (rispostaAnalisi.ok) {
+      const datiAnalisi = await rispostaAnalisi.json();
+      if (datiAnalisi && datiAnalisi.titoli) analisi = datiAnalisi;
     }
   } catch (errore) {
     /* niente grafici, pazienza */
@@ -1009,6 +1036,7 @@ async function avvia() {
   document.querySelectorAll(".periodi button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodo));
   $("elimina").onclick = elimina;
   $("modulo").addEventListener("submit", quandoSalvi);
+  collegaFondamentale();
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 

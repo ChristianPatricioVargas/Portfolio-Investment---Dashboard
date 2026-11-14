@@ -68,7 +68,7 @@
 
       <footer>
         <p id="aggiornamento"></p>
-        <p>🔒 Quote e capitale investito restano salvati solo su questo dispositivo.</p>
+        <p>🔒 Quote, capitale investito e tesi restano salvati solo su questo dispositivo.</p>
         <p>
           <button class="link" id="backup" type="button">Copia backup</button> ·
           <button class="link" id="ripristina" type="button">Ripristina backup</button>
@@ -97,6 +97,15 @@
           <!-- Una griglia di numeri: quote, prezzo medio, ecc. (la riempie app.js) -->
           <dl class="numeri-titolo" id="numeri-titolo"></dl>
 
+          <!-- "Se vendo oggi": quanto resta in tasca dopo tasse e commissione (lo calcola agenti/fondamentale.js) -->
+          <section class="riquadro" id="sezione-se-vendo" hidden>
+            <h2>💶 Se vendo oggi</h2>
+            <dl class="righe-conto" id="righe-se-vendo"></dl>
+            <p class="nota-riquadro" id="nota-se-vendo" hidden></p>
+            <p class="avvertenza">Stima con il prezzo indicato sopra, il 26% di tasse sul guadagno e 1 € di commissione.
+              Non tiene conto di eventuali minusvalenze passate. Non è consulenza fiscale.</p>
+          </section>
+
           <section class="grafico" aria-label="Rendimento del titolo">
             <div class="intestazione-grafico">
               <h2>Rendimento</h2>
@@ -109,6 +118,23 @@
               <div class="fumetto" id="fumetto-titolo" hidden></div>
             </div>
             <p class="nota-grafico" id="nota-grafico-titolo" hidden></p>
+          </section>
+
+          <!-- L'analista fondamentale: i conti dell'azienda (lo riempie agenti/fondamentale.js) -->
+          <section class="riquadro" id="sezione-fondamentali">
+            <h2>🔎 Analista fondamentale <span class="ruolo">i conti dell'azienda</span></h2>
+            <div id="corpo-fondamentali"></div>
+            <details class="glossario" id="glossario-fondamentali">
+              <summary>Cosa significano questi numeri?</summary>
+              <p><b>P/E</b>: quanti anni di utili "costa" l'azione. Alto = cara (o ci si aspetta molta crescita), basso = economica (o in difficoltà).</p>
+              <p><b>Crescita</b>: ricavi e utili dell'ultimo trimestre rispetto allo stesso trimestre di un anno fa.</p>
+              <p><b>Debito netto ÷ EBITDA</b>: quanti anni di guadagni operativi servirebbero per ripagare i debiti. Sotto 2 è tranquillo, sopra 3-4 è pesante.</p>
+              <p><b>Margini</b>: quanto resta di ogni 100 incassati. Lordo = dopo i costi di produzione; operativo = dopo tutti i costi; netto = dopo tasse e interessi.</p>
+              <p><b>Target medio</b>: il prezzo che gli analisti si aspettano tra 12 mesi, in media. È un'opinione, non una promessa: spesso sbagliano.</p>
+              <p><b>Trimestrale</b>: ogni tre mesi l'azienda pubblica i conti. È il momento in cui il prezzo si muove di più.</p>
+            </details>
+            <p class="fonte-notizie" id="fonte-fondamentali"></p>
+            <p class="avvertenza">Dati e opinioni di terzi per aiutarti a ragionare: non sono consulenza finanziaria. La decisione è tua.</p>
           </section>
 
           <!-- Le notizie sul titolo: le riempie app.js -->
@@ -131,6 +157,36 @@
           <div id="elenco-acquisti"></div>
           <!-- Qui dentro app.js sposta il modulo quando modifichi un acquisto -->
           <div class="posto-modulo" id="posto-modulo" hidden></div>
+
+          <!-- La scheda tesi: perché sono entrato, target, quando esco. Resta solo su questo dispositivo. -->
+          <section class="riquadro" id="sezione-tesi">
+            <div class="intestazione-riquadro">
+              <h2>📝 La mia tesi</h2>
+              <button class="link" id="modifica-tesi" type="button">Modifica</button>
+            </div>
+            <div id="corpo-tesi"></div>
+            <form id="modulo-tesi" hidden>
+              <label>
+                Perché sono entrato
+                <textarea id="campo-motivo" rows="4" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
+              </label>
+              <label>
+                Il mio target (€ per azione)
+                <input id="campo-target" type="text" inputmode="decimal">
+              </label>
+              <label>
+                Esco se… (una condizione per riga)
+                <textarea id="campo-uscita" rows="4" placeholder="es. Trimestrale debole&#10;Utili sotto le attese per due trimestri&#10;Taglio della guidance"></textarea>
+              </label>
+              <p class="errore" id="errore-tesi" hidden></p>
+              <div class="pulsanti-modulo">
+                <button type="button" class="pulsante secondario" id="annulla-tesi">Annulla</button>
+                <button type="submit" class="pulsante">Salva</button>
+              </div>
+              <button type="button" class="link pericolo" id="elimina-tesi" hidden>Elimina questa tesi</button>
+            </form>
+            <p class="avvertenza">🔒 La tesi resta solo su questo dispositivo ed è inclusa nel backup.</p>
+          </section>
         </section>
       </div>
     </div>
@@ -167,6 +223,8 @@
     </form>
   </dialog>
 
+  <!-- Gli "agenti": ogni file aggiunge alla pagina le funzioni di un agente -->
+  <script src="agenti/fondamentale.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>
