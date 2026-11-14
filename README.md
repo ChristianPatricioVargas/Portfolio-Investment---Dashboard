@@ -21,8 +21,18 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 | `data/intraday.json` | I prezzi ogni 5 minuti dell'ultimo giorno di Borsa, per il grafico "1G" (scritto in automatico) |
 | `data/storico.json` | I prezzi di chiusura passati, per il grafico (scritto in automatico) |
 | `data/allarmi.json` | Quali allarmi sono già partiti oggi, per non ripeterli (scritto in automatico) |
+| `scripts/confronta_borse.py` | Programma di prova (non cambia nessun file): confronta i prezzi di Xetra, Francoforte, Stoccarda e Monaco |
+| `.github/workflows/confronta-borse.yml` | Il pulsante "Run workflow" per lanciare il confronto tra borse |
 | `scripts/aggiorna_prezzi.py` | Il programma che scarica prezzi e storico da Yahoo Finance e manda gli allarmi |
 | `.github/workflows/aggiorna-prezzi.yml` | Dice a GitHub di eseguire quel programma ogni 30 minuti nei giorni di Borsa |
+
+## Da dove vengono i prezzi
+
+I prezzi sono quelli di **Xetra** (Borsa tedesca, 9:00-17:30) presi da Yahoo Finance.
+Sotto il totale la pagina scrive la borsa, l'ora dell'ultimo scambio e quando GitHub ha controllato i prezzi.
+
+Trade Republic invece valuta le posizioni con il **prezzo di vendita (bid) di LS Exchange**, aperta fino alle 23:00:
+per questo, soprattutto la sera, i valori possono essere un po' diversi.
 
 ## Calcoli
 

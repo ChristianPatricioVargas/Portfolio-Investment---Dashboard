@@ -23,6 +23,7 @@ const COLORI_SIGLA = [
 let titoli = [];       // elenco dei titoli disponibili (da data/titoli.json)
 let prezzi = {};       // prezzi di ogni titolo (da data/prezzi.json)
 let storico = {};      // prezzi di chiusura passati (da data/storico.json)
+let controllatiIl = null; // quando GitHub ha controllato i prezzi l'ultima volta
 // Le tue posizioni. Ogni titolo ha la sua lista di acquisti:
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
 let posizioni = [];
@@ -152,6 +153,35 @@ function infoTitolo(ticker) {
   return { ...info, colori: COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length] };
 }
 
+// ---------- Da dove vengono i prezzi ----------
+// Esempio: "Prezzi Xetra · ultimo scambio ven 14 nov, 17:35 · controllati alle 21:51"
+
+const NOMI_BORSE = { XETRA: "Xetra", Frankfurt: "Francoforte", Stuttgart: "Stoccarda", GER: "Xetra" };
+
+// "2026-11-14T16:35:00Z" → "ven 14 nov, 17:35" (nell'ora del tuo iPad)
+function momento(testoISO) {
+  return new Date(testoISO).toLocaleString("it-IT", {
+    weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function testoFonte(tickers) {
+  const dati = tickers.map((t) => prezzi[t]).filter(Boolean);
+  const borse = [...new Set(dati.map((p) => NOMI_BORSE[p.borsa] || p.borsa).filter(Boolean))];
+  const orari = dati.map((p) => p.orario).filter(Boolean).sort();
+  const parti = [borse.length ? "Prezzi " + borse.join(" e ") : "Prezzi Xetra (Yahoo Finance)"];
+  // L'ultimo scambio più recente tra i tuoi titoli
+  if (orari.length) parti.push("ultimo scambio " + momento(orari[orari.length - 1]));
+  if (controllatiIl) {
+    // Se il controllo è dello stesso giorno dell'ultimo scambio basta l'ora, altrimenti anche il giorno
+    const stessoGiorno = orari.length &&
+      new Date(controllatiIl).toDateString() === new Date(orari[orari.length - 1]).toDateString();
+    const ora = new Date(controllatiIl).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    parti.push(stessoGiorno ? "controllati alle " + ora : "controllati " + momento(controllatiIl));
+  }
+  return parti.join(" · ");
+}
+
 // ---------- Disegno della pagina ----------
 
 function disegna() {
@@ -229,6 +259,10 @@ function disegna() {
     $("tot-investito").textContent = "Investito " + euro(totInvestito);
   }
 
+  // Sotto il totale: da dove vengono i prezzi dei TUOI titoli (o di tutti, se non ne hai)
+  const tuoi = posizioni.length ? posizioni.map((p) => p.ticker) : titoli.map((t) => t.ticker);
+  $("fonte-prezzi").textContent = Object.keys(prezzi).length ? testoFonte(tuoi) : "";
+
   // Disegniamo il grafico della vista che stai guardando
   if (tickerAperto) disegnaTitolo();
   else disegnaGrafico();
@@ -287,6 +321,7 @@ function disegnaTitolo() {
   const chip = $("gp-titolo");
   chip.textContent = r ? `${r.gp >= 0 ? "▲" : "▼"} ${euro(r.gp, true)} · ${percentuale(r.gpPerc)}` : "";
   chip.className = "chip " + (r ? classeColore(r.gp) : "");
+  $("fonte-prezzi-titolo").textContent = r ? testoFonte([tickerAperto]) : "";
 
   // ---- La griglia di numeri ----
   const numeri = [
@@ -857,9 +892,11 @@ async function avvia() {
     prezzi = datiPrezzi.prezzi || {};
 
     if (datiPrezzi.aggiornato) {
+      controllatiIl = datiPrezzi.aggiornato;
       const data = new Date(datiPrezzi.aggiornato);
-      $("aggiornamento").textContent = "Prezzi Yahoo Finance (Xetra), aggiornati il " +
-        data.toLocaleString("it-IT", { dateStyle: "long", timeStyle: "short" }) + ".";
+      $("aggiornamento").textContent = "Fonte: Yahoo Finance. GitHub ha controllato i prezzi il " +
+        data.toLocaleString("it-IT", { dateStyle: "long", timeStyle: "short" }) +
+        ". I prezzi sono quelli dell'ultimo scambio sulla borsa indicata sotto il totale.";
     } else {
       $("avviso").textContent = "⏳ I prezzi non sono ancora arrivati: compariranno dopo il primo aggiornamento automatico.";
       $("avviso").hidden = false;
