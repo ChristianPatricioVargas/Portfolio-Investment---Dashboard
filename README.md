@@ -17,10 +17,7 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 | `style.css` | L'aspetto: colori, spazi, modalità scura |
 | `app.js` | Il cervello: legge i dati, fa i calcoli, salva sul dispositivo |
 | `data/titoli.json` | L'elenco dei titoli che si possono scegliere |
-| `data/prezzi.json` | I prezzi attuali, scritti in automatico (non modificarlo a mano) |
-| `data/intraday.json` | I prezzi ogni 5 minuti dell'ultimo giorno di Borsa, per il grafico "1G" (scritto in automatico) |
-| `data/storico.json` | I prezzi di chiusura passati, per il grafico (scritto in automatico) |
-| `data/allarmi.json` | Quali allarmi sono già partiti oggi, per non ripeterli (scritto in automatico) |
+| `data/prezzi.json`, `storico.json`, `intraday.json`, `allarmi.json` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi attuali, storico, prezzi di oggi ogni 5 minuti, allarmi già inviati) |
 | `scripts/confronta_borse.py` | Programma di prova (non cambia nessun file): confronta i prezzi di Xetra, Francoforte, Stoccarda e Monaco |
 | `.github/workflows/confronta-borse.yml` | Il pulsante "Run workflow" per lanciare il confronto tra borse |
 | `scripts/aggiorna_prezzi.py` | Il programma che scarica prezzi e storico da Yahoo Finance e manda gli allarmi |

@@ -59,7 +59,7 @@ jobs:
               mv "/tmp/$nome.json" "data/$nome.json"
               echo "Recuperato $nome.json dal sito"
             else
-              echo "Nessun $nome.json sul sito: si parte da quello del repository (o da zero)"
+              echo "Nessun $nome.json sul sito: si parte da zero"
             fi
           done
 
@@ -71,6 +71,15 @@ jobs:
           # Il nome segreto del canale ntfy: sta nella "cassaforte" di GitHub, non nel codice
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           PROVA_NOTIFICA: ${{ inputs.prova_notifica }}
+
+      - name: Controlla che ci siano i prezzi
+        run: |
+          # Se mancano sia i dati del sito sia quelli di Yahoo, ci fermiamo:
+          # meglio lasciare online il sito di prima che pubblicarne uno senza prezzi
+          if [ ! -s data/prezzi.json ]; then
+            echo "::error::Nessun prezzo disponibile: il sito NON viene ripubblicato."
+            exit 1
+          fi
 
       - name: Metti insieme i file del sito
         run: |
