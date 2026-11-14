@@ -1,3 +1,11 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# I dati dei prezzi NON stanno nel repository: li crea GitHub Actions
+# e vivono solo nel sito pubblicato (vedi .github/workflows/pubblica-sito.yml)
+data/prezzi.json
+data/storico.json
+data/intraday.json
+data/allarmi.json
+_site/
