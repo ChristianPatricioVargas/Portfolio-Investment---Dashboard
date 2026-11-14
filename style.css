@@ -17,6 +17,8 @@
   --accento-forte: #3d63e0;
   --linea-valore: #4c7dff;     /* linea blu del grafico: il valore */
   --linea-investito: #a3abbd;  /* linea grigia tratteggiata: quanto hai investito */
+  --linea-mm50: #c97a1e;       /* linea arancione: media mobile a 50 giorni */
+  --linea-mm200: #a66bf0;      /* linea viola: media mobile a 200 giorni */
   color-scheme: dark;       /* dice a Safari di usare menu e tastiera scuri */
 }
 
@@ -500,3 +502,29 @@ textarea:focus { outline: none; border-color: var(--accento); }
 .condizione { display: flex; grid-template-columns: none; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: 0.95rem; color: var(--testo); cursor: pointer; }
 .condizione input { width: 20px; height: 20px; flex: none; margin: 1px 0 0; padding: 0; accent-color: var(--accento-forte); }
 .condizione.scattata span { color: var(--rosso); font-weight: 600; }
+
+/* ---------- Il grafico dell'analista tecnico ---------- */
+
+/* La frase che riassume il lavoro di un agente */
+.frase-agente { margin: 0 0 12px; font-size: 1rem; line-height: 1.45; }
+
+#grafico-tecnico { display: block; width: 100%; overflow: visible; }
+#grafico-tecnico path { fill: none; stroke-linejoin: round; }
+#grafico-tecnico path.linea-prezzo { stroke: var(--linea-valore); stroke-width: 2; }
+#grafico-tecnico path.linea-mm50 { stroke: var(--linea-mm50); stroke-width: 1.5; }
+#grafico-tecnico path.linea-mm200 { stroke: var(--linea-mm200); stroke-width: 1.5; }
+#grafico-tecnico .griglia { stroke: var(--carta-2); stroke-width: 1; }
+#grafico-tecnico .asse { fill: var(--testo-tenue); font-size: 11px; font-variant-numeric: tabular-nums; }
+#grafico-tecnico .mirino { stroke: var(--testo-tenue); stroke-width: 1; }
+#grafico-tecnico .punto { fill: var(--linea-valore); stroke: var(--carta); stroke-width: 2; }
+/* Supporti e resistenze: righe grigie tratteggiate, con il nome scritto sopra */
+#grafico-tecnico .livello { stroke: var(--testo-tenue); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.7; }
+#grafico-tecnico .etichetta-livello { font-size: 10px; }
+
+/* Le lineette colorate nella legenda e nel fumetto del grafico tecnico */
+i.linea-prezzo, i.linea-mm50, i.linea-mm200 { display: inline-block; width: 16px; margin-right: 6px; vertical-align: middle; }
+i.linea-prezzo { border-top: 2px solid var(--linea-valore); }
+i.linea-mm50 { border-top: 2px solid var(--linea-mm50); }
+i.linea-mm200 { border-top: 2px solid var(--linea-mm200); }
+#sezione-tecnico .legenda { flex-wrap: wrap; }
+#sezione-tecnico .numeri-agente { margin-top: 12px; }

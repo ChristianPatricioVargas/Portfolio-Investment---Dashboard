@@ -59,7 +59,7 @@ jobs:
           SITO: ${{ steps.pages.outputs.base_url }}
         run: |
           mkdir -p data
-          for nome in prezzi storico intraday allarmi notizie analisi; do
+          for nome in prezzi storico intraday allarmi notizie analisi serie; do
             # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
             if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
                && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then

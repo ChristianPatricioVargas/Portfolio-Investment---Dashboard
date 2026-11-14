@@ -120,6 +120,24 @@
             <p class="nota-grafico" id="nota-grafico-titolo" hidden></p>
           </section>
 
+          <!-- L'analista tecnico: l'andamento del prezzo (lo riempie agenti/tecnico.js) -->
+          <section class="riquadro" id="sezione-tecnico">
+            <h2>📈 Analista tecnico <span class="ruolo">l'andamento del prezzo</span></h2>
+            <p class="vuoto" id="attesa-tecnico">⏳ L'analisi tecnica arriverà con il prossimo giro serale degli agenti.</p>
+            <div id="corpo-tecnico" hidden>
+              <p class="frase-agente" id="frase-tecnico"></p>
+              <div class="legenda" id="legenda-tecnico"></div>
+              <div class="area-grafico" id="area-grafico-tecnico">
+                <svg id="grafico-tecnico" role="img"></svg>
+                <div class="fumetto" hidden></div>
+              </div>
+              <dl class="numeri-agente" id="numeri-tecnico"></dl>
+              <p class="fonte-notizie" id="fonte-tecnico"></p>
+            </div>
+            <p class="avvertenza">L'analisi tecnica descrive come si è mosso il prezzo in passato: <strong>non prevede il futuro</strong>.
+              Non è consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
           <!-- L'analista fondamentale: i conti dell'azienda (lo riempie agenti/fondamentale.js) -->
           <section class="riquadro" id="sezione-fondamentali">
             <h2>🔎 Analista fondamentale <span class="ruolo">i conti dell'azienda</span></h2>
@@ -225,6 +243,7 @@
 
   <!-- Gli "agenti": ogni file aggiunge alla pagina le funzioni di un agente -->
   <script src="agenti/fondamentale.js"></script>
+  <script src="agenti/tecnico.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

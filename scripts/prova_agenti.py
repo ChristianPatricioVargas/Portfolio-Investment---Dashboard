@@ -15,7 +15,7 @@ Con l'opzione --dal-vivo fa anche una prova vera con Yahoo Finance su pochi tito
 import os
 import sys
 
-from agenti import fondamentale
+from agenti import fondamentale, tecnico
 
 OGGI = "2026-11-14"
 
@@ -87,7 +87,49 @@ def prova_fondamentale_dati_mancanti():
     assert not fondamentale.ha_dati(fondamentale.analizza({}, OGGI))   # risposta vuota
 
 
-PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti]
+# ---------- Analista tecnico ----------
+
+def giorni_finti(quanti):
+    """Una lista di giorni consecutivi che finisce il 13 novembre 2026."""
+    from datetime import date, timedelta
+    fine = date(2026, 11, 13)
+    return [(fine - timedelta(days=quanti - 1 - i)).isoformat() for i in range(quanti)]
+
+
+def prova_tecnico_medie_e_rsi():
+    assert tecnico.media_mobile([1, 2, 3, 4], 2) == [None, 1.5, 2.5, 3.5]
+    assert tecnico.rsi(list(range(1, 40))) == 100.0                    # sale sempre: RSI al massimo
+    assert uguale(tecnico.rsi(list(range(40, 1, -1))), 0.0)            # scende sempre: RSI a zero
+    # Esempio classico del libro di Wilder (l'inventore dell'RSI): il risultato noto è circa 70,5
+    wilder = [44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08,
+              45.89, 46.03, 45.61, 46.28, 46.28]
+    assert abs(tecnico.rsi(wilder) - 70.46) < 0.1, tecnico.rsi(wilder)
+
+
+def prova_tecnico_scheda():
+    # Un titolo che sale per 250 giorni da 100 a 200 e poi scende a 150 in 50 giorni
+    valori = [100 + 100 * i / 249 for i in range(250)] + [200 - 50 * (i + 1) / 50 for i in range(50)]
+    scheda, serie = tecnico.analizza(giorni_finti(300), valori, "EUR")
+    assert scheda["massimo52"] == 200.0 and uguale(scheda["dalMassimo"], -0.25)
+    assert scheda["sopraMm50"] is False                 # è sotto la media degli ultimi 50 giorni
+    assert scheda["rsi"] < 30                           # 50 giorni di ribassi
+    assert scheda["resistenze"] and scheda["resistenze"][-1]["prezzo"] == 200.0   # il picco è una resistenza
+    assert len(serie["giorni"]) == 252 == len(serie["prezzo"]) == len(serie["mm200"])
+    assert "RSI basso" in scheda["frase"] and "25% dal massimo" in scheda["frase"]
+    assert tecnico.analizza(giorni_finti(30), valori[:30]) == (None, None)        # troppo pochi dati
+
+
+def prova_tecnico_livelli():
+    # Il prezzo rimbalza tre volte su 90 e viene respinto tre volte da 110
+    onda = [100, 104, 108, 110, 108, 104, 100, 96, 92, 90, 92, 96] * 3 + [100, 101, 101, 101, 101, 101, 101]
+    supporti, resistenze = tecnico.livelli(onda, 101)
+    assert supporti[0] == {"prezzo": 90.0, "tocchi": 3}, supporti
+    # Il primo picco a 110 è troppo vicino all'inizio per essere contato (servono 5 giorni prima)
+    assert resistenze[0] == {"prezzo": 110.0, "tocchi": 2}, resistenze
+
+
+PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
+         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_livelli]
 
 
 # ---------- Prova dal vivo (con internet) ----------

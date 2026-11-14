@@ -376,6 +376,7 @@ function disegnaTitolo() {
   disegnaNotizie();
   // Le parti degli agenti (vedi la cartella agenti/)
   disegnaSeVendo();
+  disegnaTecnico();
   disegnaFondamentali();
   disegnaTesi();
 }
@@ -920,8 +921,10 @@ function nascondiFumetto(svgOEvento) {
 
 // Ridisegna il grafico della vista che stai guardando
 function ridisegnaGrafici() {
-  if (tickerAperto) disegnaGraficoTitolo();
-  else disegnaGrafico();
+  if (tickerAperto) {
+    disegnaGraficoTitolo();
+    disegnaGraficoTecnico();
+  } else disegnaGrafico();
 }
 
 // Il selettore "%" / "€" del grafico della panoramica
@@ -1037,6 +1040,7 @@ async function avvia() {
   $("elimina").onclick = elimina;
   $("modulo").addEventListener("submit", quandoSalvi);
   collegaFondamentale();
+  collegaTecnico();
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 

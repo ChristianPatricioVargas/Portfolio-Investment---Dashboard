@@ -10,4 +10,5 @@ data/intraday.json
 data/allarmi.json
 data/notizie.json
 data/analisi.json
+data/serie.json
 _site/
