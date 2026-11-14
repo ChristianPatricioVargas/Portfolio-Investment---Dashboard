@@ -10,7 +10,9 @@ Cosa fa, passo per passo:
        - il prezzo attuale e la chiusura di ieri  -> data/prezzi.json
        - i prezzi ogni 5 minuti dell'ultimo giorno di Borsa -> data/intraday.json (grafico "1 giorno")
        - i prezzi di chiusura dell'ultimo anno    -> data/storico.json (per il grafico)
-  3. se un titolo scende troppo in giornata manda una notifica con ntfy:
+  3. per ogni titolo scarica le ultime notizie da Google News (in italiano)
+                                               -> data/notizie.json
+  4. se un titolo scende troppo in giornata manda una notifica con ntfy:
        - Azione: -5% o peggio
        - ETF:    -3% o peggio
      Ogni titolo dà al massimo un allarme al giorno (data/allarmi.json).
@@ -21,8 +23,11 @@ Il nome del canale ntfy è segreto e arriva da GitHub Secrets (NTFY_TOPIC).
 
 import json
 import os
+import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 CARTELLA_DATI = Path(__file__).resolve().parent.parent / "data"
@@ -30,6 +35,11 @@ FILE_TITOLI = CARTELLA_DATI / "titoli.json"
 FILE_PREZZI = CARTELLA_DATI / "prezzi.json"
 FILE_STORICO = CARTELLA_DATI / "storico.json"
 FILE_INTRADAY = CARTELLA_DATI / "intraday.json"
+FILE_NOTIZIE = CARTELLA_DATI / "notizie.json"
+
+# Google News: notizie in italiano degli ultimi 7 giorni. Gratis, senza chiave.
+INDIRIZZO_NOTIZIE = "https://news.google.com/rss/search?q={ricerca}&hl=it&gl=IT&ceid=IT:it"
+NOTIZIE_PER_TITOLO = 10
 FILE_ALLARMI = CARTELLA_DATI / "allarmi.json"
 
 INDIRIZZO_YAHOO = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={periodo}&interval={intervallo}"
@@ -100,6 +110,56 @@ def estrai_storico(dati, formato="%Y-%m-%d"):
         giorno = (datetime.fromtimestamp(istante, timezone.utc) + fuso).strftime(formato)
         storico[giorno] = round(float(chiusura), 4)
     return storico
+
+
+# ---------- Notizie da Google News ----------
+
+def chiedi_notizie(ricerca):
+    """Scarica il "feed RSS" di Google News: un elenco di notizie in formato XML."""
+    indirizzo = INDIRIZZO_NOTIZIE.format(ricerca=urllib.parse.quote(ricerca + " when:7d"))
+    richiesta = urllib.request.Request(indirizzo, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(richiesta, timeout=20) as risposta:
+        return risposta.read()
+
+
+def estrai_notizie(xml):
+    """Dal feed tiene, per ogni notizia: titolo, giornale, link e data. Le più recenti prima."""
+    notizie, visti = [], set()
+    for elemento in ET.fromstring(xml).iter("item"):
+        titolo = (elemento.findtext("title") or "").strip()
+        link = (elemento.findtext("link") or "").strip()
+        fonte = (elemento.findtext("source") or "").strip()
+        # Google scrive "Titolo della notizia - Nome giornale": togliamo il giornale dal titolo
+        if fonte and titolo.endswith(" - " + fonte):
+            titolo = titolo[: -len(" - " + fonte)]
+        if not titolo or not link.startswith("https://") or titolo.lower() in visti:
+            continue   # notizie vuote, link strani o doppioni: le saltiamo
+        visti.add(titolo.lower())
+        try:
+            data = parsedate_to_datetime(elemento.findtext("pubDate")).astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            continue
+        notizie.append({"titolo": titolo, "fonte": fonte, "link": link, "data": data.strftime("%Y-%m-%dT%H:%M:%SZ")})
+    notizie.sort(key=lambda n: n["data"], reverse=True)
+    return notizie[:NOTIZIE_PER_TITOLO]
+
+
+def aggiorna_notizie(titoli):
+    """Scarica le notizie di ogni titolo. Se un titolo non risponde, tiene quelle vecchie."""
+    vecchie = leggi_json(FILE_NOTIZIE, {}).get("notizie", {})
+    notizie = dict(vecchie)
+    for titolo in titoli:
+        ricerca = titolo.get("notizie") or titolo["nome"]
+        try:
+            notizie[titolo["ticker"]] = estrai_notizie(chiedi_notizie(ricerca))
+            print(f"NOTIZIE {titolo['ticker']}: {len(notizie[titolo['ticker']])}")
+        except Exception as errore:
+            print(f"ERRORE notizie {titolo['ticker']}: {errore}")
+    scrivi_json(FILE_NOTIZIE, {
+        "fonte": "Google News",
+        "aggiornato": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "notizie": notizie,
+    })
 
 
 # ---------- Allarmi con ntfy ----------
@@ -208,6 +268,12 @@ def main():
     })
     scrivi_json(FILE_STORICO, storico)
     scrivi_json(FILE_INTRADAY, intraday)
+
+    # Le notizie non sono indispensabili: se qualcosa va storto, i prezzi restano salvati
+    try:
+        aggiorna_notizie(titoli)
+    except Exception as errore:
+        print(f"ERRORE notizie: {errore}")
     print(f"Salvati {riusciti} prezzi su {len(titoli)}.")
 
     if canale:

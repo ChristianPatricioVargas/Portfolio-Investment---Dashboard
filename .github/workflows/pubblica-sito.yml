@@ -47,12 +47,12 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
-      - name: Recupera i dati già pubblicati (storico, prezzi, allarmi)
+      - name: Recupera i dati già pubblicati (prezzi, storico, allarmi, notizie)
         env:
           SITO: ${{ steps.pages.outputs.base_url }}
         run: |
           mkdir -p data
-          for nome in prezzi storico intraday allarmi; do
+          for nome in prezzi storico intraday allarmi notizie; do
             # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
             if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
                && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then
@@ -63,7 +63,7 @@ jobs:
             fi
           done
 
-      - name: Scarica i prezzi e controlla gli allarmi
+      - name: Scarica prezzi e notizie, controlla gli allarmi
         # Se Yahoo un giorno non risponde, pubblichiamo comunque il sito con gli ultimi dati
         continue-on-error: true
         run: python3 scripts/aggiorna_prezzi.py

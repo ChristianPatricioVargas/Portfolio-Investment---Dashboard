@@ -24,6 +24,9 @@ let titoli = [];       // elenco dei titoli disponibili (da data/titoli.json)
 let prezzi = {};       // prezzi di ogni titolo (da data/prezzi.json)
 let storico = {};      // prezzi di chiusura passati (da data/storico.json)
 let controllatiIl = null; // quando GitHub ha controllato i prezzi l'ultima volta
+let notizie = {};         // le notizie di ogni titolo (da data/notizie.json)
+let notizieAggiornateIl = null;
+let notizieTutte = false; // true = mostra tutte le notizie, non solo le prime 5
 // Le tue posizioni. Ogni titolo ha la sua lista di acquisti:
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
 let posizioni = [];
@@ -295,6 +298,7 @@ function mostraVista() {
   tickerAperto = esiste ? ticker : null;
 
   chiudiModulo();
+  notizieTutte = false;
   $("vista-panoramica").hidden = Boolean(tickerAperto);
   $("vista-titolo").hidden = !tickerAperto;
   document.body.classList.toggle("dettaglio", Boolean(tickerAperto));   // pagina più larga
@@ -363,6 +367,56 @@ function disegnaTitolo() {
     });
 
   disegnaGraficoTitolo();
+  disegnaNotizie();
+}
+
+// ---------- Le notizie del titolo ----------
+
+const NOTIZIE_VISIBILI = 5;   // quante se ne vedono prima di "Mostra altre"
+
+// "2026-11-14T08:30:00Z" → "2 ore fa", "ieri", "3 giorni fa"
+function tempoFa(testoISO) {
+  const minuti = Math.round((Date.now() - new Date(testoISO)) / 60000);
+  if (minuti < 60) return minuti <= 1 ? "adesso" : `${minuti} minuti fa`;
+  const ore = Math.round(minuti / 60);
+  if (ore < 24) return ore === 1 ? "1 ora fa" : `${ore} ore fa`;
+  const giorni = Math.round(ore / 24);
+  return giorni === 1 ? "ieri" : `${giorni} giorni fa`;
+}
+
+function disegnaNotizie() {
+  const info = infoTitolo(tickerAperto);
+  // Per sicurezza teniamo solo le notizie con un link sicuro (https://)
+  const elenco = (notizie[tickerAperto] || []).filter((n) => typeof n.link === "string" && n.link.startsWith("https://"));
+  // Per gli ETF cerchiamo notizie sull'indice che seguono: lo diciamo nel titolo
+  $("titolo-notizie").textContent = info.tipo === "ETF" ? "📰 Notizie sui mercati" : `📰 Notizie su ${info.nome}`;
+
+  const lista = $("elenco-notizie");
+  lista.innerHTML = "";
+  const visibili = notizieTutte ? elenco : elenco.slice(0, NOTIZIE_VISIBILI);
+  for (const n of visibili) {
+    const voce = document.createElement("li");
+    voce.innerHTML = `<a target="_blank" rel="noopener noreferrer"><span class="titolo-notizia"></span><span class="dettagli-notizia"></span></a>`;
+    const link = voce.querySelector("a");
+    link.href = n.link;   // si apre in una nuova scheda di Safari
+    voce.querySelector(".titolo-notizia").textContent = n.titolo;
+    voce.querySelector(".dettagli-notizia").textContent = [n.fonte, tempoFa(n.data)].filter(Boolean).join(" · ");
+    lista.appendChild(voce);
+  }
+
+  const vuoto = $("nessuna-notizia");
+  vuoto.hidden = elenco.length > 0;
+  vuoto.textContent = notizieAggiornateIl
+    ? "Nessuna notizia negli ultimi 7 giorni."
+    : "⏳ Le notizie arriveranno con il prossimo aggiornamento automatico.";
+
+  const altre = $("altre-notizie");
+  altre.hidden = elenco.length <= NOTIZIE_VISIBILI;
+  altre.textContent = notizieTutte ? "Mostra meno" : `Mostra altre (${elenco.length - NOTIZIE_VISIBILI})`;
+
+  $("fonte-notizie").textContent = notizieAggiornateIl
+    ? `Fonte: Google News · ultimi 7 giorni · controllate ${momento(notizieAggiornateIl)}`
+    : "";
 }
 
 // ---------- Il modulo di un acquisto: aggiungi, modifica, elimina ----------
@@ -906,14 +960,20 @@ async function avvia() {
     $("avviso").hidden = false;
   }
 
-  // Storico e prezzi di oggi servono solo per i grafici: se mancano, la pagina funziona lo stesso
+  // Storico, prezzi di oggi e notizie non sono indispensabili: se mancano, la pagina funziona lo stesso
   try {
-    const [rispostaStorico, rispostaIntraday] = await Promise.all([
+    const [rispostaStorico, rispostaIntraday, rispostaNotizie] = await Promise.all([
       fetch("data/storico.json", { cache: "no-store" }),
       fetch("data/intraday.json", { cache: "no-store" }),
+      fetch("data/notizie.json", { cache: "no-store" }),
     ]);
     if (rispostaStorico.ok) storico = await rispostaStorico.json();
     if (rispostaIntraday.ok) intraday = await rispostaIntraday.json();
+    if (rispostaNotizie.ok) {
+      const datiNotizie = await rispostaNotizie.json();
+      notizie = datiNotizie.notizie || {};
+      notizieAggiornateIl = datiNotizie.aggiornato || null;
+    }
   } catch (errore) {
     /* niente grafici, pazienza */
   }
@@ -932,6 +992,7 @@ async function avvia() {
   $("finestra").addEventListener("close", () => { inModifica = null; });
   $("aggiungi-acquisto").onclick = () => apriModulo(tickerAperto);
   $("indietro").onclick = tornaAllaPanoramica;
+  $("altre-notizie").onclick = () => { notizieTutte = !notizieTutte; disegnaNotizie(); };
   $("mostra-perc").onclick = () => scegliUnita("perc");
   $("mostra-euro").onclick = () => scegliUnita("euro");
   try { if (localStorage.getItem("unita-grafico") === "euro") unitaGrafico = "euro"; } catch (errore) { /* non importa */ }
