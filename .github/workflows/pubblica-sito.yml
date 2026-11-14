@@ -1,0 +1,89 @@
+# Le istruzioni per GitHub Actions: "scarica i prezzi, controlla gli allarmi
+# e PUBBLICA il sito con i prezzi già dentro".
+#
+# Differenza con prima: i prezzi NON vengono più salvati nel repository.
+# Finiscono solo nel sito pubblicato, quindi la cronologia del codice resta pulita
+# (niente più salvataggi "Aggiorna prezzi").
+#
+# Dove restano i dati tra un giro e l'altro? Nel sito stesso: a ogni giro il programma
+# scarica i file dei dati dal sito già pubblicato, aggiunge i nuovi prezzi e ripubblica.
+
+name: Aggiorna prezzi e pubblica sito
+
+on:
+  schedule:
+    # Lunedì-venerdì, ai minuti 7 e 37 di ogni ora dalle 7 alle 20 (ora UTC).
+    # In Italia sono le 8-21 d'inverno e le 9-22 d'estate.
+    - cron: "7,37 7-20 * * 1-5"
+  push:
+    branches: [main]   # quando unisci una modifica al codice, il sito si aggiorna subito
+  workflow_dispatch:   # il pulsante "Run workflow" per farlo partire a mano
+    inputs:
+      prova_notifica:
+        description: "Manda anche una notifica di prova ntfy (i prezzi si aggiornano comunque)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read    # legge il codice, ma NON può più scrivere nel repository
+  pages: write      # può pubblicare il sito
+  id-token: write   # serve a GitHub per verificare chi sta pubblicando
+
+concurrency:
+  group: pubblica-sito   # mai due pubblicazioni nello stesso momento
+  cancel-in-progress: false
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pubblicazione.outputs.page_url }}
+    steps:
+      - name: Scarica il codice del repository
+        uses: actions/checkout@v5
+
+      - name: Prepara la pubblicazione (e scopri l'indirizzo del sito)
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Recupera i dati già pubblicati (storico, prezzi, allarmi)
+        env:
+          SITO: ${{ steps.pages.outputs.base_url }}
+        run: |
+          mkdir -p data
+          for nome in prezzi storico intraday allarmi; do
+            # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
+            if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
+               && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then
+              mv "/tmp/$nome.json" "data/$nome.json"
+              echo "Recuperato $nome.json dal sito"
+            else
+              echo "Nessun $nome.json sul sito: si parte da quello del repository (o da zero)"
+            fi
+          done
+
+      - name: Scarica i prezzi e controlla gli allarmi
+        # Se Yahoo un giorno non risponde, pubblichiamo comunque il sito con gli ultimi dati
+        continue-on-error: true
+        run: python3 scripts/aggiorna_prezzi.py
+        env:
+          # Il nome segreto del canale ntfy: sta nella "cassaforte" di GitHub, non nel codice
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          PROVA_NOTIFICA: ${{ inputs.prova_notifica }}
+
+      - name: Metti insieme i file del sito
+        run: |
+          # Solo ciò che serve alla pagina: niente programmi, niente README
+          mkdir -p _site
+          cp index.html style.css app.js _site/
+          cp -r data _site/data
+
+      - name: Impacchetta il sito
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Pubblica il sito
+        id: pubblicazione
+        uses: actions/deploy-pages@v4
