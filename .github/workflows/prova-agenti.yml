@@ -1,0 +1,40 @@
+# Un controllo automatico: verifica che gli agenti funzionino.
+# NON modifica nessun file e NON pubblica il sito (ha solo il permesso di leggere).
+#
+# Parte da solo quando una pull request cambia i programmi degli agenti,
+# oppure a mano: Actions → "Prova agenti" → Run workflow.
+
+name: Prova agenti
+
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "data/watchlist.json"
+      - "data/titoli.json"
+      - ".github/workflows/prova-agenti.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prova:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Scarica il codice del repository
+        uses: actions/checkout@v5
+
+      - name: Installa la libreria di Anthropic (serve solo alle prove dell'AI, con un Claude finto)
+        run: pip install --quiet "anthropic>=2.8,<3"
+
+      - name: Prove dei calcoli (con dati finti, senza internet)
+        run: python3 scripts/prova_agenti.py
+
+      - name: Prova dal vivo delle fonti (Yahoo Finance)
+        # La tabella con il risultato compare nella pagina dell'esecuzione, sotto "Summary"
+        run: python3 scripts/prova_agenti.py --dal-vivo
+        env:
+          # Facoltativo: se crei questo segreto, la prova controlla anche la fonte alternativa Alpha Vantage
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}

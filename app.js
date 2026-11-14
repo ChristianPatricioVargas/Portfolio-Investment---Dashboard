@@ -32,6 +32,10 @@ let notizieTutte = false; // true = mostra tutte le notizie, non solo le prime 5
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
 let posizioni = [];
 let inModifica = null;    // l'acquisto che stai modificando: { ticker, indice } (null = nuovo)
+// Il lavoro degli agenti (da data/analisi.json): per ogni titolo fondamentali, analisi tecnica, rischi...
+let analisi = { titoli: {} };
+// Le tue schede tesi, salvate solo nel browser (vedi agenti/fondamentale.js)
+let tesi = {};
 
 // Una scorciatoia: $("x") prende l'elemento della pagina con id="x"
 const $ = (id) => document.getElementById(id);
@@ -153,7 +157,9 @@ function calcola(posizione) {
 
 function infoTitolo(ticker) {
   const indice = titoli.findIndex((t) => t.ticker === ticker);
-  const info = titoli[indice] || { nome: ticker, tipo: "", ticker };
+  // Se non è tra i titoli del portafoglio, può essere uno della watchlist (lo conoscono gli agenti)
+  const scheda = analisi.titoli[ticker];
+  const info = titoli[indice] || { nome: scheda ? scheda.nome : ticker, tipo: scheda ? scheda.tipo : "", ticker };
   return { ...info, colori: COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length] };
 }
 
@@ -211,6 +217,7 @@ function disegna() {
     let riga2 = numAcquisti === 1 ? "1 acquisto" : `${numAcquisti} acquisti`;
     if (r) riga2 += " · ora " + euro(r.prezzo);
     if (r && r.oggi !== null) riga2 += " · oggi " + percentuale(r.oggi);
+    if (testoCampanelli(posizione.ticker)) riga2 += " · " + testoCampanelli(posizione.ticker);
 
     // Creiamo la scheda: è un pulsante, se la tocchi si apre la pagina del titolo
     const scheda = document.createElement("button");
@@ -267,61 +274,105 @@ function disegna() {
   const tuoi = posizioni.length ? posizioni.map((p) => p.ticker) : titoli.map((t) => t.ticker);
   $("fonte-prezzi").textContent = Object.keys(prezzi).length ? testoFonte(tuoi) : "";
 
-  // Disegniamo il grafico della vista che stai guardando
-  if (tickerAperto) disegnaTitolo();
-  else disegnaGrafico();
+  // Disegniamo il resto della vista che stai guardando
+  disegnaVista();
 }
 
-// ---------- La pagina di un titolo ----------
-// L'indirizzo della pagina cambia in ".../#titolo=SAP.DE": così il gesto "indietro"
-// dell'iPad riporta alla panoramica, proprio come in un'app.
+// ---------- Le pagine e la pagina di un titolo ----------
+// L'indirizzo della pagina dice cosa stai guardando:
+//   .../  oppure #oggi    la pagina Oggi: il riepilogo (è la pagina iniziale)
+//   .../#portafoglio      la panoramica del portafoglio
+//   .../#occasioni        la classifica del cacciatore
+//   .../#titolo=SAP.DE    la pagina di un titolo (tuo, oppure della watchlist)
+// Così il gesto "indietro" dell'iPad funziona come in un'app.
 
-let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = panoramica)
-let arrivatoDallaPanoramica = false;
+let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = nessuno)
+let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni" o "titolo"
+let arrivatoDaDentro = false;     // true = sei arrivato al titolo toccandolo in un'altra pagina
 
 function vaiAlTitolo(ticker) {
-  arrivatoDallaPanoramica = true;
+  arrivatoDaDentro = true;
   location.hash = "titolo=" + encodeURIComponent(ticker);
 }
 
 function tornaAllaPanoramica() {
-  // Se sei arrivato dalla panoramica, "indietro" ti riporta lì; altrimenti puliamo l'indirizzo
-  if (arrivatoDallaPanoramica) history.back();
-  else location.hash = "";
+  // Se sei arrivato da un'altra pagina, "indietro" ti riporta lì; altrimenti andiamo al portafoglio
+  if (arrivatoDaDentro) history.back();
+  else location.hash = "portafoglio";
+}
+
+// Disegna la pagina che stai guardando
+function disegnaVista() {
+  if (vistaAperta === "titolo") disegnaTitolo();
+  else if (vistaAperta === "occasioni") disegnaOccasioni();
+  else if (vistaAperta === "oggi") disegnaOggi();
+  else disegnaGrafico();
 }
 
 // Guarda l'indirizzo e mostra la vista giusta
 function mostraVista() {
-  const trovato = location.hash.match(/^#titolo=(.+)$/);
+  const indirizzo = location.hash.slice(1);
+  const trovato = indirizzo.match(/^titolo=(.+)$/);
   const ticker = trovato ? decodeURIComponent(trovato[1]) : null;
-  const esiste = posizioni.some((p) => p.ticker === ticker);
-  if (!esiste) arrivatoDallaPanoramica = false;
+  // Un titolo si può aprire se lo possiedi, se è nell'elenco o se lo seguono gli agenti
+  const esiste = Boolean(ticker) && (posizioni.some((p) => p.ticker === ticker) ||
+    titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
+  if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
+  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni"].includes(indirizzo) ? indirizzo : "oggi";
 
   chiudiModulo();
+  $("modulo-tesi").hidden = true;
   notizieTutte = false;
-  $("vista-panoramica").hidden = Boolean(tickerAperto);
-  $("vista-titolo").hidden = !tickerAperto;
-  document.body.classList.toggle("dettaglio", Boolean(tickerAperto));   // pagina più larga
-  if (tickerAperto) disegnaTitolo();
-  else disegnaGrafico();
+  $("vista-oggi").hidden = vistaAperta !== "oggi";
+  $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
+  $("vista-occasioni").hidden = vistaAperta !== "occasioni";
+  $("vista-titolo").hidden = vistaAperta !== "titolo";
+  $("navigazione").hidden = vistaAperta === "titolo";
+  if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
+  document.querySelectorAll("#navigazione a").forEach((a) => a.classList.toggle("attivo", a.dataset.vista === vistaAperta));
+  disegnaVista();
   window.scrollTo(0, 0);
 }
 
 function disegnaTitolo() {
+  if (!tickerAperto) return;
   const posizione = posizioni.find((p) => p.ticker === tickerAperto);
-  if (!posizione) return;
   const info = infoTitolo(tickerAperto);
-  const t = totali(posizione);
-  const r = calcola(posizione);
 
-  // ---- In alto: sigla, nome, valore e guadagno ----
+  // ---- In alto: sigla e nome ----
   const sigla = $("sigla-titolo");
-  sigla.textContent = info.ticker.split(".")[0];
+  sigla.textContent = info.ticker.split(".")[0].slice(0, 6);
   sigla.style.background = info.colori[0];
   sigla.style.color = info.colori[1];
   $("nome-titolo").textContent = info.nome;
   $("tipo-titolo").textContent = info.tipo;
+
+  // ---- Le parti personali (valore, acquisti, rendimento, tesi) ci sono solo se hai il titolo ----
+  $("sezione-rendimento").hidden = !posizione;
+  $("colonna-personale").hidden = !posizione;
+  // Pagina larga a due colonne solo se c'è la colonna degli acquisti
+  document.body.classList.toggle("dettaglio", Boolean(posizione));
+  document.querySelector(".colonne").classList.toggle("una-colonna", !posizione);
+  if (posizione) disegnaPosizione(posizione);
+  else disegnaTitoloOsservato();
+
+  disegnaNotizie();
+  // Le parti degli agenti (vedi la cartella agenti/)
+  disegnaSeVendo();
+  disegnaTecnico();
+  disegnaFondamentali();
+  disegnaCacciatore();
+  disegnaAvvocato();
+  disegnaTesi();
+}
+
+// La parte della pagina del titolo che riguarda la TUA posizione
+function disegnaPosizione(posizione) {
+  const t = totali(posizione);
+  const r = calcola(posizione);
+
+  // ---- Valore e guadagno ----
   $("valore-titolo").textContent = r ? euro(r.valore) : "–";
   const chip = $("gp-titolo");
   chip.textContent = r ? `${r.gp >= 0 ? "▲" : "▼"} ${euro(r.gp, true)} · ${percentuale(r.gpPerc)}` : "";
@@ -368,7 +419,6 @@ function disegnaTitolo() {
     });
 
   disegnaGraficoTitolo();
-  disegnaNotizie();
 }
 
 // ---------- Le notizie del titolo ----------
@@ -407,9 +457,12 @@ function disegnaNotizie() {
 
   const vuoto = $("nessuna-notizia");
   vuoto.hidden = elenco.length > 0;
-  vuoto.textContent = notizieAggiornateIl
-    ? "Nessuna notizia negli ultimi 7 giorni."
-    : "⏳ Le notizie arriveranno con il prossimo aggiornamento automatico.";
+  const soloOsservato = (analisi.titoli[tickerAperto] || {}).gruppo === "watchlist" && notizie[tickerAperto] === undefined;
+  vuoto.textContent = soloOsservato
+    ? "Le notizie vengono scaricate solo per i titoli del portafoglio e per quelli in classifica."
+    : notizieAggiornateIl
+      ? "Nessuna notizia negli ultimi 7 giorni."
+      : "⏳ Le notizie arriveranno con il prossimo aggiornamento automatico.";
 
   const altre = $("altre-notizie");
   altre.hidden = elenco.length <= NOTIZIE_VISIBILI;
@@ -418,7 +471,7 @@ function disegnaNotizie() {
   // Da quale servizio arrivano (Yahoo Finance le dà in inglese: lo diciamo)
   const servizio = notizieServizi[tickerAperto] || "Google News";
   const lingua = servizio === "Yahoo Finance" ? " (in inglese)" : "";
-  $("fonte-notizie").textContent = notizieAggiornateIl
+  $("fonte-notizie").textContent = notizieAggiornateIl && elenco.length
     ? `Fonte: ${servizio}${lingua} · ultimi 7 giorni · controllate ${momento(notizieAggiornateIl)}`
     : "";
 }
@@ -515,9 +568,14 @@ function elimina() {
 
 // ---------- Backup ----------
 // Copia i tuoi dati come testo: puoi incollarlo in Note per tenerlo al sicuro.
+// Dentro ci sono TUTTI i dati personali: acquisti, tesi e titoli tolti dalla watchlist.
+
+function datiPersonali() {
+  return { versione: 3, posizioni, tesi, watchlist: watchlistLocale };
+}
 
 async function copiaBackup() {
-  const testo = JSON.stringify(posizioni);
+  const testo = JSON.stringify(datiPersonali());
   try {
     await navigator.clipboard.writeText(testo);
     alert("Backup copiato! Incollalo in Note per conservarlo.");
@@ -530,8 +588,17 @@ function ripristinaBackup() {
   const testo = prompt("Incolla qui il testo del backup:");
   if (!testo) return;
   try {
-    posizioni = normalizza(JSON.parse(testo));   // va bene anche un backup della versione vecchia
+    const dati = JSON.parse(testo);
+    // I backup vecchi erano solo la lista degli acquisti: vanno ancora bene
+    const vecchioFormato = Array.isArray(dati);
+    posizioni = normalizza(vecchioFormato ? dati : dati.posizioni);
     salvaPosizioni();
+    if (!vecchioFormato) {
+      tesi = pulisciTesi(dati.tesi);
+      salvaTesi();
+      watchlistLocale = pulisciWatchlist(dati.watchlist);
+      salvaWatchlist();
+    }
     disegna();
     mostraVista();
   } catch (errore) {
@@ -899,8 +966,10 @@ function nascondiFumetto(svgOEvento) {
 
 // Ridisegna il grafico della vista che stai guardando
 function ridisegnaGrafici() {
-  if (tickerAperto) disegnaGraficoTitolo();
-  else disegnaGrafico();
+  if (tickerAperto) {
+    if (posizioni.some((p) => p.ticker === tickerAperto)) disegnaGraficoTitolo();
+    disegnaGraficoTecnico();
+  } else if (vistaAperta === "portafoglio") disegnaGrafico();
 }
 
 // Il selettore "%" / "€" del grafico della panoramica
@@ -938,6 +1007,8 @@ function scegliPeriodo(chiave) {
 
 async function avvia() {
   posizioni = caricaPosizioni();
+  tesi = caricaTesi();
+  watchlistLocale = caricaWatchlist();
 
   try {
     // fetch = "vai a prendere" un file. await = "aspetta che arrivi".
@@ -966,10 +1037,12 @@ async function avvia() {
 
   // Storico, prezzi di oggi e notizie non sono indispensabili: se mancano, la pagina funziona lo stesso
   try {
-    const [rispostaStorico, rispostaIntraday, rispostaNotizie] = await Promise.all([
+    const [rispostaStorico, rispostaIntraday, rispostaNotizie, rispostaAnalisi, rispostaAi] = await Promise.all([
       fetch("data/storico.json", { cache: "no-store" }),
       fetch("data/intraday.json", { cache: "no-store" }),
       fetch("data/notizie.json", { cache: "no-store" }),
+      fetch("data/analisi.json", { cache: "no-store" }),
+      fetch("data/ai.json", { cache: "no-store" }),
     ]);
     if (rispostaStorico.ok) storico = await rispostaStorico.json();
     if (rispostaIntraday.ok) intraday = await rispostaIntraday.json();
@@ -978,6 +1051,14 @@ async function avvia() {
       notizie = datiNotizie.notizie || {};
       notizieAggiornateIl = datiNotizie.aggiornato || null;
       notizieServizi = datiNotizie.servizi || {};
+    }
+    if (rispostaAnalisi.ok) {
+      const datiAnalisi = await rispostaAnalisi.json();
+      if (datiAnalisi && datiAnalisi.titoli) analisi = datiAnalisi;
+    }
+    if (rispostaAi.ok) {
+      const datiAi = await rispostaAi.json();
+      if (datiAi && datiAi.analisi) ai = datiAi;
     }
   } catch (errore) {
     /* niente grafici, pazienza */
@@ -1009,6 +1090,10 @@ async function avvia() {
   document.querySelectorAll(".periodi button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodo));
   $("elimina").onclick = elimina;
   $("modulo").addEventListener("submit", quandoSalvi);
+  collegaFondamentale();
+  collegaTecnico();
+  collegaCacciatore();
+  collegaOggi();
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 

@@ -20,8 +20,73 @@
 </head>
 <body>
   <main>
+    <!-- Le "linguette" in alto per passare da una pagina all'altra -->
+    <nav class="navigazione" id="navigazione" aria-label="Pagine">
+      <a href="#oggi" data-vista="oggi">Oggi</a>
+      <a href="#portafoglio" data-vista="portafoglio">Portafoglio</a>
+      <a href="#occasioni" data-vista="occasioni">Occasioni</a>
+    </nav>
+
+    <!-- ===== VISTA "Oggi": il riepilogo di tutti gli agenti (la riempie agenti/oggi.js) ===== -->
+    <div id="vista-oggi" hidden>
+      <header class="testata">
+        <div class="etichetta-alta" id="data-oggi"></div>
+        <h1 class="titolo-pagina">Oggi</h1>
+      </header>
+
+      <p class="avviso" id="oggi-vuoto" hidden>Non hai ancora inserito acquisti: vai su <strong>Portafoglio</strong> e tocca <strong>+ Aggiungi</strong>.
+        Intanto qui sotto trovi le occasioni del cacciatore.</p>
+
+      <!-- 1. Come va il portafoglio -->
+      <section class="riquadro" id="oggi-portafoglio">
+        <h2>💼 Come va il portafoglio</h2>
+        <div class="totale piccolo" id="oggi-valore">–</div>
+        <span class="chip" id="oggi-gp"></span>
+        <div class="sotto" id="oggi-variazione"></div>
+        <div class="fonte-prezzi" id="oggi-fonte"></div>
+      </section>
+
+      <!-- 2. Cosa è successo ai miei titoli -->
+      <section class="riquadro" id="oggi-titoli">
+        <h2>📌 I miei titoli</h2>
+        <div id="elenco-oggi-titoli"></div>
+      </section>
+
+      <!-- 3. Lo stato delle mie tesi -->
+      <section class="riquadro" id="oggi-tesi">
+        <h2>📝 Le mie tesi</h2>
+        <div id="elenco-oggi-tesi"></div>
+      </section>
+
+      <!-- 4. Le migliori occasioni del cacciatore -->
+      <div class="intestazione-sezione">
+        <h2>🎯 Le migliori occasioni</h2>
+        <a class="link" href="#occasioni">Tutte ›</a>
+      </div>
+      <div id="elenco-oggi-occasioni"></div>
+      <p class="vuoto" id="oggi-occasioni-vuoto" hidden></p>
+
+      <!-- 5. Copia per l'analisi -->
+      <section class="riquadro">
+        <h2>📋 Fatti aiutare a ragionare</h2>
+        <p class="suggerimento">Copia in un colpo solo tutti i dati (portafoglio, tesi, fondamentali, segnali tecnici, campanelli d'allarme,
+          occasioni, notizie) e incollali in una chat con Claude per farti fare un'analisi critica.</p>
+        <button type="button" class="pulsante" id="copia-analisi">Copia per l'analisi</button>
+        <p class="nota-riquadro" id="esito-copia" hidden></p>
+        <textarea id="testo-analisi" rows="8" readonly hidden aria-label="Testo per l'analisi"></textarea>
+        <p class="avvertenza">🔒 Il testo contiene i tuoi dati personali (importi, prezzi d'acquisto, tesi): resta sul dispositivo
+          finché non lo incolli tu da qualche parte.</p>
+      </section>
+
+      <footer>
+        <p id="oggi-aggiornamento"></p>
+        <p>Questa pagina riassume dati pubblici e regole meccaniche: <strong>non è consulenza finanziaria</strong>.
+          Gli agenti segnalano e spiegano; la decisione finale è sempre tua.</p>
+      </footer>
+    </div>
+
     <!-- ===== VISTA 1: la panoramica di tutto il portafoglio ===== -->
-    <div id="vista-panoramica">
+    <div id="vista-panoramica" hidden>
       <!-- In alto: il valore totale, in grande -->
       <header class="testata">
         <div class="etichetta-alta">Valore del portafoglio</div>
@@ -68,7 +133,7 @@
 
       <footer>
         <p id="aggiornamento"></p>
-        <p>🔒 Quote e capitale investito restano salvati solo su questo dispositivo.</p>
+        <p>🔒 Quote, capitale investito e tesi restano salvati solo su questo dispositivo.</p>
         <p>
           <button class="link" id="backup" type="button">Copia backup</button> ·
           <button class="link" id="ripristina" type="button">Ripristina backup</button>
@@ -76,9 +141,70 @@
       </footer>
     </div>
 
+    <!-- ===== VISTA "Occasioni": il lavoro del cacciatore (la riempie agenti/cacciatore.js) ===== -->
+    <div id="vista-occasioni" hidden>
+      <header class="testata">
+        <div class="etichetta-alta">Il cacciatore</div>
+        <h1 class="titolo-pagina">🎯 Occasioni</h1>
+        <p class="sotto">Grandi aziende solide scese molto dai massimi, secondo i tuoi criteri.</p>
+      </header>
+      <p class="avviso" id="attesa-occasioni">⏳ La classifica arriverà con il prossimo giro serale degli agenti.</p>
+      <div id="corpo-occasioni" hidden>
+        <p class="avviso" id="errori-occasioni" hidden></p>
+        <p class="nota-criteri" id="criteri-occasioni"></p>
+
+        <div class="intestazione-sezione"><h2>Rispettano tutti i criteri</h2></div>
+        <div id="elenco-classifica"></div>
+        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessun titolo della watchlist rispetta tutti e quattro i criteri. Succede spesso: le vere occasioni sono rare.</p>
+
+        <div class="intestazione-sezione"><h2>Ci vanno vicino (manca un criterio)</h2></div>
+        <div id="elenco-quasi"></div>
+        <p class="vuoto" id="vuoto-quasi" hidden>Nessun titolo.</p>
+
+        <section class="riquadro">
+          <h2 id="titolo-watchlist">👀 La watchlist</h2>
+          <p class="suggerimento">Tocca un titolo per vedere le sue analisi. "Togli" lo nasconde su questo dispositivo.</p>
+          <div id="elenco-watchlist"></div>
+          <details class="glossario" id="sezione-tolti" hidden>
+            <summary id="titolo-tolti">Titoli che hai tolto</summary>
+            <div id="elenco-tolti"></div>
+          </details>
+        </section>
+
+        <section class="riquadro">
+          <h2>➕ Aggiungi un titolo alla watchlist</h2>
+          <p class="suggerimento">La watchlist sta nel file <code>data/watchlist.json</code> del repository: è GitHub, ogni sera,
+            a scaricare i dati. Qui prepari la riga da incollare nel file. La sigla è quella di
+            <a href="https://finance.yahoo.com/lookup" target="_blank" rel="noopener noreferrer">Yahoo Finance</a>
+            sulla Borsa principale dell'azienda (es. <code>NKE</code>, <code>MC.PA</code>, <code>7203.T</code>).</p>
+          <form id="modulo-watchlist">
+            <label>Nome dell'azienda <input id="nuovo-nome" type="text" placeholder="es. Nike" required></label>
+            <label>Sigla su Yahoo Finance <input id="nuovo-ticker" type="text" placeholder="es. NKE" autocapitalize="characters" autocomplete="off" required></label>
+            <label>Area
+              <select id="nuova-area"><option>Europa</option><option>USA</option><option>Asia</option></select>
+            </label>
+            <button type="submit" class="pulsante">Prepara la riga</button>
+          </form>
+          <div id="istruzioni-aggiungi" hidden>
+            <input id="riga-watchlist" type="text" readonly aria-label="Riga da incollare">
+            <ol class="passi">
+              <li><button type="button" class="link" id="copia-riga">Copia la riga</button></li>
+              <li><a id="apri-watchlist" target="_blank" rel="noopener noreferrer">Apri il file su GitHub</a> (oppure cercalo nel repository: <code>data/watchlist.json</code>, poi la matita ✏️)</li>
+              <li>Incolla la riga dopo la prima parentesi quadra <code>[</code> e tocca <strong>Commit changes</strong></li>
+              <li>Il titolo comparirà dopo il prossimo giro serale degli agenti</li>
+            </ol>
+          </div>
+        </section>
+
+        <p class="fonte-notizie" id="fonte-occasioni"></p>
+        <p class="avvertenza">Il cacciatore applica regole meccaniche a dati pubblici: segnala titoli da studiare, <strong>non dice cosa comprare</strong>.
+          Un titolo sceso molto può scendere ancora. Non è consulenza finanziaria. La decisione è tua.</p>
+      </div>
+    </div>
+
     <!-- ===== VISTA 2: la pagina di un singolo titolo ===== -->
     <div id="vista-titolo" hidden>
-      <button type="button" class="link indietro" id="indietro">‹ Tutti i titoli</button>
+      <button type="button" class="link indietro" id="indietro">‹ Indietro</button>
 
       <div class="colonne">
         <!-- Colonna sinistra: numeri e grafico del titolo -->
@@ -97,7 +223,16 @@
           <!-- Una griglia di numeri: quote, prezzo medio, ecc. (la riempie app.js) -->
           <dl class="numeri-titolo" id="numeri-titolo"></dl>
 
-          <section class="grafico" aria-label="Rendimento del titolo">
+          <!-- "Se vendo oggi": quanto resta in tasca dopo tasse e commissione (lo calcola agenti/fondamentale.js) -->
+          <section class="riquadro" id="sezione-se-vendo" hidden>
+            <h2>💶 Se vendo oggi</h2>
+            <dl class="righe-conto" id="righe-se-vendo"></dl>
+            <p class="nota-riquadro" id="nota-se-vendo" hidden></p>
+            <p class="avvertenza">Stima con il prezzo indicato sopra, il 26% di tasse sul guadagno e 1 € di commissione.
+              Non tiene conto di eventuali minusvalenze passate. Non è consulenza fiscale.</p>
+          </section>
+
+          <section class="grafico" id="sezione-rendimento" aria-label="Rendimento del titolo">
             <div class="intestazione-grafico">
               <h2>Rendimento</h2>
             </div>
@@ -111,6 +246,77 @@
             <p class="nota-grafico" id="nota-grafico-titolo" hidden></p>
           </section>
 
+          <!-- L'analista tecnico: l'andamento del prezzo (lo riempie agenti/tecnico.js) -->
+          <section class="riquadro" id="sezione-tecnico">
+            <h2>📈 Analista tecnico <span class="ruolo">l'andamento del prezzo</span></h2>
+            <p class="vuoto" id="attesa-tecnico">⏳ L'analisi tecnica arriverà con il prossimo giro serale degli agenti.</p>
+            <div id="corpo-tecnico" hidden>
+              <p class="frase-agente" id="frase-tecnico"></p>
+              <div class="legenda" id="legenda-tecnico"></div>
+              <div class="area-grafico" id="area-grafico-tecnico">
+                <svg id="grafico-tecnico" role="img"></svg>
+                <div class="fumetto" hidden></div>
+              </div>
+              <dl class="numeri-agente" id="numeri-tecnico"></dl>
+              <p class="fonte-notizie" id="fonte-tecnico"></p>
+            </div>
+            <p class="avvertenza">L'analisi tecnica descrive come si è mosso il prezzo in passato: <strong>non prevede il futuro</strong>.
+              Non è consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
+          <!-- L'analista fondamentale: i conti dell'azienda (lo riempie agenti/fondamentale.js) -->
+          <section class="riquadro" id="sezione-fondamentali">
+            <h2>🔎 Analista fondamentale <span class="ruolo">i conti dell'azienda</span></h2>
+            <div id="corpo-fondamentali"></div>
+            <details class="glossario" id="glossario-fondamentali">
+              <summary>Cosa significano questi numeri?</summary>
+              <p><b>P/E</b>: quanti anni di utili "costa" l'azione. Alto = cara (o ci si aspetta molta crescita), basso = economica (o in difficoltà).</p>
+              <p><b>Crescita</b>: ricavi e utili dell'ultimo trimestre rispetto allo stesso trimestre di un anno fa.</p>
+              <p><b>Debito netto ÷ EBITDA</b>: quanti anni di guadagni operativi servirebbero per ripagare i debiti. Sotto 2 è tranquillo, sopra 3-4 è pesante.</p>
+              <p><b>Margini</b>: quanto resta di ogni 100 incassati. Lordo = dopo i costi di produzione; operativo = dopo tutti i costi; netto = dopo tasse e interessi.</p>
+              <p><b>Target medio</b>: il prezzo che gli analisti si aspettano tra 12 mesi, in media. È un'opinione, non una promessa: spesso sbagliano.</p>
+              <p><b>Trimestrale</b>: ogni tre mesi l'azienda pubblica i conti. È il momento in cui il prezzo si muove di più.</p>
+            </details>
+            <p class="fonte-notizie" id="fonte-fondamentali"></p>
+            <p class="avvertenza">Dati e opinioni di terzi per aiutarti a ragionare: non sono consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
+          <!-- Il cacciatore: i quattro criteri delle occasioni, uno per uno (lo riempie agenti/cacciatore.js) -->
+          <section class="riquadro" id="sezione-cacciatore" hidden>
+            <h2>🎯 Cacciatore <span class="ruolo">i criteri delle occasioni</span></h2>
+            <p class="frase-agente" id="frase-cacciatore"></p>
+            <ul class="elenco-criteri" id="elenco-criteri"></ul>
+            <p class="avvertenza">Regole meccaniche su dati pubblici: un aiuto per scegliere cosa studiare, non un consiglio di acquisto.
+              Non è consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
+          <!-- L'avvocato del diavolo: i campanelli d'allarme (lo riempie agenti/avvocato.js) -->
+          <section class="riquadro" id="sezione-avvocato">
+            <h2>😈 Avvocato del diavolo <span class="ruolo">i rischi</span></h2>
+            <p class="vuoto" id="attesa-avvocato">⏳ I campanelli d'allarme arriveranno con il prossimo giro serale degli agenti.</p>
+            <div id="corpo-avvocato" hidden>
+              <p class="suggerimento" id="avvocato-incompleto" hidden>⚠️ Mancano i fondamentali di questo titolo: i campanelli su utili, debito e analisti
+                non sono stati controllati. Qui sotto ci sono solo quelli su prezzo e notizie.</p>
+              <ul class="elenco-campanelli" id="elenco-campanelli"></ul>
+              <p class="vuoto" id="nessun-campanello" hidden>Nessun campanello d'allarme con le regole attuali. Non vuol dire che non ci siano rischi: le regole guardano solo alcuni numeri.</p>
+              <!-- L'analisi scritta dall'AI: compare solo se l'AI è accesa -->
+              <div id="blocco-ai" hidden>
+                <h3>Pro e contro secondo l'AI</h3>
+                <p class="testo-tesi" id="sintesi-ai"></p>
+                <h3>A favore</h3>
+                <ul class="punti-ai" id="pro-ai"></ul>
+                <h3>Contro</h3>
+                <ul class="punti-ai" id="contro-ai"></ul>
+                <h3>Da verificare prima di decidere</h3>
+                <ul class="punti-ai" id="verificare-ai"></ul>
+                <p class="fonte-notizie" id="fonte-ai"></p>
+              </div>
+              <p class="suggerimento" id="stato-ai"></p>
+            </div>
+            <p class="avvertenza">Regole meccaniche su dati pubblici: servono a farti le domande giuste, non a darti la risposta.
+              Non è consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
           <!-- Le notizie sul titolo: le riempie app.js -->
           <section class="notizie" aria-labelledby="titolo-notizie">
             <h2 id="titolo-notizie">📰 Notizie</h2>
@@ -122,7 +328,7 @@
         </section>
 
         <!-- Colonna destra: gli acquisti, da aggiungere, modificare, eliminare -->
-        <section class="colonna-destra">
+        <section class="colonna-destra" id="colonna-personale">
           <div class="intestazione-sezione">
             <h2>Acquisti</h2>
             <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
@@ -131,6 +337,36 @@
           <div id="elenco-acquisti"></div>
           <!-- Qui dentro app.js sposta il modulo quando modifichi un acquisto -->
           <div class="posto-modulo" id="posto-modulo" hidden></div>
+
+          <!-- La scheda tesi: perché sono entrato, target, quando esco. Resta solo su questo dispositivo. -->
+          <section class="riquadro" id="sezione-tesi">
+            <div class="intestazione-riquadro">
+              <h2>📝 La mia tesi</h2>
+              <button class="link" id="modifica-tesi" type="button">Modifica</button>
+            </div>
+            <div id="corpo-tesi"></div>
+            <form id="modulo-tesi" hidden>
+              <label>
+                Perché sono entrato
+                <textarea id="campo-motivo" rows="4" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
+              </label>
+              <label>
+                Il mio target (€ per azione)
+                <input id="campo-target" type="text" inputmode="decimal">
+              </label>
+              <label>
+                Esco se… (una condizione per riga)
+                <textarea id="campo-uscita" rows="4" placeholder="es. Trimestrale debole&#10;Utili sotto le attese per due trimestri&#10;Taglio della guidance"></textarea>
+              </label>
+              <p class="errore" id="errore-tesi" hidden></p>
+              <div class="pulsanti-modulo">
+                <button type="button" class="pulsante secondario" id="annulla-tesi">Annulla</button>
+                <button type="submit" class="pulsante">Salva</button>
+              </div>
+              <button type="button" class="link pericolo" id="elimina-tesi" hidden>Elimina questa tesi</button>
+            </form>
+            <p class="avvertenza">🔒 La tesi resta solo su questo dispositivo ed è inclusa nel backup.</p>
+          </section>
         </section>
       </div>
     </div>
@@ -167,6 +403,12 @@
     </form>
   </dialog>
 
+  <!-- Gli "agenti": ogni file aggiunge alla pagina le funzioni di un agente -->
+  <script src="agenti/fondamentale.js"></script>
+  <script src="agenti/tecnico.js"></script>
+  <script src="agenti/cacciatore.js"></script>
+  <script src="agenti/avvocato.js"></script>
+  <script src="agenti/oggi.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

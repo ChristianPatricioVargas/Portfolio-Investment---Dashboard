@@ -15,12 +15,19 @@ on:
     # Lunedì-venerdì, ai minuti 7 e 37 di ogni ora dalle 7 alle 20 (ora UTC).
     # In Italia sono le 8-21 d'inverno e le 9-22 d'estate.
     - cron: "7,37 7-20 * * 1-5"
+    # Una volta al giorno, la sera (21:23 UTC = dopo la chiusura di Wall Street):
+    # il giro in cui lavorano anche gli "agenti" (fondamentali, analisi tecnica, occasioni, rischi).
+    - cron: "23 21 * * 1-5"
   push:
     branches: [main]   # quando unisci una modifica al codice, il sito si aggiorna subito
   workflow_dispatch:   # il pulsante "Run workflow" per farlo partire a mano
     inputs:
       prova_notifica:
         description: "Manda anche una notifica di prova ntfy (i prezzi si aggiornano comunque)"
+        type: boolean
+        default: false
+      agenti:
+        description: "Fai lavorare subito anche gli agenti (analisi giornaliera), senza aspettare stasera"
         type: boolean
         default: false
 
@@ -47,12 +54,12 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
-      - name: Recupera i dati già pubblicati (prezzi, storico, allarmi, notizie)
+      - name: Recupera i dati già pubblicati (prezzi, storico, allarmi, notizie, analisi)
         env:
           SITO: ${{ steps.pages.outputs.base_url }}
         run: |
           mkdir -p data
-          for nome in prezzi storico intraday allarmi notizie; do
+          for nome in prezzi storico intraday allarmi notizie analisi serie ai; do
             # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
             if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
                && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then
@@ -72,6 +79,31 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           PROVA_NOTIFICA: ${{ inputs.prova_notifica }}
 
+      - name: Fai lavorare gli agenti (una volta al giorno)
+        # Se una fonte non risponde, il sito esce comunque con le analisi del giorno prima
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          GIRO_SERALE: ${{ github.event.schedule == '23 21 * * 1-5' || inputs.agenti == true }}
+          # L'avvocato del diavolo con AI è SPENTO finché non crei il segreto ANTHROPIC_API_KEY.
+          # I tre freni alla spesa sono "Variables" (non segreti): se non le crei valgono i valori predefiniti.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODELLO: ${{ vars.AI_MODELLO }}
+          AI_CHIAMATE_AL_GIORNO: ${{ vars.AI_CHIAMATE_AL_GIORNO }}
+          AI_BUDGET_MENSILE_USD: ${{ vars.AI_BUDGET_MENSILE_USD }}
+        run: |
+          # La libreria di Anthropic serve solo se l'AI è accesa
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            pip install --quiet "anthropic>=2.8,<3"
+          fi
+          if [ "$GIRO_SERALE" = "true" ]; then
+            python3 scripts/aggiorna_analisi.py
+          else
+            # Negli altri giri (ogni 30 minuti) gli agenti lavorano solo se l'analisi manca
+            # o è vecchia: così non si sprecano minuti di GitHub Actions
+            python3 scripts/aggiorna_analisi.py --se-vecchia
+          fi
+
       - name: Controlla che ci siano i prezzi
         run: |
           # Se mancano sia i dati del sito sia quelli di Yahoo, ci fermiamo:
@@ -86,6 +118,7 @@ jobs:
           # Solo ciò che serve alla pagina: niente programmi, niente README
           mkdir -p _site
           cp index.html style.css app.js _site/
+          cp -r agenti _site/agenti
           cp -r data _site/data
 
       - name: Impacchetta il sito
