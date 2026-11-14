@@ -20,6 +20,12 @@
 </head>
 <body>
   <main>
+    <!-- Le "linguette" in alto per passare da una pagina all'altra -->
+    <nav class="navigazione" id="navigazione" aria-label="Pagine">
+      <a href="#portafoglio" data-vista="portafoglio">Portafoglio</a>
+      <a href="#occasioni" data-vista="occasioni">Occasioni</a>
+    </nav>
+
     <!-- ===== VISTA 1: la panoramica di tutto il portafoglio ===== -->
     <div id="vista-panoramica">
       <!-- In alto: il valore totale, in grande -->
@@ -76,9 +82,70 @@
       </footer>
     </div>
 
+    <!-- ===== VISTA "Occasioni": il lavoro del cacciatore (la riempie agenti/cacciatore.js) ===== -->
+    <div id="vista-occasioni" hidden>
+      <header class="testata">
+        <div class="etichetta-alta">Il cacciatore</div>
+        <h1 class="titolo-pagina">🎯 Occasioni</h1>
+        <p class="sotto">Grandi aziende solide scese molto dai massimi, secondo i tuoi criteri.</p>
+      </header>
+      <p class="avviso" id="attesa-occasioni">⏳ La classifica arriverà con il prossimo giro serale degli agenti.</p>
+      <div id="corpo-occasioni" hidden>
+        <p class="avviso" id="errori-occasioni" hidden></p>
+        <p class="nota-criteri" id="criteri-occasioni"></p>
+
+        <div class="intestazione-sezione"><h2>Rispettano tutti i criteri</h2></div>
+        <div id="elenco-classifica"></div>
+        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessun titolo della watchlist rispetta tutti e quattro i criteri. Succede spesso: le vere occasioni sono rare.</p>
+
+        <div class="intestazione-sezione"><h2>Ci vanno vicino (manca un criterio)</h2></div>
+        <div id="elenco-quasi"></div>
+        <p class="vuoto" id="vuoto-quasi" hidden>Nessun titolo.</p>
+
+        <section class="riquadro">
+          <h2 id="titolo-watchlist">👀 La watchlist</h2>
+          <p class="suggerimento">Tocca un titolo per vedere le sue analisi. "Togli" lo nasconde su questo dispositivo.</p>
+          <div id="elenco-watchlist"></div>
+          <details class="glossario" id="sezione-tolti" hidden>
+            <summary id="titolo-tolti">Titoli che hai tolto</summary>
+            <div id="elenco-tolti"></div>
+          </details>
+        </section>
+
+        <section class="riquadro">
+          <h2>➕ Aggiungi un titolo alla watchlist</h2>
+          <p class="suggerimento">La watchlist sta nel file <code>data/watchlist.json</code> del repository: è GitHub, ogni sera,
+            a scaricare i dati. Qui prepari la riga da incollare nel file. La sigla è quella di
+            <a href="https://finance.yahoo.com/lookup" target="_blank" rel="noopener noreferrer">Yahoo Finance</a>
+            sulla Borsa principale dell'azienda (es. <code>NKE</code>, <code>MC.PA</code>, <code>7203.T</code>).</p>
+          <form id="modulo-watchlist">
+            <label>Nome dell'azienda <input id="nuovo-nome" type="text" placeholder="es. Nike" required></label>
+            <label>Sigla su Yahoo Finance <input id="nuovo-ticker" type="text" placeholder="es. NKE" autocapitalize="characters" autocomplete="off" required></label>
+            <label>Area
+              <select id="nuova-area"><option>Europa</option><option>USA</option><option>Asia</option></select>
+            </label>
+            <button type="submit" class="pulsante">Prepara la riga</button>
+          </form>
+          <div id="istruzioni-aggiungi" hidden>
+            <input id="riga-watchlist" type="text" readonly aria-label="Riga da incollare">
+            <ol class="passi">
+              <li><button type="button" class="link" id="copia-riga">Copia la riga</button></li>
+              <li><a id="apri-watchlist" target="_blank" rel="noopener noreferrer">Apri il file su GitHub</a> (oppure cercalo nel repository: <code>data/watchlist.json</code>, poi la matita ✏️)</li>
+              <li>Incolla la riga dopo la prima parentesi quadra <code>[</code> e tocca <strong>Commit changes</strong></li>
+              <li>Il titolo comparirà dopo il prossimo giro serale degli agenti</li>
+            </ol>
+          </div>
+        </section>
+
+        <p class="fonte-notizie" id="fonte-occasioni"></p>
+        <p class="avvertenza">Il cacciatore applica regole meccaniche a dati pubblici: segnala titoli da studiare, <strong>non dice cosa comprare</strong>.
+          Un titolo sceso molto può scendere ancora. Non è consulenza finanziaria. La decisione è tua.</p>
+      </div>
+    </div>
+
     <!-- ===== VISTA 2: la pagina di un singolo titolo ===== -->
     <div id="vista-titolo" hidden>
-      <button type="button" class="link indietro" id="indietro">‹ Tutti i titoli</button>
+      <button type="button" class="link indietro" id="indietro">‹ Indietro</button>
 
       <div class="colonne">
         <!-- Colonna sinistra: numeri e grafico del titolo -->
@@ -106,7 +173,7 @@
               Non tiene conto di eventuali minusvalenze passate. Non è consulenza fiscale.</p>
           </section>
 
-          <section class="grafico" aria-label="Rendimento del titolo">
+          <section class="grafico" id="sezione-rendimento" aria-label="Rendimento del titolo">
             <div class="intestazione-grafico">
               <h2>Rendimento</h2>
             </div>
@@ -155,6 +222,15 @@
             <p class="avvertenza">Dati e opinioni di terzi per aiutarti a ragionare: non sono consulenza finanziaria. La decisione è tua.</p>
           </section>
 
+          <!-- Il cacciatore: i quattro criteri delle occasioni, uno per uno (lo riempie agenti/cacciatore.js) -->
+          <section class="riquadro" id="sezione-cacciatore" hidden>
+            <h2>🎯 Cacciatore <span class="ruolo">i criteri delle occasioni</span></h2>
+            <p class="frase-agente" id="frase-cacciatore"></p>
+            <ul class="elenco-criteri" id="elenco-criteri"></ul>
+            <p class="avvertenza">Regole meccaniche su dati pubblici: un aiuto per scegliere cosa studiare, non un consiglio di acquisto.
+              Non è consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
           <!-- Le notizie sul titolo: le riempie app.js -->
           <section class="notizie" aria-labelledby="titolo-notizie">
             <h2 id="titolo-notizie">📰 Notizie</h2>
@@ -166,7 +242,7 @@
         </section>
 
         <!-- Colonna destra: gli acquisti, da aggiungere, modificare, eliminare -->
-        <section class="colonna-destra">
+        <section class="colonna-destra" id="colonna-personale">
           <div class="intestazione-sezione">
             <h2>Acquisti</h2>
             <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
@@ -244,6 +320,7 @@
   <!-- Gli "agenti": ogni file aggiunge alla pagina le funzioni di un agente -->
   <script src="agenti/fondamentale.js"></script>
   <script src="agenti/tecnico.js"></script>
+  <script src="agenti/cacciatore.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

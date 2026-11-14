@@ -157,7 +157,9 @@ function calcola(posizione) {
 
 function infoTitolo(ticker) {
   const indice = titoli.findIndex((t) => t.ticker === ticker);
-  const info = titoli[indice] || { nome: ticker, tipo: "", ticker };
+  // Se non è tra i titoli del portafoglio, può essere uno della watchlist (lo conoscono gli agenti)
+  const scheda = analisi.titoli[ticker];
+  const info = titoli[indice] || { nome: scheda ? scheda.nome : ticker, tipo: scheda ? scheda.tipo : "", ticker };
   return { ...info, colori: COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length] };
 }
 
@@ -271,62 +273,98 @@ function disegna() {
   const tuoi = posizioni.length ? posizioni.map((p) => p.ticker) : titoli.map((t) => t.ticker);
   $("fonte-prezzi").textContent = Object.keys(prezzi).length ? testoFonte(tuoi) : "";
 
-  // Disegniamo il grafico della vista che stai guardando
+  // Disegniamo il resto della vista che stai guardando
   if (tickerAperto) disegnaTitolo();
+  else if (vistaAperta === "occasioni") disegnaOccasioni();
   else disegnaGrafico();
 }
 
-// ---------- La pagina di un titolo ----------
-// L'indirizzo della pagina cambia in ".../#titolo=SAP.DE": così il gesto "indietro"
-// dell'iPad riporta alla panoramica, proprio come in un'app.
+// ---------- Le pagine e la pagina di un titolo ----------
+// L'indirizzo della pagina dice cosa stai guardando:
+//   .../#portafoglio      la panoramica del portafoglio
+//   .../#occasioni        la classifica del cacciatore
+//   .../#titolo=SAP.DE    la pagina di un titolo (tuo, oppure della watchlist)
+// Così il gesto "indietro" dell'iPad funziona come in un'app.
 
-let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = panoramica)
-let arrivatoDallaPanoramica = false;
+let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = nessuno)
+let vistaAperta = "portafoglio";  // la pagina che stai guardando: "portafoglio", "occasioni" o "titolo"
+let arrivatoDaDentro = false;     // true = sei arrivato al titolo toccandolo in un'altra pagina
 
 function vaiAlTitolo(ticker) {
-  arrivatoDallaPanoramica = true;
+  arrivatoDaDentro = true;
   location.hash = "titolo=" + encodeURIComponent(ticker);
 }
 
 function tornaAllaPanoramica() {
-  // Se sei arrivato dalla panoramica, "indietro" ti riporta lì; altrimenti puliamo l'indirizzo
-  if (arrivatoDallaPanoramica) history.back();
-  else location.hash = "";
+  // Se sei arrivato da un'altra pagina, "indietro" ti riporta lì; altrimenti andiamo al portafoglio
+  if (arrivatoDaDentro) history.back();
+  else location.hash = "portafoglio";
 }
 
 // Guarda l'indirizzo e mostra la vista giusta
 function mostraVista() {
-  const trovato = location.hash.match(/^#titolo=(.+)$/);
+  const indirizzo = location.hash.slice(1);
+  const trovato = indirizzo.match(/^titolo=(.+)$/);
   const ticker = trovato ? decodeURIComponent(trovato[1]) : null;
-  const esiste = posizioni.some((p) => p.ticker === ticker);
-  if (!esiste) arrivatoDallaPanoramica = false;
+  // Un titolo si può aprire se lo possiedi, se è nell'elenco o se lo seguono gli agenti
+  const esiste = Boolean(ticker) && (posizioni.some((p) => p.ticker === ticker) ||
+    titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
+  if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
+  vistaAperta = tickerAperto ? "titolo" : indirizzo === "occasioni" ? "occasioni" : "portafoglio";
 
   chiudiModulo();
   $("modulo-tesi").hidden = true;
   notizieTutte = false;
-  $("vista-panoramica").hidden = Boolean(tickerAperto);
-  $("vista-titolo").hidden = !tickerAperto;
-  document.body.classList.toggle("dettaglio", Boolean(tickerAperto));   // pagina più larga
-  if (tickerAperto) disegnaTitolo();
+  $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
+  $("vista-occasioni").hidden = vistaAperta !== "occasioni";
+  $("vista-titolo").hidden = vistaAperta !== "titolo";
+  $("navigazione").hidden = vistaAperta === "titolo";
+  if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
+  document.querySelectorAll("#navigazione a").forEach((a) => a.classList.toggle("attivo", a.dataset.vista === vistaAperta));
+  if (vistaAperta === "titolo") disegnaTitolo();
+  else if (vistaAperta === "occasioni") disegnaOccasioni();
   else disegnaGrafico();
   window.scrollTo(0, 0);
 }
 
 function disegnaTitolo() {
+  if (!tickerAperto) return;
   const posizione = posizioni.find((p) => p.ticker === tickerAperto);
-  if (!posizione) return;
   const info = infoTitolo(tickerAperto);
-  const t = totali(posizione);
-  const r = calcola(posizione);
 
-  // ---- In alto: sigla, nome, valore e guadagno ----
+  // ---- In alto: sigla e nome ----
   const sigla = $("sigla-titolo");
-  sigla.textContent = info.ticker.split(".")[0];
+  sigla.textContent = info.ticker.split(".")[0].slice(0, 6);
   sigla.style.background = info.colori[0];
   sigla.style.color = info.colori[1];
   $("nome-titolo").textContent = info.nome;
   $("tipo-titolo").textContent = info.tipo;
+
+  // ---- Le parti personali (valore, acquisti, rendimento, tesi) ci sono solo se hai il titolo ----
+  $("sezione-rendimento").hidden = !posizione;
+  $("colonna-personale").hidden = !posizione;
+  // Pagina larga a due colonne solo se c'è la colonna degli acquisti
+  document.body.classList.toggle("dettaglio", Boolean(posizione));
+  document.querySelector(".colonne").classList.toggle("una-colonna", !posizione);
+  if (posizione) disegnaPosizione(posizione);
+  else disegnaTitoloOsservato();
+
+  disegnaNotizie();
+  // Le parti degli agenti (vedi la cartella agenti/)
+  disegnaSeVendo();
+  disegnaTecnico();
+  disegnaFondamentali();
+  disegnaCacciatore();
+  disegnaTesi();
+}
+
+// La parte della pagina del titolo che riguarda la TUA posizione
+function disegnaPosizione(posizione) {
+  const t = totali(posizione);
+  const r = calcola(posizione);
+
+  // ---- Valore e guadagno ----
   $("valore-titolo").textContent = r ? euro(r.valore) : "–";
   const chip = $("gp-titolo");
   chip.textContent = r ? `${r.gp >= 0 ? "▲" : "▼"} ${euro(r.gp, true)} · ${percentuale(r.gpPerc)}` : "";
@@ -373,12 +411,6 @@ function disegnaTitolo() {
     });
 
   disegnaGraficoTitolo();
-  disegnaNotizie();
-  // Le parti degli agenti (vedi la cartella agenti/)
-  disegnaSeVendo();
-  disegnaTecnico();
-  disegnaFondamentali();
-  disegnaTesi();
 }
 
 // ---------- Le notizie del titolo ----------
@@ -417,9 +449,12 @@ function disegnaNotizie() {
 
   const vuoto = $("nessuna-notizia");
   vuoto.hidden = elenco.length > 0;
-  vuoto.textContent = notizieAggiornateIl
-    ? "Nessuna notizia negli ultimi 7 giorni."
-    : "⏳ Le notizie arriveranno con il prossimo aggiornamento automatico.";
+  const soloOsservato = (analisi.titoli[tickerAperto] || {}).gruppo === "watchlist" && notizie[tickerAperto] === undefined;
+  vuoto.textContent = soloOsservato
+    ? "Le notizie vengono scaricate solo per i titoli del portafoglio e per quelli in classifica."
+    : notizieAggiornateIl
+      ? "Nessuna notizia negli ultimi 7 giorni."
+      : "⏳ Le notizie arriveranno con il prossimo aggiornamento automatico.";
 
   const altre = $("altre-notizie");
   altre.hidden = elenco.length <= NOTIZIE_VISIBILI;
@@ -428,7 +463,7 @@ function disegnaNotizie() {
   // Da quale servizio arrivano (Yahoo Finance le dà in inglese: lo diciamo)
   const servizio = notizieServizi[tickerAperto] || "Google News";
   const lingua = servizio === "Yahoo Finance" ? " (in inglese)" : "";
-  $("fonte-notizie").textContent = notizieAggiornateIl
+  $("fonte-notizie").textContent = notizieAggiornateIl && elenco.length
     ? `Fonte: ${servizio}${lingua} · ultimi 7 giorni · controllate ${momento(notizieAggiornateIl)}`
     : "";
 }
@@ -525,10 +560,10 @@ function elimina() {
 
 // ---------- Backup ----------
 // Copia i tuoi dati come testo: puoi incollarlo in Note per tenerlo al sicuro.
-// Dentro ci sono TUTTI i dati personali: acquisti e tesi.
+// Dentro ci sono TUTTI i dati personali: acquisti, tesi e titoli tolti dalla watchlist.
 
 function datiPersonali() {
-  return { versione: 3, posizioni, tesi };
+  return { versione: 3, posizioni, tesi, watchlist: watchlistLocale };
 }
 
 async function copiaBackup() {
@@ -553,6 +588,8 @@ function ripristinaBackup() {
     if (!vecchioFormato) {
       tesi = pulisciTesi(dati.tesi);
       salvaTesi();
+      watchlistLocale = pulisciWatchlist(dati.watchlist);
+      salvaWatchlist();
     }
     disegna();
     mostraVista();
@@ -963,6 +1000,7 @@ function scegliPeriodo(chiave) {
 async function avvia() {
   posizioni = caricaPosizioni();
   tesi = caricaTesi();
+  watchlistLocale = caricaWatchlist();
 
   try {
     // fetch = "vai a prendere" un file. await = "aspetta che arrivi".
@@ -1041,6 +1079,7 @@ async function avvia() {
   $("modulo").addEventListener("submit", quandoSalvi);
   collegaFondamentale();
   collegaTecnico();
+  collegaCacciatore();
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 

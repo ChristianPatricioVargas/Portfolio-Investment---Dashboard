@@ -7,10 +7,12 @@ ad aggiornarsi ogni 30 minuti con aggiorna_prezzi.py: questo lavoro è più pesa
 una volta al giorno basta.
 
 Cosa fa, passo per passo:
-  1. legge i titoli del portafoglio (data/titoli.json)
+  1. legge i titoli del portafoglio (data/titoli.json) e la watchlist (data/watchlist.json)
   2. per ogni azione chiede a Yahoo Finance i dati e li passa all'analista fondamentale
   3. per ogni titolo scarica due anni di prezzi e li passa all'analista tecnico
-  4. salva tutto in data/analisi.json (i numeri) e data/serie.json (le linee dei grafici),
+  4. il cacciatore controlla i suoi criteri e prepara la classifica delle occasioni;
+     per i titoli in classifica scarica anche le notizie
+  5. salva tutto in data/analisi.json (i numeri) e data/serie.json (le linee dei grafici),
      che la pagina legge e mostra
 
 Se un titolo non risponde, tiene la scheda del giorno prima.
@@ -24,13 +26,16 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 
-from aggiorna_prezzi import CARTELLA_DATI, FILE_TITOLI, leggi_json, scrivi_json
-from agenti import fondamentale, tecnico
+from aggiorna_prezzi import CARTELLA_DATI, FILE_NOTIZIE, FILE_TITOLI, leggi_json, notizie_di, scrivi_json
+from agenti import cacciatore, fondamentale, tecnico
 from agenti.yahoo import Yahoo
 
 FILE_ANALISI = CARTELLA_DATI / "analisi.json"
+FILE_WATCHLIST = CARTELLA_DATI / "watchlist.json"   # le grandi aziende che il cacciatore tiene d'occhio
 FILE_SERIE = CARTELLA_DATI / "serie.json"     # le linee del grafico tecnico (prezzo e medie mobili)
 ORE_VALIDITA = 30   # dopo quante ore l'analisi è considerata "vecchia"
+GIORNI_DATI_VALIDI = 7      # fondamentali più vecchi di così non entrano in classifica
+NOTIZIE_PER_OCCASIONI = 12  # per quanti titoli della classifica scarichiamo le notizie
 FORMATO_ORA = "%Y-%m-%dT%H:%M:%SZ"
 
 
@@ -44,14 +49,58 @@ def ancora_fresca(analisi):
 
 
 def elenco_titoli():
-    """Tutti i titoli da analizzare. Per ora: quelli del portafoglio.
+    """Tutti i titoli da analizzare: quelli del portafoglio e quelli della watchlist.
     "fonte" è la sigla da usare per i fondamentali: per Airbus è AIR.PA (Parigi, la Borsa
     principale), perché su quella di Francoforte (AIR.DE) Yahoo ha meno dati sugli analisti."""
     elenco = []
     for t in leggi_json(FILE_TITOLI, []):
         elenco.append({"ticker": t["ticker"], "nome": t["nome"], "tipo": t["tipo"], "gruppo": "portafoglio",
-                       "fonte": t.get("fondamentali") or t["ticker"]})
+                       "fonte": t.get("fondamentali") or t["ticker"], "notizie": t.get("notizie"),
+                       "notizie_en": t.get("notizie_en")})
+    # La watchlist: saltiamo i doppioni e i titoli che sono già nel portafoglio
+    gia_visti = {v["ticker"] for v in elenco} | {v["fonte"] for v in elenco}
+    for t in leggi_json(FILE_WATCHLIST, []):
+        if not t.get("ticker") or t["ticker"] in gia_visti:
+            continue
+        gia_visti.add(t["ticker"])
+        elenco.append({"ticker": t["ticker"], "nome": t.get("nome") or t["ticker"], "tipo": "Azione",
+                       "gruppo": "watchlist", "area": t.get("area") or "", "fonte": t["ticker"],
+                       "notizie": t.get("notizie"), "notizie_en": t.get("notizie_en")})
     return elenco
+
+
+def dati_recenti(scheda, oggi):
+    """Vero se i fondamentali della scheda sono abbastanza recenti da fidarsi."""
+    fatta = (scheda.get("fondamentali") or {}).get("aggiornato")
+    if not fatta:
+        return False
+    limite = (datetime.strptime(oggi, "%Y-%m-%d") - timedelta(days=GIORNI_DATI_VALIDI)).strftime("%Y-%m-%d")
+    return fatta >= limite
+
+
+def notizie_occasioni(elenco, da_seguire):
+    """Scarica le notizie dei titoli in classifica e le aggiunge a data/notizie.json.
+    Toglie quelle dei titoli che non sono più né in portafoglio né in classifica."""
+    dati = leggi_json(FILE_NOTIZIE, {})
+    notizie, servizi = dict(dati.get("notizie", {})), dict(dati.get("servizi", {}))
+    voci = {v["ticker"]: v for v in elenco}
+    restano = {t for t, v in voci.items() if v["gruppo"] == "portafoglio"} | set(da_seguire)
+    for ticker in list(notizie):
+        if ticker not in restano:
+            notizie.pop(ticker)
+            servizi.pop(ticker, None)
+    for ticker in da_seguire:
+        voce = voci[ticker]
+        # Tra virgolette, così Google cerca il nome esatto dell'azienda
+        ricerca = {"nome": voce["nome"], "notizie": voce.get("notizie") or f'"{voce["nome"]}"',
+                   "notizie_en": voce.get("notizie_en") or voce["nome"]}
+        nome, trovate = notizie_di(ricerca)
+        if nome:
+            notizie[ticker], servizi[ticker] = trovate, nome
+        print(f"NOTIZIE {ticker}: {len(trovate)} da {nome or 'nessun servizio'}")
+    dati.update({"notizie": notizie, "servizi": servizi})
+    dati.setdefault("aggiornato", datetime.now(timezone.utc).strftime(FORMATO_ORA))
+    scrivi_json(FILE_NOTIZIE, dati)
 
 
 def analizza_titolo(yahoo, voce, scheda, serie, oggi):
@@ -102,23 +151,42 @@ def main():
     vecchie_serie = leggi_json(FILE_SERIE, {})
     serie = {}
 
-    for voce in elenco_titoli():
+    elenco = elenco_titoli()
+    for voce in elenco:
         # Partiamo dalla scheda vecchia: se oggi un dato non arriva, resta quello di prima
         scheda = dict((vecchia.get("titoli") or {}).get(voce["ticker"], {}))
-        scheda.update({"nome": voce["nome"], "tipo": voce["tipo"], "gruppo": voce["gruppo"]})
+        scheda.update({"nome": voce["nome"], "tipo": voce["tipo"], "gruppo": voce["gruppo"], "area": voce.get("area", "")})
         if voce["ticker"] in vecchie_serie:
             serie[voce["ticker"]] = vecchie_serie[voce["ticker"]]
         errori += analizza_titolo(yahoo, voce, scheda, serie, oggi)
         schede[voce["ticker"]] = scheda
 
-    scrivi_json(FILE_ANALISI, {
+    # --- Cacciatore: controlla i criteri su ogni azione con dati recenti ---
+    for scheda in schede.values():
+        scheda.pop("cacciatore", None)
+        if scheda["tipo"] == "Azione" and dati_recenti(scheda, oggi):
+            scheda["cacciatore"] = cacciatore.valuta(scheda["fondamentali"], scheda.get("tecnica"))
+    in_classifica, quasi = cacciatore.classifica(schede)
+    print(f"CACCIATORE: {len(in_classifica)} in classifica, {len(quasi)} ci vanno vicino.")
+    try:
+        notizie_occasioni(elenco, (in_classifica + quasi)[:NOTIZIE_PER_OCCASIONI])
+    except Exception as errore:
+        errori.append(f"notizie delle occasioni: {errore}")
+        print(f"ERRORE notizie delle occasioni: {errore}")
+
+    risultato = {
         "aggiornato": adesso.strftime(FORMATO_ORA),
         "fonte": "Yahoo Finance (non ufficiale)",
         "errori": errori,       # la pagina li mostra, così sai se una fonte non ha funzionato
+        "criteri": cacciatore.CRITERI,
+        "classifica": in_classifica,
+        "quasi": quasi,
         "titoli": schede,
-    })
-    # Senza rientri e spazi: questo file contiene migliaia di numeri, così pesa molto meno
-    FILE_SERIE.write_text(json.dumps(serie, separators=(",", ":")) + "\n", encoding="utf-8")
+    }
+    # Senza rientri e spazi: questi file contengono migliaia di numeri, così pesano molto meno
+    compatto = lambda dati: json.dumps(dati, ensure_ascii=False, separators=(",", ":")) + "\n"
+    FILE_ANALISI.write_text(compatto(risultato), encoding="utf-8")
+    FILE_SERIE.write_text(compatto(serie), encoding="utf-8")
     print(f"Analisi salvata: {len(schede)} titoli, {len(errori)} errori.")
     if errori:
         # "::warning::" fa comparire un avviso giallo nella pagina di GitHub Actions

@@ -15,7 +15,7 @@ Con l'opzione --dal-vivo fa anche una prova vera con Yahoo Finance su pochi tito
 import os
 import sys
 
-from agenti import fondamentale, tecnico
+from agenti import cacciatore, fondamentale, tecnico
 
 OGGI = "2026-11-14"
 
@@ -128,8 +128,57 @@ def prova_tecnico_livelli():
     assert resistenze[0] == {"prezzo": 110.0, "tocchi": 2}, resistenze
 
 
+# ---------- Cacciatore ----------
+
+def prova_cacciatore():
+    # L'azienda finta: −23% dal massimo (100 su 130), utili +25%, debito 1×EBITDA, target +25% con 24 analisti
+    f = fondamentale.analizza(azienda_finta(), OGGI)
+    esito = cacciatore.valuta(f, None)
+    assert esito["rispettati"] == 4, esito
+    assert esito["motivo"].startswith("-23% dal massimo"), esito["motivo"]
+    assert 0 < esito["punteggio"] <= 100
+
+    # Poco calo: 100 su un massimo di 105 → il primo criterio non è rispettato
+    poco_calo = cacciatore.valuta(fondamentale.analizza(azienda_finta(summaryDetail__fiftyTwoWeekHigh=105.0), OGGI), None)
+    assert poco_calo["rispettati"] == 3 and poco_calo["criteri"][0]["ok"] is False
+
+    # Se c'è l'analisi tecnica, il calo si prende da lì
+    assert cacciatore.valuta(f, {"dalMassimo": -0.02})["criteri"][0]["ok"] is False
+
+    # Troppo debito: 30 miliardi su 5 di EBITDA
+    debito = cacciatore.valuta(fondamentale.analizza(azienda_finta(financialData__totalDebt=3e10), OGGI), None)
+    assert debito["criteri"][2]["ok"] is False and "debito alto" in debito["criteri"][2]["testo"]
+
+    # Pochi analisti: il target non conta
+    pochi = cacciatore.valuta(fondamentale.analizza(azienda_finta(financialData__numberOfAnalystOpinions=2), OGGI), None)
+    assert pochi["criteri"][3]["ok"] is False
+
+    # Dati mancanti: né sì né no
+    assert cacciatore.valuta({}, None)["rispettati"] == 0
+    assert cacciatore.valuta({}, None)["criteri"][1]["ok"] is None
+
+
+def prova_classifica():
+    scheda = lambda gruppo, rispettati, punteggio: {"gruppo": gruppo, "cacciatore": {"rispettati": rispettati, "punteggio": punteggio}}
+    schede = {"A": scheda("watchlist", 4, 50), "B": scheda("watchlist", 4, 80), "C": scheda("watchlist", 3, 90),
+              "D": scheda("portafoglio", 4, 99), "E": scheda("watchlist", 2, 99), "F": {"gruppo": "watchlist"}}
+    assert cacciatore.classifica(schede) == (["B", "A"], ["C"])     # solo watchlist, dal punteggio più alto
+
+
+def prova_watchlist():
+    """La watchlist nel repository deve essere scritta bene: niente doppioni, ogni voce completa."""
+    import json
+    from pathlib import Path
+    cartella = Path(__file__).resolve().parent.parent / "data"
+    watchlist = json.loads((cartella / "watchlist.json").read_text(encoding="utf-8"))
+    sigle = [t["ticker"] for t in watchlist]
+    assert len(sigle) == len(set(sigle)), "doppioni nella watchlist"
+    assert all(t.get("nome") and t.get("area") in ("Europa", "USA", "Asia") for t in watchlist)
+
+
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
-         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_livelli]
+         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_livelli,
+         prova_cacciatore, prova_classifica, prova_watchlist]
 
 
 # ---------- Prova dal vivo (con internet) ----------
