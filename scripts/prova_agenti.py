@@ -346,6 +346,13 @@ def prova_dal_vivo():
     if yahoo.rifiutato:
         righe.append(f"**{yahoo.rifiutato}.** Senza questa fonte restano vuoti: fondamentali, classifica del cacciatore "
                      "e campanelli sui conti. Vedi \"Le fonti dei dati e i loro limiti\" nel README.")
+    # Se esiste il segreto ALPHAVANTAGE_API_KEY, proviamo anche la fonte alternativa
+    chiave = (os.environ.get("ALPHAVANTAGE_API_KEY") or "").strip()
+    if chiave:
+        from agenti import alphavantage
+        righe += [""] + alphavantage.prova_copertura(chiave)
+    else:
+        righe += ["", "Alpha Vantage: non provata (manca il segreto ALPHAVANTAGE_API_KEY)."]
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")

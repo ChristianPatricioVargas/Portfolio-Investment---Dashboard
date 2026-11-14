@@ -35,3 +35,6 @@ jobs:
       - name: Prova dal vivo delle fonti (Yahoo Finance)
         # La tabella con il risultato compare nella pagina dell'esecuzione, sotto "Summary"
         run: python3 scripts/prova_agenti.py --dal-vivo
+        env:
+          # Facoltativo: se crei questo segreto, la prova controlla anche la fonte alternativa Alpha Vantage
+          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
