@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 
 from aggiorna_prezzi import CARTELLA_DATI, FILE_NOTIZIE, FILE_TITOLI, leggi_json, notizie_di, scrivi_json
 from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
-from agenti.yahoo import Yahoo
+from agenti.yahoo import FonteNonDisponibile, Yahoo
 
 FILE_ANALISI = CARTELLA_DATI / "analisi.json"
 FILE_WATCHLIST = CARTELLA_DATI / "watchlist.json"   # le grandi aziende che il cacciatore tiene d'occhio
@@ -125,6 +125,11 @@ def analizza_titolo(yahoo, voce, scheda, serie, oggi):
             # Ricordiamo il target di ogni giorno: serve all'avvocato per accorgersi se viene abbassato
             scheda["storiaTarget"] = avvocato.aggiorna_storia_target(scheda.get("storiaTarget"), nuova["target"], oggi)
             print(f"OK   fondamentali {ticker}: P/E {nuova['pe']}, target {nuova['target']} {nuova['valuta']}")
+        except FonteNonDisponibile as errore:
+            # La fonte è chiusa per tutti i titoli: lo segniamo una volta sola, non 90 volte
+            if str(errore) not in errori:
+                errori.append(str(errore))
+                print(f"ERRORE fondamentali: {errore}. Per questo giro tengo quelli di prima, se ci sono.")
         except Exception as errore:
             errori.append(f"fondamentali {ticker}: {errore}")
             print(f"ERRORE fondamentali {ticker}: {errore} (tengo quelli di prima, se ci sono)")

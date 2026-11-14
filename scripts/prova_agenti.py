@@ -316,7 +316,7 @@ def prova_dal_vivo():
     righe = ["## Prova dal vivo delle fonti (Yahoo Finance)", "",
              "| Titolo | Fondamentali | P/E | Target | Analisti | Trimestrale | Tecnica | RSI | Dal massimo | Criteri |",
              "|---|---|---|---|---|---|---|---|---|---|"]
-    riusciti = 0
+    riusciti = tecniche_ok = 0
     campione = ["SAP.DE", "AIR.PA", "AAPL", "JPM", "7203.T", "005930.KS", "AZN.L", "NOVO-B.CO"]
     for ticker in campione:
         f, t = {}, None
@@ -332,11 +332,16 @@ def prova_dal_vivo():
         except Exception as errore:
             stato_t = f"ERRORE {type(errore).__name__}: {errore}"
         riusciti += stato_f == "ok" and stato_t == "ok"
+        tecniche_ok += stato_t == "ok"
         criteri = cacciatore.valuta(f, t)["rispettati"] if stato_f == "ok" else "–"
         righe.append(f"| {ticker} | {stato_f} | {f.get('pe')} | {f.get('target')} {f.get('valuta', '')} | {f.get('analisti')} "
                      f"| {f.get('prossimaTrimestrale')} | {stato_t} | {t['rsi'] if t else '–'} "
                      f"| {t['dalMassimo'] if t else '–'} | {criteri} su 4 |")
-    righe += ["", f"Riusciti {riusciti} titoli su {len(campione)}."]
+    righe += ["", f"Prezzi storici (analisi tecnica): {tecniche_ok} titoli su {len(campione)}.",
+              f"Fondamentali e analisti: {riusciti} titoli su {len(campione)}."]
+    if yahoo.rifiutato:
+        righe.append(f"**{yahoo.rifiutato}.** Senza questa fonte restano vuoti: fondamentali, classifica del cacciatore "
+                     "e campanelli sui conti. Vedi \"Le fonti dei dati e i loro limiti\" nel README.")
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")

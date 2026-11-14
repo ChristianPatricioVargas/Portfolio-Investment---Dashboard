@@ -27,65 +27,61 @@ MODULI = ("price,summaryDetail,financialData,defaultKeyStatistics,calendarEvents
           "earningsTrend,earningsHistory,assetProfile")
 
 
+class FonteNonDisponibile(Exception):
+    """Yahoo ha rifiutato le richieste dei fondamentali: per questo giro non insistiamo."""
+
+
 class Yahoo:
-    def __init__(self, pausa=0.4):
+    def __init__(self, pausa=0.5):
         self.pausa = pausa            # secondi di attesa tra una richiesta e l'altra (per educazione)
         self.crumb = None
+        self.rifiutato = None         # il motivo, se Yahoo ha rifiutato i fondamentali in questo giro
         biscotti = http.cookiejar.CookieJar()
         self.navigatore = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(biscotti))
         self.navigatore.addheaders = [("User-Agent", NAVIGATORE), ("Accept-Language", "en-US,en;q=0.9")]
 
-    def _scarica(self, indirizzo, tentativi=3):
-        """Scarica una pagina. Se Yahoo dice "troppe richieste" o ha un problema, aspetta e riprova."""
-        for tentativo in range(tentativi):
-            time.sleep(self.pausa)
-            try:
-                with self.navigatore.open(indirizzo, timeout=20) as risposta:
-                    return risposta.read()
-            except urllib.error.HTTPError as errore:
-                riprovabile = errore.code == 429 or errore.code >= 500
-                if not riprovabile or tentativo == tentativi - 1:
-                    raise
-                time.sleep(3 * (tentativo + 1))
-            except (urllib.error.URLError, TimeoutError):
-                if tentativo == tentativi - 1:
-                    raise
-                time.sleep(3 * (tentativo + 1))
+    def _scarica(self, indirizzo):
+        """Scarica una pagina del riepilogo. Una richiesta sola: se Yahoo dice di no, non insistiamo."""
+        time.sleep(self.pausa)
+        with self.navigatore.open(indirizzo, timeout=20) as risposta:
+            return risposta.read()
 
     def _prepara_crumb(self):
         """Prende il biscotto e la parola d'ordine, come farebbe un browser."""
         try:
-            self._scarica("https://fc.yahoo.com", tentativi=1)
+            self._scarica("https://fc.yahoo.com")
         except urllib.error.HTTPError:
             pass   # questa pagina risponde "non trovata", ma intanto ci dà il biscotto
-        for server in SERVER:
-            try:
-                crumb = self._scarica(server + "/v1/test/getcrumb").decode("utf-8").strip()
-            except Exception:
-                continue
-            if crumb and "<" not in crumb and len(crumb) < 40:
-                self.crumb = crumb
-                return
-        raise RuntimeError("Yahoo non ha dato la parola d'ordine (crumb)")
+        crumb = self._scarica(SERVER[0] + "/v1/test/getcrumb").decode("utf-8").strip()
+        if not crumb or "<" in crumb or len(crumb) >= 40:
+            raise ValueError("parola d'ordine (crumb) non valida")
+        self.crumb = crumb
 
     def grafico(self, ticker, periodo="2y", intervallo="1d"):
-        """I prezzi passati di un titolo (dati grezzi)."""
-        indirizzo = "{}/v8/finance/chart/{}?range={}&interval={}".format(
-            SERVER[0], urllib.parse.quote(ticker), periodo, intervallo)
-        return json.loads(self._scarica(indirizzo))["chart"]["result"][0]
+        """I prezzi passati di un titolo (dati grezzi).
+        Usa la stessa identica richiesta che aggiorna_prezzi.py fa da sempre per i prezzi:
+        semplice, senza biscotti, e sappiamo che dai server di GitHub funziona."""
+        time.sleep(self.pausa)
+        richiesta = urllib.request.Request(
+            "{}/v8/finance/chart/{}?range={}&interval={}".format(SERVER[0], urllib.parse.quote(ticker), periodo, intervallo),
+            headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(richiesta, timeout=20) as risposta:
+            return json.load(risposta)["chart"]["result"][0]
 
     def riepilogo(self, ticker):
-        """Fondamentali, analisti e calendario di un titolo (dati grezzi)."""
-        for giro in range(2):
+        """Fondamentali, analisti e calendario di un titolo (dati grezzi).
+        Se Yahoo rifiuta (troppe richieste, accesso negato) ci fermiamo per tutto il giro:
+        continuare a bussare sarebbe scortese e inutile."""
+        if self.rifiutato:
+            raise FonteNonDisponibile(self.rifiutato)
+        try:
             if not self.crumb:
                 self._prepara_crumb()
             indirizzo = "{}/v10/finance/quoteSummary/{}?modules={}&crumb={}".format(
                 SERVER[1], urllib.parse.quote(ticker), MODULI, urllib.parse.quote(self.crumb))
-            try:
-                return json.loads(self._scarica(indirizzo))["quoteSummary"]["result"][0]
-            except urllib.error.HTTPError as errore:
-                # 401 = parola d'ordine scaduta: ne chiediamo una nuova e riproviamo una volta
-                if errore.code == 401 and giro == 0:
-                    self.crumb = None
-                    continue
-                raise
+            return json.loads(self._scarica(indirizzo))["quoteSummary"]["result"][0]
+        except urllib.error.HTTPError as errore:
+            if errore.code in (401, 403, 429):
+                self.rifiutato = f"Yahoo Finance ha rifiutato la richiesta dei fondamentali (errore {errore.code})"
+                raise FonteNonDisponibile(self.rifiutato) from errore
+            raise     # altri errori (es. 404: sigla sconosciuta) riguardano solo questo titolo

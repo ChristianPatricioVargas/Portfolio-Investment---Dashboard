@@ -164,9 +164,12 @@ function disegnaOccasioni() {
 
   $("fonte-occasioni").textContent = analisi.aggiornato
     ? `Fonte: Yahoo Finance · analisi del ${momento(analisi.aggiornato)}` : "";
-  const errori = (analisi.errori || []).length;
-  $("errori-occasioni").hidden = errori === 0;
-  $("errori-occasioni").textContent = `⚠️ All'ultimo giro ${errori} ${errori === 1 ? "dato non è arrivato" : "dati non sono arrivati"} da Yahoo Finance: per quei titoli vedi i dati del giorno prima.`;
+  const errori = analisi.errori || [];
+  const fonteChiusa = errori.find((e) => e.includes("ha rifiutato"));
+  $("errori-occasioni").hidden = errori.length === 0;
+  $("errori-occasioni").textContent = fonteChiusa
+    ? `⚠️ ${fonteChiusa}: fondamentali, classifica e campanelli non sono aggiornati (o mancano). L'analisi tecnica non dipende da questa fonte.`
+    : `⚠️ All'ultimo giro ${errori.length} ${errori.length === 1 ? "dato non è arrivato" : "dati non sono arrivati"} da Yahoo Finance: per quei titoli vedi i dati del giorno prima.`;
 }
 
 // ---------- Aggiungere un titolo alla watchlist ----------
