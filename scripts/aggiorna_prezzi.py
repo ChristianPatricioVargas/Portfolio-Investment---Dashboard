@@ -66,14 +66,22 @@ def chiedi_a_yahoo(ticker, periodo, intervallo="1d"):
 
 
 def estrai_prezzi(dati):
-    """Dalla risposta di Yahoo tiene solo prezzo attuale e chiusura di ieri."""
+    """Dalla risposta di Yahoo tiene: prezzo attuale, chiusura di ieri,
+    la borsa da cui arriva il prezzo e l'ora dell'ultimo scambio."""
     info = dati["chart"]["result"][0]["meta"]
     if info.get("currency") != "EUR":
         raise ValueError("prezzo non in euro: " + str(info.get("currency")))
-    return {
+    risultato = {
         "prezzo": round(float(info["regularMarketPrice"]), 4),
         "chiusuraIeri": round(float(info.get("previousClose") or info["chartPreviousClose"]), 4),
+        # Il nome della borsa, es. "XETRA" (Yahoo lo chiama fullExchangeName)
+        "borsa": info.get("fullExchangeName") or info.get("exchangeName") or "",
     }
+    # L'ora dell'ultimo scambio, in UTC (la pagina la converte nell'ora italiana)
+    if info.get("regularMarketTime"):
+        istante = datetime.fromtimestamp(int(info["regularMarketTime"]), timezone.utc)
+        risultato["orario"] = istante.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return risultato
 
 
 def estrai_storico(dati, formato="%Y-%m-%d"):

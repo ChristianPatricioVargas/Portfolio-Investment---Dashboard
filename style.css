@@ -60,6 +60,9 @@ main {
 
 .totale.vuota { color: var(--testo-tenue); }
 
+/* La riga piccola "Prezzi Xetra · ultimo scambio ..." */
+.fonte-prezzi { color: var(--testo-tenue); font-size: 0.8rem; margin-top: 6px; }
+
 .sotto { color: var(--testo-tenue); margin-top: 10px; }
 
 /* L'etichetta arrotondata verde o rossa */
