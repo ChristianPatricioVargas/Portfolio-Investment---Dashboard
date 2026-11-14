@@ -1,0 +1,20 @@
+# Un controllo da lanciare a mano: confronta i prezzi di più borse.
+# NON modifica nessun file del repository (ha solo il permesso di leggere).
+
+name: Confronta borse
+
+on:
+  workflow_dispatch:   # parte solo quando tocchi "Run workflow"
+
+permissions:
+  contents: read
+
+jobs:
+  confronta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il codice del repository
+        uses: actions/checkout@v5
+
+      - name: Confronta i prezzi tra Xetra, Francoforte, Stoccarda e Monaco
+        run: python3 scripts/confronta_borse.py
