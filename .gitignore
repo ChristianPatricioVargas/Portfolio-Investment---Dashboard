@@ -8,4 +8,5 @@ data/prezzi.json
 data/storico.json
 data/intraday.json
 data/allarmi.json
+data/notizie.json
 _site/

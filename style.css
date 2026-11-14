@@ -376,3 +376,28 @@ body.dettaglio main { max-width: 1100px; }
 }
 .periodi button.attivo { background: var(--testo); color: var(--sfondo); }
 .riepilogo-periodo { margin: 0 0 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------- Le notizie nella pagina di un titolo ---------- */
+
+.notizie {
+  background: var(--carta);
+  border-radius: 18px;
+  padding: 16px;
+  margin-top: 20px;
+}
+.notizie h2 { margin: 0 0 10px; }
+#elenco-notizie { list-style: none; margin: 0; padding: 0; }
+#elenco-notizie li + li { border-top: 1px solid var(--carta-2); }
+#elenco-notizie a {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  color: var(--testo);
+  text-decoration: none;
+}
+#elenco-notizie a:active { opacity: 0.6; }
+.titolo-notizia { font-weight: 600; font-size: 0.95rem; line-height: 1.35; }
+.dettagli-notizia { color: var(--testo-tenue); font-size: 0.8rem; }
+#altre-notizie { margin-top: 6px; font-size: 0.9rem; }
+.fonte-notizie { color: var(--testo-tenue); font-size: 0.75rem; margin: 10px 0 0; }
+.notizie .vuoto { margin: 4px 0; }

@@ -16,8 +16,8 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 | `index.html` | Lo scheletro della pagina: riquadri, tabella, modulo |
 | `style.css` | L'aspetto: colori, spazi, modalità scura |
 | `app.js` | Il cervello: legge i dati, fa i calcoli, salva sul dispositivo |
-| `data/titoli.json` | L'elenco dei titoli che si possono scegliere |
-| `data/prezzi.json`, `storico.json`, `intraday.json`, `allarmi.json` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi attuali, storico, prezzi di oggi ogni 5 minuti, allarmi già inviati) |
+| `data/titoli.json` | L'elenco dei titoli che si possono scegliere, con le parole da cercare su Google News |
+| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi attuali, storico, prezzi di oggi ogni 5 minuti, notizie, allarmi già inviati) |
 | `scripts/confronta_borse.py` | Programma di prova (non cambia nessun file): confronta i prezzi di Xetra, Francoforte, Stoccarda e Monaco |
 | `.github/workflows/confronta-borse.yml` | Il pulsante "Run workflow" per lanciare il confronto tra borse |
 | `scripts/aggiorna_prezzi.py` | Il programma che scarica prezzi e storico da Yahoo Finance e manda gli allarmi |
@@ -66,6 +66,13 @@ Toccando un titolo si apre la sua pagina: a sinistra i numeri e il rendimento de
 acquisto, confrontato con quello di tutto il portafoglio; a destra l'elenco degli acquisti, da aggiungere,
 modificare o eliminare. Con "‹ Tutti i titoli" o il gesto indietro si torna alla panoramica.
 
+## Notizie
+
+Nella pagina di ogni titolo, sotto il grafico, compaiono le ultime notizie (ultimi 7 giorni) da **Google News in italiano**:
+titolo, giornale e da quanto tempo è uscita; toccandola si apre l'articolo.
+Le parole da cercare per ogni titolo sono nel campo `notizie` di `data/titoli.json`.
+Per gli ETF si cercano notizie sull'indice e sui mercati, perché di notizie sul singolo ETF ce ne sono poche.
+
 ## Allarmi (ntfy)
 
 Se un titolo scende troppo in giornata arriva una notifica sull'app **ntfy**:
@@ -86,4 +93,4 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 3. ✅ Prezzi automatici da Yahoo Finance con GitHub Actions
 4. ✅ Grafico dell'andamento dall'acquisto
 5. ✅ Allarmi (−5% giornaliero azioni, −3% ETF) con ntfy
-6. Notizie sui titoli
+6. ✅ Notizie sui titoli
