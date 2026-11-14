@@ -68,9 +68,11 @@ modificare o eliminare. Con "‹ Tutti i titoli" o il gesto indietro si torna al
 
 ## Notizie
 
-Nella pagina di ogni titolo, sotto il grafico, compaiono le ultime notizie (ultimi 7 giorni) da **Google News in italiano**:
+Nella pagina di ogni titolo, sotto il grafico, compaiono le ultime notizie (ultimi 7 giorni).
+Il programma prova tre servizi in ordine e usa il primo che risponde: **Google News** (italiano), **Bing News** (italiano)
+e **Yahoo Finance** (inglese, ultima riserva: Google a volte rifiuta le richieste dai server di GitHub). Per ogni notizia:
 titolo, giornale e da quanto tempo è uscita; toccandola si apre l'articolo.
-Le parole da cercare per ogni titolo sono nel campo `notizie` di `data/titoli.json`.
+Le parole da cercare sono nei campi `notizie` (italiano) e `notizie_en` (inglese, per Yahoo) di `data/titoli.json`.
 Per gli ETF si cercano notizie sull'indice e sui mercati, perché di notizie sul singolo ETF ce ne sono poche.
 
 ## Allarmi (ntfy)

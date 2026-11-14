@@ -26,6 +26,7 @@ let storico = {};      // prezzi di chiusura passati (da data/storico.json)
 let controllatiIl = null; // quando GitHub ha controllato i prezzi l'ultima volta
 let notizie = {};         // le notizie di ogni titolo (da data/notizie.json)
 let notizieAggiornateIl = null;
+let notizieServizi = {};  // da quale servizio arrivano le notizie di ogni titolo (Google, Bing, Yahoo)
 let notizieTutte = false; // true = mostra tutte le notizie, non solo le prime 5
 // Le tue posizioni. Ogni titolo ha la sua lista di acquisti:
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
@@ -414,8 +415,11 @@ function disegnaNotizie() {
   altre.hidden = elenco.length <= NOTIZIE_VISIBILI;
   altre.textContent = notizieTutte ? "Mostra meno" : `Mostra altre (${elenco.length - NOTIZIE_VISIBILI})`;
 
+  // Da quale servizio arrivano (Yahoo Finance le dà in inglese: lo diciamo)
+  const servizio = notizieServizi[tickerAperto] || "Google News";
+  const lingua = servizio === "Yahoo Finance" ? " (in inglese)" : "";
   $("fonte-notizie").textContent = notizieAggiornateIl
-    ? `Fonte: Google News · ultimi 7 giorni · controllate ${momento(notizieAggiornateIl)}`
+    ? `Fonte: ${servizio}${lingua} · ultimi 7 giorni · controllate ${momento(notizieAggiornateIl)}`
     : "";
 }
 
@@ -973,6 +977,7 @@ async function avvia() {
       const datiNotizie = await rispostaNotizie.json();
       notizie = datiNotizie.notizie || {};
       notizieAggiornateIl = datiNotizie.aggiornato || null;
+      notizieServizi = datiNotizie.servizi || {};
     }
   } catch (errore) {
     /* niente grafici, pazienza */

@@ -10,7 +10,7 @@ Cosa fa, passo per passo:
        - il prezzo attuale e la chiusura di ieri  -> data/prezzi.json
        - i prezzi ogni 5 minuti dell'ultimo giorno di Borsa -> data/intraday.json (grafico "1 giorno")
        - i prezzi di chiusura dell'ultimo anno    -> data/storico.json (per il grafico)
-  3. per ogni titolo scarica le ultime notizie da Google News (in italiano)
+  3. per ogni titolo scarica le ultime notizie (Google News, o Bing News, o Yahoo Finance)
                                                -> data/notizie.json
   4. se un titolo scende troppo in giornata manda una notifica con ntfy:
        - Azione: -5% o peggio
@@ -36,9 +36,6 @@ FILE_PREZZI = CARTELLA_DATI / "prezzi.json"
 FILE_STORICO = CARTELLA_DATI / "storico.json"
 FILE_INTRADAY = CARTELLA_DATI / "intraday.json"
 FILE_NOTIZIE = CARTELLA_DATI / "notizie.json"
-
-# Google News: notizie in italiano degli ultimi 7 giorni. Gratis, senza chiave.
-INDIRIZZO_NOTIZIE = "https://news.google.com/rss/search?q={ricerca}&hl=it&gl=IT&ceid=IT:it"
 NOTIZIE_PER_TITOLO = 10
 FILE_ALLARMI = CARTELLA_DATI / "allarmi.json"
 
@@ -112,52 +109,126 @@ def estrai_storico(dati, formato="%Y-%m-%d"):
     return storico
 
 
-# ---------- Notizie da Google News ----------
+# ---------- Notizie ----------
+# Proviamo tre servizi, in ordine. Il primo che risponde con almeno una notizia vince:
+#   1. Google News (italiano)  - a volte rifiuta le richieste che arrivano dai server di GitHub
+#   2. Bing News   (italiano)  - riserva
+#   3. Yahoo Finance (inglese) - ultima riserva: da GitHub funziona sempre (i prezzi arrivano da lì)
+# Teniamo solo le notizie degli ultimi 7 giorni, senza doppioni e con link sicuri.
 
-def chiedi_notizie(ricerca):
-    """Scarica il "feed RSS" di Google News: un elenco di notizie in formato XML."""
-    indirizzo = INDIRIZZO_NOTIZIE.format(ricerca=urllib.parse.quote(ricerca + " when:7d"))
-    richiesta = urllib.request.Request(indirizzo, headers={"User-Agent": "Mozilla/5.0"})
+GIORNI_NOTIZIE = 7
+
+
+def scarica(indirizzo):
+    """Scarica una pagina qualsiasi (feed RSS o dati JSON) e restituisce i byte."""
+    richiesta = urllib.request.Request(indirizzo, headers={
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        "Accept-Language": "it-IT,it;q=0.9",
+    })
     with urllib.request.urlopen(richiesta, timeout=20) as risposta:
         return risposta.read()
 
 
-def estrai_notizie(xml):
-    """Dal feed tiene, per ogni notizia: titolo, giornale, link e data. Le più recenti prima."""
-    notizie, visti = [], set()
+def notizia(titolo, fonte, link, data):
+    """Mette una notizia nel formato che usa la pagina."""
+    return {"titolo": titolo.strip(), "fonte": (fonte or "").strip(), "link": link.strip(),
+            "data": data.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+
+def leggi_feed_rss(xml):
+    """Legge un feed RSS (Google News o Bing News) e restituisce le notizie."""
+    risultato = []
     for elemento in ET.fromstring(xml).iter("item"):
         titolo = (elemento.findtext("title") or "").strip()
         link = (elemento.findtext("link") or "").strip()
-        fonte = (elemento.findtext("source") or "").strip()
+        # Il nome del giornale: <source> in Google, <News:Source> in Bing
+        fonte = elemento.findtext("source") or ""
+        for figlio in elemento:
+            if figlio.tag.endswith("}Source"):
+                fonte = figlio.text or fonte
+        fonte = fonte.strip()
         # Google scrive "Titolo della notizia - Nome giornale": togliamo il giornale dal titolo
         if fonte and titolo.endswith(" - " + fonte):
             titolo = titolo[: -len(" - " + fonte)]
-        if not titolo or not link.startswith("https://") or titolo.lower() in visti:
-            continue   # notizie vuote, link strani o doppioni: le saltiamo
-        visti.add(titolo.lower())
         try:
-            data = parsedate_to_datetime(elemento.findtext("pubDate")).astimezone(timezone.utc)
+            data = parsedate_to_datetime(elemento.findtext("pubDate"))
         except (TypeError, ValueError):
+            continue   # notizia senza data: la saltiamo
+        if titolo and link:
+            risultato.append(notizia(titolo, fonte, link, data))
+    return risultato
+
+
+def notizie_google(ricerca, _inglese):
+    indirizzo = "https://news.google.com/rss/search?q={}&hl=it&gl=IT&ceid=IT:it".format(
+        urllib.parse.quote(f"{ricerca} when:{GIORNI_NOTIZIE}d"))
+    return leggi_feed_rss(scarica(indirizzo))
+
+
+def notizie_bing(ricerca, _inglese):
+    indirizzo = "https://www.bing.com/news/search?q={}&format=rss&setlang=it-IT&mkt=it-IT".format(
+        urllib.parse.quote(ricerca))
+    return leggi_feed_rss(scarica(indirizzo))
+
+
+def notizie_yahoo(_ricerca, inglese):
+    indirizzo = "https://query1.finance.yahoo.com/v1/finance/search?q={}&quotesCount=0&newsCount=15".format(
+        urllib.parse.quote(inglese))
+    dati = json.loads(scarica(indirizzo))
+    return [notizia(n.get("title", ""), n.get("publisher", ""), n.get("link", ""),
+                    datetime.fromtimestamp(n["providerPublishTime"], timezone.utc))
+            for n in dati.get("news", []) if n.get("providerPublishTime")]
+
+
+SERVIZI_NOTIZIE = [("Google News", notizie_google), ("Bing News", notizie_bing), ("Yahoo Finance", notizie_yahoo)]
+
+
+def pulisci(notizie):
+    """Solo ultimi 7 giorni, solo link https, niente doppioni; le più recenti prima."""
+    limite = (datetime.now(timezone.utc) - timedelta(days=GIORNI_NOTIZIE)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    risultato, visti = [], set()
+    for n in sorted(notizie, key=lambda n: n["data"], reverse=True):
+        chiave = n["titolo"].lower()
+        if n["data"] < limite or not n["link"].startswith("https://") or not n["titolo"] or chiave in visti:
             continue
-        notizie.append({"titolo": titolo, "fonte": fonte, "link": link, "data": data.strftime("%Y-%m-%dT%H:%M:%SZ")})
-    notizie.sort(key=lambda n: n["data"], reverse=True)
-    return notizie[:NOTIZIE_PER_TITOLO]
+        visti.add(chiave)
+        risultato.append(n)
+    return risultato[:NOTIZIE_PER_TITOLO]
+
+
+def notizie_di(titolo):
+    """Prova i servizi in ordine; restituisce (nome del servizio, notizie)."""
+    ricerca = titolo.get("notizie") or titolo["nome"]
+    inglese = titolo.get("notizie_en") or titolo["nome"]
+    for nome, servizio in SERVIZI_NOTIZIE:
+        try:
+            trovate = pulisci(servizio(ricerca, inglese))
+        except Exception as errore:
+            print(f"  {nome}: non risponde ({errore})")
+            continue
+        if trovate:
+            return nome, trovate
+        print(f"  {nome}: nessuna notizia")
+    return None, []
 
 
 def aggiorna_notizie(titoli):
-    """Scarica le notizie di ogni titolo. Se un titolo non risponde, tiene quelle vecchie."""
-    vecchie = leggi_json(FILE_NOTIZIE, {}).get("notizie", {})
-    notizie = dict(vecchie)
+    """Scarica le notizie di ogni titolo. Se nessun servizio risponde, tiene quelle vecchie."""
+    vecchie = leggi_json(FILE_NOTIZIE, {})
+    notizie = dict(vecchie.get("notizie", {}))
+    servizi = dict(vecchie.get("servizi", {}))
     for titolo in titoli:
-        ricerca = titolo.get("notizie") or titolo["nome"]
-        try:
-            notizie[titolo["ticker"]] = estrai_notizie(chiedi_notizie(ricerca))
-            print(f"NOTIZIE {titolo['ticker']}: {len(notizie[titolo['ticker']])}")
-        except Exception as errore:
-            print(f"ERRORE notizie {titolo['ticker']}: {errore}")
+        ticker = titolo["ticker"]
+        print(f"NOTIZIE {ticker}:")
+        nome, trovate = notizie_di(titolo)
+        if nome:
+            notizie[ticker], servizi[ticker] = trovate, nome
+            print(f"  → {len(trovate)} {'notizia' if len(trovate) == 1 else 'notizie'} da {nome}")
+        else:
+            print("  → nessun servizio ha risposto: tengo le notizie di prima")
     scrivi_json(FILE_NOTIZIE, {
-        "fonte": "Google News",
         "aggiornato": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "servizi": servizi,   # da quale servizio arrivano le notizie di ogni titolo
         "notizie": notizie,
     })
 
