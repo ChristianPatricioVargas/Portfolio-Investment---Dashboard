@@ -22,12 +22,71 @@
   <main>
     <!-- Le "linguette" in alto per passare da una pagina all'altra -->
     <nav class="navigazione" id="navigazione" aria-label="Pagine">
+      <a href="#oggi" data-vista="oggi">Oggi</a>
       <a href="#portafoglio" data-vista="portafoglio">Portafoglio</a>
       <a href="#occasioni" data-vista="occasioni">Occasioni</a>
     </nav>
 
+    <!-- ===== VISTA "Oggi": il riepilogo di tutti gli agenti (la riempie agenti/oggi.js) ===== -->
+    <div id="vista-oggi" hidden>
+      <header class="testata">
+        <div class="etichetta-alta" id="data-oggi"></div>
+        <h1 class="titolo-pagina">Oggi</h1>
+      </header>
+
+      <p class="avviso" id="oggi-vuoto" hidden>Non hai ancora inserito acquisti: vai su <strong>Portafoglio</strong> e tocca <strong>+ Aggiungi</strong>.
+        Intanto qui sotto trovi le occasioni del cacciatore.</p>
+
+      <!-- 1. Come va il portafoglio -->
+      <section class="riquadro" id="oggi-portafoglio">
+        <h2>💼 Come va il portafoglio</h2>
+        <div class="totale piccolo" id="oggi-valore">–</div>
+        <span class="chip" id="oggi-gp"></span>
+        <div class="sotto" id="oggi-variazione"></div>
+        <div class="fonte-prezzi" id="oggi-fonte"></div>
+      </section>
+
+      <!-- 2. Cosa è successo ai miei titoli -->
+      <section class="riquadro" id="oggi-titoli">
+        <h2>📌 I miei titoli</h2>
+        <div id="elenco-oggi-titoli"></div>
+      </section>
+
+      <!-- 3. Lo stato delle mie tesi -->
+      <section class="riquadro" id="oggi-tesi">
+        <h2>📝 Le mie tesi</h2>
+        <div id="elenco-oggi-tesi"></div>
+      </section>
+
+      <!-- 4. Le migliori occasioni del cacciatore -->
+      <div class="intestazione-sezione">
+        <h2>🎯 Le migliori occasioni</h2>
+        <a class="link" href="#occasioni">Tutte ›</a>
+      </div>
+      <div id="elenco-oggi-occasioni"></div>
+      <p class="vuoto" id="oggi-occasioni-vuoto" hidden></p>
+
+      <!-- 5. Copia per l'analisi -->
+      <section class="riquadro">
+        <h2>📋 Fatti aiutare a ragionare</h2>
+        <p class="suggerimento">Copia in un colpo solo tutti i dati (portafoglio, tesi, fondamentali, segnali tecnici, campanelli d'allarme,
+          occasioni, notizie) e incollali in una chat con Claude per farti fare un'analisi critica.</p>
+        <button type="button" class="pulsante" id="copia-analisi">Copia per l'analisi</button>
+        <p class="nota-riquadro" id="esito-copia" hidden></p>
+        <textarea id="testo-analisi" rows="8" readonly hidden aria-label="Testo per l'analisi"></textarea>
+        <p class="avvertenza">🔒 Il testo contiene i tuoi dati personali (importi, prezzi d'acquisto, tesi): resta sul dispositivo
+          finché non lo incolli tu da qualche parte.</p>
+      </section>
+
+      <footer>
+        <p id="oggi-aggiornamento"></p>
+        <p>Questa pagina riassume dati pubblici e regole meccaniche: <strong>non è consulenza finanziaria</strong>.
+          Gli agenti segnalano e spiegano; la decisione finale è sempre tua.</p>
+      </footer>
+    </div>
+
     <!-- ===== VISTA 1: la panoramica di tutto il portafoglio ===== -->
-    <div id="vista-panoramica">
+    <div id="vista-panoramica" hidden>
       <!-- In alto: il valore totale, in grande -->
       <header class="testata">
         <div class="etichetta-alta">Valore del portafoglio</div>
@@ -347,6 +406,7 @@
   <script src="agenti/tecnico.js"></script>
   <script src="agenti/cacciatore.js"></script>
   <script src="agenti/avvocato.js"></script>
+  <script src="agenti/oggi.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

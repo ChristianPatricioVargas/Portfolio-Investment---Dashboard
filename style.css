@@ -635,3 +635,34 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
 .punti-ai { margin: 0; padding-left: 20px; font-size: 0.95rem; }
 .punti-ai li { margin: 4px 0; }
 #stato-ai { margin: 14px 0 0; }
+
+/* ---------- La pagina Oggi ---------- */
+
+#vista-oggi .riquadro .totale { margin-top: 0; }
+#vista-oggi .riquadro .sotto { margin-top: 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
+#vista-oggi .intestazione-sezione .link { text-decoration: none; }
+
+/* Una riga della pagina Oggi: si tocca per aprire il titolo */
+.riga-oggi {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 12px 0;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--carta-2);
+  color: var(--testo);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.riga-oggi:first-child { border-top: none; padding-top: 2px; }
+.riga-oggi:last-child { padding-bottom: 2px; }
+.testa-riga { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.testa-riga b { font-weight: 600; }
+.testa-riga .numero { font-weight: 600; font-size: 0.9rem; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--testo-tenue); }
+.testa-riga .numero.positivo { color: var(--verde); }
+.testa-riga .numero.negativo { color: var(--rosso); }
+.dettaglio-oggi { color: var(--testo-tenue); font-size: 0.85rem; line-height: 1.4; }
+#testo-analisi { margin-top: 10px; font-size: 0.8rem; font-family: ui-monospace, Menlo, monospace; }
+#copia-analisi { margin-top: 4px; }

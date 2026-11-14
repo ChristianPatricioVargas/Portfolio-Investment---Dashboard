@@ -275,20 +275,19 @@ function disegna() {
   $("fonte-prezzi").textContent = Object.keys(prezzi).length ? testoFonte(tuoi) : "";
 
   // Disegniamo il resto della vista che stai guardando
-  if (tickerAperto) disegnaTitolo();
-  else if (vistaAperta === "occasioni") disegnaOccasioni();
-  else disegnaGrafico();
+  disegnaVista();
 }
 
 // ---------- Le pagine e la pagina di un titolo ----------
 // L'indirizzo della pagina dice cosa stai guardando:
+//   .../  oppure #oggi    la pagina Oggi: il riepilogo (è la pagina iniziale)
 //   .../#portafoglio      la panoramica del portafoglio
 //   .../#occasioni        la classifica del cacciatore
 //   .../#titolo=SAP.DE    la pagina di un titolo (tuo, oppure della watchlist)
 // Così il gesto "indietro" dell'iPad funziona come in un'app.
 
 let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = nessuno)
-let vistaAperta = "portafoglio";  // la pagina che stai guardando: "portafoglio", "occasioni" o "titolo"
+let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni" o "titolo"
 let arrivatoDaDentro = false;     // true = sei arrivato al titolo toccandolo in un'altra pagina
 
 function vaiAlTitolo(ticker) {
@@ -302,6 +301,14 @@ function tornaAllaPanoramica() {
   else location.hash = "portafoglio";
 }
 
+// Disegna la pagina che stai guardando
+function disegnaVista() {
+  if (vistaAperta === "titolo") disegnaTitolo();
+  else if (vistaAperta === "occasioni") disegnaOccasioni();
+  else if (vistaAperta === "oggi") disegnaOggi();
+  else disegnaGrafico();
+}
+
 // Guarda l'indirizzo e mostra la vista giusta
 function mostraVista() {
   const indirizzo = location.hash.slice(1);
@@ -312,20 +319,19 @@ function mostraVista() {
     titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
   if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
-  vistaAperta = tickerAperto ? "titolo" : indirizzo === "occasioni" ? "occasioni" : "portafoglio";
+  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni"].includes(indirizzo) ? indirizzo : "oggi";
 
   chiudiModulo();
   $("modulo-tesi").hidden = true;
   notizieTutte = false;
+  $("vista-oggi").hidden = vistaAperta !== "oggi";
   $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
   $("vista-occasioni").hidden = vistaAperta !== "occasioni";
   $("vista-titolo").hidden = vistaAperta !== "titolo";
   $("navigazione").hidden = vistaAperta === "titolo";
   if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
   document.querySelectorAll("#navigazione a").forEach((a) => a.classList.toggle("attivo", a.dataset.vista === vistaAperta));
-  if (vistaAperta === "titolo") disegnaTitolo();
-  else if (vistaAperta === "occasioni") disegnaOccasioni();
-  else disegnaGrafico();
+  disegnaVista();
   window.scrollTo(0, 0);
 }
 
@@ -961,9 +967,9 @@ function nascondiFumetto(svgOEvento) {
 // Ridisegna il grafico della vista che stai guardando
 function ridisegnaGrafici() {
   if (tickerAperto) {
-    disegnaGraficoTitolo();
+    if (posizioni.some((p) => p.ticker === tickerAperto)) disegnaGraficoTitolo();
     disegnaGraficoTecnico();
-  } else disegnaGrafico();
+  } else if (vistaAperta === "portafoglio") disegnaGrafico();
 }
 
 // Il selettore "%" / "€" del grafico della panoramica
@@ -1087,6 +1093,7 @@ async function avvia() {
   collegaFondamentale();
   collegaTecnico();
   collegaCacciatore();
+  collegaOggi();
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 
