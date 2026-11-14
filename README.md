@@ -160,17 +160,34 @@ campanelli, occasioni e notizie. Incollandolo in una chat con Claude si ottiene 
 
 ## Le fonti dei dati e i loro limiti
 
-| Dato | Fonte | Affidabilità |
+| Dato | Fonte | Stato (prova dal vivo del 14 novembre 2026, dai server di GitHub) |
 |---|---|---|
-| Prezzi e storico | Yahoo Finance (grafico) | Buona: è la stessa usata finora |
-| Fondamentali, target, trimestrali | Yahoo Finance (riepilogo) | **Non ufficiale**: gratuita e senza chiavi, ma Yahoo può cambiarla o rifiutare le richieste senza preavviso. I dati sugli analisti a volte sono incompleti o in ritardo di giorni, soprattutto per titoli europei e asiatici |
-| Notizie | Google News, Bing News, Yahoo Finance | Come prima |
+| Prezzi e storico (analisi tecnica) | Yahoo Finance (grafico) | ✅ Funziona: 8 titoli su 8 |
+| Fondamentali, target, trimestrali | Yahoo Finance (riepilogo) | ❌ **Non funziona**: Yahoo rifiuta le richieste che arrivano da GitHub (errore 429, "troppe richieste") |
+| Notizie | Google News, Bing News, Yahoo Finance | ✅ Come prima |
 
-Se la fonte dei fondamentali smettesse di funzionare, l'alternativa gratuita più semplice è un servizio con chiave
-(Finnhub o Financial Modeling Prep), da mettere in GitHub Secrets: il resto degli agenti non cambierebbe,
-perché solo `scripts/agenti/yahoo.py` e `fondamentale.py` conoscono la forma dei dati di Yahoo.
+**Cosa vuol dire in pratica.** Finché non c'è una fonte per i fondamentali che funzioni:
 
-Per controllare se le fonti rispondono: **Actions → Prova agenti → Run workflow**. La tabella compare sotto "Summary".
+- ✅ funzionano con dati veri: analisi tecnica, scheda tesi, "Se vendo oggi", campanelli su prezzo e notizie,
+  pagina Oggi, "Copia per l'analisi", watchlist ordinata per calo dai massimi;
+- ❌ restano vuoti: scheda dei fondamentali, classifica del cacciatore (servono utili, debito e target),
+  campanelli su utili, debito e analisti, analisi con AI. La pagina lo dice in chiaro, non mostra numeri inventati.
+
+Il codice che legge i fondamentali è pronto e provato con dati finti, ma la porta è chiusa. Il fattorino chiede
+una volta sola per giro e, se Yahoo rifiuta, non insiste.
+
+**Le alternative** (nessuna è ancora collegata: solo `scripts/agenti/yahoo.py` e `fondamentale.py` conoscono
+la forma dei dati di Yahoo, quindi cambiare fonte non tocca gli altri agenti):
+
+| Alternativa | Gratis? | Limite |
+|---|---|---|
+| Alpha Vantage (con chiave) | Sì | Circa 25 richieste al giorno: basterebbe per le azioni possedute ogni giorno e per la watchlist a rotazione (ogni titolo ogni 4-5 giorni). Da verificare che copra target degli analisti e titoli europei |
+| Finnhub, Financial Modeling Prep (con chiave) | Sì, ma | Il piano gratuito copre in pratica solo le aziende americane |
+| Un piano a pagamento di uno di questi servizi | No | Copertura completa |
+| Una libreria che si finge un browser per farsi accettare da Yahoo | Sì | Aggira un rifiuto esplicito di Yahoo: non l'ho fatto, è una scelta da prendere consapevolmente |
+
+Per ricontrollare lo stato delle fonti: **Actions → Prova agenti → Run workflow**. La tabella compare sotto "Summary".
+Il controllo resta rosso finché la fonte dei fondamentali non risponde: è voluto, dice la verità.
 
 ## Privacy
 

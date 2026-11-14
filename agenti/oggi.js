@@ -142,12 +142,15 @@ function disegnaOggi() {
       rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "Nessun campanello d'allarme dalle regole."));
   }
   $("oggi-occasioni-vuoto").hidden = migliori.length > 0;
-  $("oggi-occasioni-vuoto").textContent = analisi.classifica
+  $("oggi-occasioni-vuoto").textContent = fonteFondamentaliChiusa()
+    ? "La classifica non è disponibile: mancano i fondamentali (vedi la nota in fondo alla pagina)."
+    : analisi.classifica
     ? "Oggi nessun titolo della watchlist rispetta tutti i criteri."
     : "⏳ Le occasioni arriveranno con il prossimo giro serale degli agenti.";
 
   $("oggi-aggiornamento").textContent = analisi.aggiornato
-    ? `Gli agenti hanno lavorato l'ultima volta ${momento(analisi.aggiornato)} (una volta al giorno, la sera).`
+    ? `Gli agenti hanno lavorato l'ultima volta ${momento(analisi.aggiornato)} (una volta al giorno, la sera).` +
+      (fonteFondamentaliChiusa() ? ` ⚠️ ${fonteFondamentaliChiusa()}: fondamentali, classifica e campanelli sui conti non sono aggiornati.` : "")
     : "Gli agenti non hanno ancora lavorato: il primo giro è la sera, dopo la chiusura delle Borse.";
 }
 
@@ -253,6 +256,7 @@ function testoPerAnalisi() {
 
   titolo("Note sui dati");
   righe.push(`Prezzi: Yahoo Finance (Xetra). Fondamentali, target e analisi tecnica: Yahoo Finance, calcolati ${analisi.aggiornato ? "il " + momento(analisi.aggiornato) : "non ancora"}.`);
+  if (fonteFondamentaliChiusa()) righe.push(`ATTENZIONE: ${fonteFondamentaliChiusa()}. Fondamentali, classifica e campanelli sui conti mancano o sono vecchi.`);
   righe.push("I dati possono essere incompleti o in ritardo. Campanelli e criteri sono regole meccaniche. Se un dato ti sembra strano, dimmelo.");
   return righe.join("\n");
 }

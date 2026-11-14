@@ -108,6 +108,9 @@ def notizie_occasioni(elenco, da_seguire):
     scrivi_json(FILE_NOTIZIE, dati)
 
 
+fonte_chiusa_detta = set()   # per scrivere "fonte chiusa" una volta sola nel registro di GitHub
+
+
 def analizza_titolo(yahoo, voce, scheda, serie, oggi):
     """Fa lavorare gli agenti su un titolo: aggiorna la sua scheda e la sua serie per il grafico.
     Restituisce gli errori incontrati."""
@@ -126,10 +129,12 @@ def analizza_titolo(yahoo, voce, scheda, serie, oggi):
             scheda["storiaTarget"] = avvocato.aggiorna_storia_target(scheda.get("storiaTarget"), nuova["target"], oggi)
             print(f"OK   fondamentali {ticker}: P/E {nuova['pe']}, target {nuova['target']} {nuova['valuta']}")
         except FonteNonDisponibile as errore:
-            # La fonte è chiusa per tutti i titoli: lo segniamo una volta sola, non 90 volte
-            if str(errore) not in errori:
-                errori.append(str(errore))
-                print(f"ERRORE fondamentali: {errore}. Per questo giro tengo quelli di prima, se ci sono.")
+            # La fonte è chiusa per tutti i titoli (il direttore lo conta una volta sola, non 90)
+            errori.append(str(errore))
+            if voce["ticker"] not in fonte_chiusa_detta:
+                if not fonte_chiusa_detta:
+                    print(f"ERRORE fondamentali: {errore}. Per questo giro tengo quelli di prima, se ci sono.")
+                fonte_chiusa_detta.add(voce["ticker"])
         except Exception as errore:
             errori.append(f"fondamentali {ticker}: {errore}")
             print(f"ERRORE fondamentali {ticker}: {errore} (tengo quelli di prima, se ci sono)")
@@ -170,14 +175,21 @@ def main():
         scheda.update({"nome": voce["nome"], "tipo": voce["tipo"], "gruppo": voce["gruppo"], "area": voce.get("area", "")})
         if voce["ticker"] in vecchie_serie:
             serie[voce["ticker"]] = vecchie_serie[voce["ticker"]]
-        errori += analizza_titolo(yahoo, voce, scheda, serie, oggi)
+        for errore in analizza_titolo(yahoo, voce, scheda, serie, oggi):
+            if errore not in errori:        # lo stesso errore (es. "fonte chiusa") si segna una volta sola
+                errori.append(errore)
         schede[voce["ticker"]] = scheda
 
     # --- Cacciatore: controlla i criteri su ogni azione con dati recenti ---
     for scheda in schede.values():
         scheda.pop("cacciatore", None)
-        if scheda["tipo"] == "Azione" and dati_recenti(scheda, oggi):
-            scheda["cacciatore"] = cacciatore.valuta(scheda["fondamentali"], scheda.get("tecnica"))
+        if scheda["tipo"] != "Azione":
+            continue
+        # Se i fondamentali mancano o sono vecchi, il cacciatore controlla solo ciò che può (il calo
+        # dai massimi, che viene dall'analisi tecnica): gli altri criteri restano "dato mancante"
+        conti = scheda["fondamentali"] if dati_recenti(scheda, oggi) else None
+        if conti or scheda.get("tecnica"):
+            scheda["cacciatore"] = cacciatore.valuta(conti, scheda.get("tecnica"))
     in_classifica, quasi = cacciatore.classifica(schede)
     print(f"CACCIATORE: {len(in_classifica)} in classifica, {len(quasi)} ci vanno vicino.")
     try:

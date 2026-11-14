@@ -115,10 +115,11 @@ function disegnaOccasioni() {
     $(vuoto).hidden = sigle.length > 0;
   }
 
-  // Tutta la watchlist: prima chi rispetta più criteri
   const tutti = Object.entries(analisi.titoli).filter(([, s]) => s.gruppo === "watchlist");
-  const visibili = tutti.filter(([t]) => !nascosto(t)).sort(([ta, a], [tb, b]) =>
-    ((b.cacciatore || {}).rispettati || 0) - ((a.cacciatore || {}).rispettati || 0) || a.nome.localeCompare(b.nome));
+  // Tutta la watchlist: prima chi rispetta più criteri; a parità, chi è sceso di più dal massimo
+  const calo = (s) => (s.tecnica ? s.tecnica.dalMassimo : 0);
+  const visibili = tutti.filter(([t]) => !nascosto(t)).sort(([, a], [, b]) =>
+    ((b.cacciatore || {}).rispettati || 0) - ((a.cacciatore || {}).rispettati || 0) || calo(a) - calo(b) || a.nome.localeCompare(b.nome));
   $("titolo-watchlist").textContent = `👀 La watchlist (${visibili.length} titoli)`;
   const elenco = $("elenco-watchlist");
   elenco.innerHTML = "";
@@ -132,7 +133,7 @@ function disegnaOccasioni() {
     riga.querySelector(".numeri-w").textContent = [
       t ? percUno(t.dalMassimo, true) + " dal massimo" : null,
       f && f.potenziale !== null && f.potenziale !== undefined ? "target " + percUno(f.potenziale, true) : null,
-      c ? `${c.rispettati} criteri su 4` : "dati non ancora disponibili",
+      c ? `${c.rispettati} ${c.rispettati === 1 ? "criterio" : "criteri"} su 4` : "dati non ancora disponibili",
     ].filter(Boolean).join(" · ");
     riga.querySelector(".apri").onclick = () => vaiAlTitolo(ticker);
     riga.querySelector(".togli").onclick = () => {

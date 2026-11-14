@@ -73,6 +73,11 @@ function aggiungiGruppo(contenitore, titolo, dati) {
 
 // ---------- 1. La scheda dei fondamentali ----------
 
+// Se all'ultimo giro la fonte dei fondamentali ha rifiutato le richieste, restituisce il motivo (altrimenti "")
+function fonteFondamentaliChiusa() {
+  return (analisi.errori || []).find((e) => e.includes("ha rifiutato")) || "";
+}
+
 // Prepara i gruppi di numeri di una scheda. Serve sia alla pagina sia a "Copia per l'analisi".
 function gruppiFondamentali(f) {
   const c = f.valuta;
@@ -144,7 +149,11 @@ function disegnaFondamentali() {
     return messaggio("Un ETF contiene migliaia di aziende: non ha utili, debiti o target suoi. " +
       "Nella tua strategia è un investimento di lungo termine: qui conta l'andamento, non la singola trimestrale.");
   }
-  if (!f) return messaggio("⏳ I fondamentali arriveranno con il prossimo giro serale degli agenti.");
+  if (!f) {
+    return messaggio(fonteFondamentaliChiusa()
+      ? `⚠️ ${fonteFondamentaliChiusa()}. I fondamentali di questo titolo non sono disponibili (vedi "Le fonti dei dati" nel README).`
+      : "⏳ I fondamentali arriveranno con il prossimo giro serale degli agenti.");
+  }
 
   // In alto: settore e prossima trimestrale
   const riga = document.createElement("p");
@@ -165,6 +174,7 @@ function disegnaFondamentali() {
 
   const parti = ["Fonte: Yahoo Finance"];
   if (f.aggiornato) parti.push("dati del " + dataBreve(f.aggiornato));
+  if (fonteFondamentaliChiusa()) parti.push("⚠️ all'ultimo giro la fonte non ha risposto: potrebbero essere vecchi");
   if (f.valuta && f.valuta !== "EUR") parti.push(`prezzi e target in ${f.valuta}`);
   $("fonte-fondamentali").textContent = parti.join(" · ");
 }

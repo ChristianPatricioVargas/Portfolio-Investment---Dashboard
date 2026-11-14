@@ -49,6 +49,9 @@ function disegnaAvvocato() {
   elenco.innerHTML = "";
   for (const c of lista) elenco.appendChild(creaCampanello(c));
   $("nessun-campanello").hidden = lista.length > 0;
+  // Senza fondamentali i campanelli sui conti non sono stati controllati: va detto
+  const mancanoConti = infoTitolo(tickerAperto).tipo !== "ETF" && !scheda.fondamentali;
+  $("avvocato-incompleto").hidden = !mancanoConti;
 
   // ---- L'analisi scritta dall'AI (solo se accesa e solo per alcuni titoli) ----
   const a = (ai.analisi || {})[tickerAperto];

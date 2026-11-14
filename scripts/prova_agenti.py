@@ -153,6 +153,10 @@ def prova_cacciatore():
     pochi = cacciatore.valuta(fondamentale.analizza(azienda_finta(financialData__numberOfAnalystOpinions=2), OGGI), None)
     assert pochi["criteri"][3]["ok"] is False
 
+    # Senza fondamentali (fonte chiusa) resta il solo criterio del calo, preso dall'analisi tecnica
+    solo_tecnica = cacciatore.valuta(None, {"dalMassimo": -0.3})
+    assert solo_tecnica["rispettati"] == 1 and [c["ok"] for c in solo_tecnica["criteri"]] == [True, None, None, None]
+
     # Dati mancanti: né sì né no
     assert cacciatore.valuta({}, None)["rispettati"] == 0
     assert cacciatore.valuta({}, None)["criteri"][1]["ok"] is None
