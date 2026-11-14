@@ -24,7 +24,14 @@ ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser
 | `scripts/confronta_borse.py` | Programma di prova (non cambia nessun file): confronta i prezzi di Xetra, Francoforte, Stoccarda e Monaco |
 | `.github/workflows/confronta-borse.yml` | Il pulsante "Run workflow" per lanciare il confronto tra borse |
 | `scripts/aggiorna_prezzi.py` | Il programma che scarica prezzi e storico da Yahoo Finance e manda gli allarmi |
-| `.github/workflows/aggiorna-prezzi.yml` | Dice a GitHub di eseguire quel programma ogni 30 minuti nei giorni di Borsa |
+| `.github/workflows/pubblica-sito.yml` | Ogni 30 minuti nei giorni di Borsa (e a ogni modifica del codice): scarica i prezzi, controlla gli allarmi e pubblica il sito |
+
+## Come viene pubblicato il sito
+
+Il sito è pubblicato da **GitHub Actions** (non direttamente dal ramo `main`):
+il workflow scarica i prezzi, li mette nei file `data/` **del sito pubblicato** e pubblica.
+I prezzi quindi non vengono salvati nel repository e la cronologia contiene solo le modifiche al codice.
+Tra un giro e l'altro i dati restano nel sito stesso: a ogni giro vengono riscaricati, aggiornati e ripubblicati.
 
 ## Da dove vengono i prezzi
 
