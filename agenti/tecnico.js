@@ -156,10 +156,12 @@ function mostraFumettoTecnico(evento) {
   punto.setAttribute("visibility", "visible");
 
   const fumetto = svg.parentElement.querySelector(".fumetto");
-  fumetto.innerHTML = `<div class="fumetto-data"></div>` + LINEE_TECNICHE
-    .filter((l) => serie[l.campo][i] !== null)
-    .map((l) => `<div><i class="${l.classe}"></i>${l.nome} <b>${prezzoIn(serie[l.campo][i], valuta)}</b></div>`).join("");
+  const visibili = LINEE_TECNICHE.filter((l) => serie[l.campo][i] !== null);
+  fumetto.innerHTML = `<div class="fumetto-data"></div>` +
+    visibili.map((l) => `<div><i class="${l.classe}"></i>${l.nome} <b></b></div>`).join("");
   fumetto.querySelector(".fumetto-data").textContent = etichettaLunga(serie.giorni[i]);
+  // I valori li scriviamo come testo semplice, per sicurezza
+  fumetto.querySelectorAll("b").forEach((b, k) => (b.textContent = prezzoIn(serie[visibili[k].campo][i], valuta)));
   fumetto.hidden = false;
   const larghezzaFumetto = fumetto.offsetWidth;
   fumetto.style.left = Math.max(0, Math.min(x(i) - larghezzaFumetto / 2, rettangolo.width - larghezzaFumetto)) + "px";

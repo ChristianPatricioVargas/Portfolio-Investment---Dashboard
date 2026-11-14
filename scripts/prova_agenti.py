@@ -314,17 +314,29 @@ def prova_dal_vivo():
     from agenti.yahoo import Yahoo
     yahoo = Yahoo()
     righe = ["## Prova dal vivo delle fonti (Yahoo Finance)", "",
-             "| Titolo | Fondamentali | P/E | Target | Analisti | Prossima trimestrale |", "|---|---|---|---|---|---|"]
+             "| Titolo | Fondamentali | P/E | Target | Analisti | Trimestrale | Tecnica | RSI | Dal massimo | Criteri |",
+             "|---|---|---|---|---|---|---|---|---|---|"]
     riusciti = 0
-    campione = ["SAP.DE", "AIR.PA", "AAPL", "7203.T", "005930.KS", "AZN.L"]
+    campione = ["SAP.DE", "AIR.PA", "AAPL", "JPM", "7203.T", "005930.KS", "AZN.L", "NOVO-B.CO"]
     for ticker in campione:
+        f, t = {}, None
         try:
             f = fondamentale.analizza(yahoo.riepilogo(ticker))
-            stato = "ok" if fondamentale.ha_dati(f) else "vuoti"
-            riusciti += stato == "ok"
-            righe.append(f"| {ticker} | {stato} | {f['pe']} | {f['target']} {f['valuta']} | {f['analisti']} | {f['prossimaTrimestrale']} |")
+            stato_f = "ok" if fondamentale.ha_dati(f) else "vuoti"
         except Exception as errore:
-            righe.append(f"| {ticker} | ERRORE: {type(errore).__name__} {errore} | | | | |")
+            stato_f = f"ERRORE {type(errore).__name__}: {errore}"
+        try:
+            grafico = yahoo.grafico(ticker, "2y")
+            t, _ = tecnico.analizza(*tecnico.chiusure(grafico), grafico["meta"].get("currency") or "")
+            stato_t = "ok" if t else "pochi dati"
+        except Exception as errore:
+            stato_t = f"ERRORE {type(errore).__name__}: {errore}"
+        riusciti += stato_f == "ok" and stato_t == "ok"
+        criteri = cacciatore.valuta(f, t)["rispettati"] if stato_f == "ok" else "–"
+        righe.append(f"| {ticker} | {stato_f} | {f.get('pe')} | {f.get('target')} {f.get('valuta', '')} | {f.get('analisti')} "
+                     f"| {f.get('prossimaTrimestrale')} | {stato_t} | {t['rsi'] if t else '–'} "
+                     f"| {t['dalMassimo'] if t else '–'} | {criteri} su 4 |")
+    righe += ["", f"Riusciti {riusciti} titoli su {len(campione)}."]
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")
