@@ -12,7 +12,10 @@ Cosa fa, passo per passo:
   3. per ogni titolo scarica due anni di prezzi e li passa all'analista tecnico
   4. il cacciatore controlla i suoi criteri e prepara la classifica delle occasioni;
      per i titoli in classifica scarica anche le notizie
-  5. salva tutto in data/analisi.json (i numeri) e data/serie.json (le linee dei grafici),
+  5. l'avvocato del diavolo cerca i campanelli d'allarme di ogni titolo
+  6. se esiste il segreto ANTHROPIC_API_KEY, la versione con AI dell'avvocato scrive
+     un'analisi pro e contro per pochi titoli al giorno (altrimenti resta spenta)
+  7. salva tutto in data/analisi.json (i numeri) e data/serie.json (le linee dei grafici),
      che la pagina legge e mostra
 
 Se un titolo non risponde, tiene la scheda del giorno prima.
@@ -27,15 +30,17 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from aggiorna_prezzi import CARTELLA_DATI, FILE_NOTIZIE, FILE_TITOLI, leggi_json, notizie_di, scrivi_json
-from agenti import cacciatore, fondamentale, tecnico
+from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
 from agenti.yahoo import Yahoo
 
 FILE_ANALISI = CARTELLA_DATI / "analisi.json"
 FILE_WATCHLIST = CARTELLA_DATI / "watchlist.json"   # le grandi aziende che il cacciatore tiene d'occhio
+FILE_AI = CARTELLA_DATI / "ai.json"          # le analisi scritte dall'AI e il contatore della spesa
 FILE_SERIE = CARTELLA_DATI / "serie.json"     # le linee del grafico tecnico (prezzo e medie mobili)
 ORE_VALIDITA = 30   # dopo quante ore l'analisi è considerata "vecchia"
 GIORNI_DATI_VALIDI = 7      # fondamentali più vecchi di così non entrano in classifica
 NOTIZIE_PER_OCCASIONI = 12  # per quanti titoli della classifica scarichiamo le notizie
+OCCASIONI_PER_AI = 5        # quante occasioni (oltre alle azioni del portafoglio) può analizzare l'AI
 FORMATO_ORA = "%Y-%m-%dT%H:%M:%SZ"
 
 
@@ -117,6 +122,8 @@ def analizza_titolo(yahoo, voce, scheda, serie, oggi):
                 raise ValueError("Yahoo ha risposto senza dati")
             nuova["aggiornato"] = oggi
             scheda["fondamentali"] = nuova
+            # Ricordiamo il target di ogni giorno: serve all'avvocato per accorgersi se viene abbassato
+            scheda["storiaTarget"] = avvocato.aggiorna_storia_target(scheda.get("storiaTarget"), nuova["target"], oggi)
             print(f"OK   fondamentali {ticker}: P/E {nuova['pe']}, target {nuova['target']} {nuova['valuta']}")
         except Exception as errore:
             errori.append(f"fondamentali {ticker}: {errore}")
@@ -173,6 +180,21 @@ def main():
     except Exception as errore:
         errori.append(f"notizie delle occasioni: {errore}")
         print(f"ERRORE notizie delle occasioni: {errore}")
+
+    # --- Avvocato del diavolo: i campanelli d'allarme di ogni titolo ---
+    notizie = leggi_json(FILE_NOTIZIE, {}).get("notizie", {})
+    for ticker, scheda in schede.items():
+        scheda["campanelli"] = avvocato.controlla(scheda, notizie.get(ticker), oggi)
+    print(f"AVVOCATO: {sum(len(s['campanelli']) for s in schede.values())} campanelli d'allarme in tutto.")
+
+    # --- Avvocato con AI: lavora solo se esiste il segreto ANTHROPIC_API_KEY ---
+    try:
+        azioni_mie = [t for t, s in schede.items() if s["gruppo"] == "portafoglio" and s["tipo"] == "Azione"]
+        candidati = azioni_mie + in_classifica[:OCCASIONI_PER_AI]
+        scrivi_json(FILE_AI, avvocato_ai.lavora(leggi_json(FILE_AI, {}), candidati, schede, notizie, oggi))
+    except Exception as errore:
+        errori.append(f"analisi con AI: {errore}")
+        print(f"ERRORE analisi con AI: {errore}")
 
     risultato = {
         "aggiornato": adesso.strftime(FORMATO_ORA),

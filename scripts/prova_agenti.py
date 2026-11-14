@@ -15,7 +15,7 @@ Con l'opzione --dal-vivo fa anche una prova vera con Yahoo Finance su pochi tito
 import os
 import sys
 
-from agenti import cacciatore, fondamentale, tecnico
+from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
 
 OGGI = "2026-11-14"
 
@@ -176,9 +176,135 @@ def prova_watchlist():
     assert all(t.get("nome") and t.get("area") in ("Europa", "USA", "Asia") for t in watchlist)
 
 
+# ---------- Avvocato del diavolo ----------
+
+def tipi(campanelli):
+    return [c["titolo"] for c in campanelli]
+
+
+def prova_avvocato_azienda_sana():
+    """L'azienda finta è sana: l'unico campanello è la trimestrale del 26 novembre (tra 12 giorni)."""
+    scheda = {"tipo": "Azione", "fondamentali": fondamentale.analizza(azienda_finta(), OGGI),
+              "tecnica": {"sopraMm200": True}}
+    assert tipi(avvocato.controlla(scheda, [], OGGI)) == ["Trimestrale in arrivo"]
+    assert avvocato.controlla(scheda, [], "2026-10-01") == []          # a ottobre la trimestrale è lontana
+
+
+def prova_avvocato_campanelli():
+    grezzi = azienda_finta(financialData__earningsGrowth=-0.3, financialData__totalDebt=3e10,
+                           financialData__targetMeanPrice=90.0, financialData__recommendationMean=3.4,
+                           defaultKeyStatistics__forwardEps=4.0)
+    grezzi["earningsTrend"]["trend"][0]["epsTrend"]["90daysAgo"] = n(7.0)       # stime tagliate: da 7 a 6
+    grezzi["earningsHistory"]["history"][-1]["epsActual"] = n(1.0)              # ultima trimestrale sotto le attese
+    scheda = {"tipo": "Azione", "fondamentali": fondamentale.analizza(grezzi, OGGI),
+              "tecnica": {"sopraMm200": False, "incrocio": "ribasso"},
+              "storiaTarget": {"2026-10-10": 110.0, "2026-11-14": 90.0}}
+    notizie = [{"titolo": "Azienda Finta: indagine dell'antitrust"}, {"titolo": "Azienda Finta taglia le stime per il 2027"},
+               {"titolo": "A causa del maltempo slitta la presentazione"}]
+    trovati = avvocato.controlla(scheda, notizie, OGGI)
+    for atteso in ["Utili attesi in calo", "Utili in calo", "Trimestrale sotto le attese", "Debito alto",
+                   "Target degli analisti abbassato", "Stime sugli utili tagliate", "Prezzo sopra il target",
+                   "Analisti freddi", "Sotto la media a 200 giorni", "Trimestrale in arrivo", "Notizie da leggere"]:
+        assert atteso in tipi(trovati), f"manca: {atteso} in {tipi(trovati)}"
+    assert trovati[0]["livello"] == "alto" and trovati[-1]["livello"] == "medio"   # prima i più gravi
+    notizia = next(c for c in trovati if c["tipo"] == "notizie")
+    assert notizia["livello"] == "alto" and "maltempo" not in notizia["testo"]      # "a causa di" non è una causa legale
+
+
+def prova_avvocato_target_e_etf():
+    storia = avvocato.aggiorna_storia_target({"2026-01-01": 50.0, "2026-10-14": 100.0}, 93.0, OGGI)
+    assert list(storia) == ["2026-10-14", "2026-11-14"]                           # i target troppo vecchi spariscono
+    assert uguale(avvocato.variazione_target(storia, OGGI), -0.07)
+    assert avvocato.variazione_target({"2026-11-12": 100.0, OGGI: 80.0}, OGGI) is None   # storia troppo corta
+    # Un ETF non ha fondamentali: contano solo tecnica e notizie
+    etf = {"tipo": "ETF", "tecnica": {"sopraMm200": False}}
+    assert tipi(avvocato.controlla(etf, [], OGGI)) == ["Sotto la media a 200 giorni"]
+
+
+# ---------- Avvocato con AI (con un Claude finto: nessuna chiamata vera, nessuna spesa) ----------
+
+class ClaudeFinto:
+    """Si comporta come la libreria di Anthropic, ma risponde sempre la stessa cosa e conta le chiamate."""
+
+    def __init__(self, motivo="end_turn"):
+        import json
+        from types import SimpleNamespace as Oggetto
+        self.richieste = []
+        testo = json.dumps({"sintesi": "Quadro misto.", "pro": ["Conti solidi"], "contro": ["Utili in calo"],
+                            "daVerificare": ["La guidance è confermata?"]})
+        self.risposta = Oggetto(stop_reason=motivo, content=[Oggetto(type="thinking"), Oggetto(type="text", text=testo)],
+                                usage=Oggetto(input_tokens=2000, output_tokens=1500))
+        crea = lambda **richiesta: self.richieste.append(richiesta) or self.risposta
+        self.messages = Oggetto(create=crea)
+        self.beta = Oggetto(messages=Oggetto(create=crea))
+
+
+def prova_ai_spenta_senza_chiave():
+    os.environ.pop("ANTHROPIC_API_KEY", None)
+    stato = avvocato_ai.lavora({}, ["A"], {"A": {"nome": "A"}}, {}, OGGI)
+    assert stato["attiva"] is False and stato["analisi"] == {}
+
+
+def prova_ai_freni():
+    try:
+        import anthropic   # noqa: F401  (serve la libreria vera per riconoscere gli errori)
+    except ImportError:
+        print("    (libreria anthropic non installata: prova saltata)")
+        return
+    for nome in ("AI_MODELLO", "AI_CHIAMATE_AL_GIORNO", "AI_BUDGET_MENSILE_USD"):
+        os.environ.pop(nome, None)
+    schede = {t: {"nome": t, "campanelli": []} for t in "ABCDEF"}
+    finto = ClaudeFinto()
+
+    # 1. Limite giornaliero: 6 titoli da analizzare, ma al massimo 4 chiamate al giorno
+    stato = avvocato_ai.lavora({}, list("ABCDEF"), schede, {}, OGGI, cliente=finto)
+    assert len(finto.richieste) == 4 and sorted(stato["analisi"]) == list("ABCD")
+    assert stato["analisi"]["A"]["contro"] == ["Utili in calo"] and stato["analisi"]["A"]["modello"] == "claude-opus-5-5"
+    # 2000 token in ingresso a 4 $ + 1500 in uscita a 20 $ al milione = 0,038 $ a chiamata
+    assert uguale(stato["spesa"]["2026-11"], 4 * 0.038, 1e-3)
+    # La richiesta: modello predefinito, riserva attiva, risposta in formato fisso, nessun dato personale possibile
+    richiesta = finto.richieste[0]
+    assert richiesta["model"] == "claude-opus-5-5" and richiesta["fallbacks"] == "default"
+    assert richiesta["output_config"]["format"]["type"] == "json_schema"
+
+    # 2. Lo stesso giorno non riparte: il limite di oggi è già raggiunto
+    stato = avvocato_ai.lavora(stato, list("ABCDEF"), schede, {}, OGGI, cliente=finto)
+    assert len(finto.richieste) == 4
+
+    # 3. Il giorno dopo fa solo i titoli mancanti: quelli già analizzati e non cambiati si saltano
+    stato = avvocato_ai.lavora(stato, list("ABCDEF"), schede, {}, "2026-11-15", cliente=finto)
+    assert len(finto.richieste) == 6 and sorted(stato["analisi"]) == list("ABCDEF")
+    stato = avvocato_ai.lavora(stato, list("ABCDEF"), schede, {}, "2026-11-16", cliente=finto)
+    assert len(finto.richieste) == 6
+    # ...ma se arriva una notizia nuova su A, A viene rifatto
+    stato = avvocato_ai.lavora(stato, list("ABCDEF"), schede, {"A": [{"titolo": "Novità"}]}, "2026-11-17", cliente=finto)
+    assert len(finto.richieste) == 7
+
+    # 4. Tetto mensile: con 0,10 $ di budget non parte nemmeno una chiamata (una può costare fino a 0,12 $)
+    os.environ["AI_BUDGET_MENSILE_USD"] = "0.10"
+    finto2 = ClaudeFinto()
+    stato2 = avvocato_ai.lavora({}, list("ABC"), schede, {}, OGGI, cliente=finto2)
+    assert finto2.richieste == [] and stato2["analisi"] == {}
+    os.environ.pop("AI_BUDGET_MENSILE_USD")
+
+    # 5. Risposta rifiutata o tagliata: non viene salvata, ma la spesa viene contata
+    rifiuto = ClaudeFinto(motivo="refusal")
+    stato3 = avvocato_ai.lavora({}, ["A"], schede, {}, OGGI, cliente=rifiuto)
+    assert stato3["analisi"] == {} and stato3["spesa"]["2026-11"] > 0
+
+    # 6. Un modello economico senza riserva usa la chiamata normale
+    os.environ["AI_MODELLO"] = "claude-haiku-5-5"
+    economico = ClaudeFinto()
+    stato4 = avvocato_ai.lavora({}, ["A"], schede, {}, OGGI, cliente=economico)
+    assert "fallbacks" not in economico.richieste[0] and stato4["spesa"]["2026-11"] < 0.002
+    os.environ.pop("AI_MODELLO")
+
+
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
          prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_livelli,
-         prova_cacciatore, prova_classifica, prova_watchlist]
+         prova_cacciatore, prova_classifica, prova_watchlist,
+         prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
+         prova_ai_spenta_senza_chiave, prova_ai_freni]
 
 
 # ---------- Prova dal vivo (con internet) ----------

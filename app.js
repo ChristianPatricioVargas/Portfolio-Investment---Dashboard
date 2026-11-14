@@ -217,6 +217,7 @@ function disegna() {
     let riga2 = numAcquisti === 1 ? "1 acquisto" : `${numAcquisti} acquisti`;
     if (r) riga2 += " · ora " + euro(r.prezzo);
     if (r && r.oggi !== null) riga2 += " · oggi " + percentuale(r.oggi);
+    if (testoCampanelli(posizione.ticker)) riga2 += " · " + testoCampanelli(posizione.ticker);
 
     // Creiamo la scheda: è un pulsante, se la tocchi si apre la pagina del titolo
     const scheda = document.createElement("button");
@@ -356,6 +357,7 @@ function disegnaTitolo() {
   disegnaTecnico();
   disegnaFondamentali();
   disegnaCacciatore();
+  disegnaAvvocato();
   disegnaTesi();
 }
 
@@ -1029,11 +1031,12 @@ async function avvia() {
 
   // Storico, prezzi di oggi e notizie non sono indispensabili: se mancano, la pagina funziona lo stesso
   try {
-    const [rispostaStorico, rispostaIntraday, rispostaNotizie, rispostaAnalisi] = await Promise.all([
+    const [rispostaStorico, rispostaIntraday, rispostaNotizie, rispostaAnalisi, rispostaAi] = await Promise.all([
       fetch("data/storico.json", { cache: "no-store" }),
       fetch("data/intraday.json", { cache: "no-store" }),
       fetch("data/notizie.json", { cache: "no-store" }),
       fetch("data/analisi.json", { cache: "no-store" }),
+      fetch("data/ai.json", { cache: "no-store" }),
     ]);
     if (rispostaStorico.ok) storico = await rispostaStorico.json();
     if (rispostaIntraday.ok) intraday = await rispostaIntraday.json();
@@ -1046,6 +1049,10 @@ async function avvia() {
     if (rispostaAnalisi.ok) {
       const datiAnalisi = await rispostaAnalisi.json();
       if (datiAnalisi && datiAnalisi.titoli) analisi = datiAnalisi;
+    }
+    if (rispostaAi.ok) {
+      const datiAi = await rispostaAi.json();
+      if (datiAi && datiAi.analisi) ai = datiAi;
     }
   } catch (errore) {
     /* niente grafici, pazienza */

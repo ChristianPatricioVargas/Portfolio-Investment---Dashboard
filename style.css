@@ -13,6 +13,8 @@
   --verde-sfondo: #0f3324;
   --rosso: #ff8a7a;
   --rosso-sfondo: #3a1717;
+  --ambra: #ffbe5c;         /* arancio dei campanelli "da tenere d'occhio" */
+  --ambra-sfondo: #3a2a14;
   --accento: #8fb0ff;
   --accento-forte: #3d63e0;
   --linea-valore: #4c7dff;     /* linea blu del grafico: il valore */
@@ -606,3 +608,30 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
 
 /* La pagina di un titolo che non hai: una colonna sola */
 .colonne.una-colonna { grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- I campanelli d'allarme dell'avvocato del diavolo ---------- */
+
+.elenco-campanelli { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.campanello { display: grid; gap: 4px; padding-left: 12px; border-left: 3px solid var(--ambra); }
+.campanello.alto { border-left-color: var(--rosso); }
+/* L'etichetta del livello: un simbolo e una parola, non solo un colore */
+.campanello .livello {
+  justify-self: start;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ambra-sfondo);
+  color: var(--ambra);
+}
+.campanello.alto .livello { background: var(--rosso-sfondo); color: var(--rosso); }
+.campanello b { display: block; font-weight: 600; font-size: 0.95rem; }
+.campanello div span { color: var(--testo-tenue); font-size: 0.9rem; }
+
+/* L'analisi scritta dall'AI */
+#blocco-ai { margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--carta-2); }
+.punti-ai { margin: 0; padding-left: 20px; font-size: 0.95rem; }
+.punti-ai li { margin: 4px 0; }
+#stato-ai { margin: 14px 0 0; }

@@ -231,6 +231,31 @@
               Non è consulenza finanziaria. La decisione è tua.</p>
           </section>
 
+          <!-- L'avvocato del diavolo: i campanelli d'allarme (lo riempie agenti/avvocato.js) -->
+          <section class="riquadro" id="sezione-avvocato">
+            <h2>😈 Avvocato del diavolo <span class="ruolo">i rischi</span></h2>
+            <p class="vuoto" id="attesa-avvocato">⏳ I campanelli d'allarme arriveranno con il prossimo giro serale degli agenti.</p>
+            <div id="corpo-avvocato" hidden>
+              <ul class="elenco-campanelli" id="elenco-campanelli"></ul>
+              <p class="vuoto" id="nessun-campanello" hidden>Nessun campanello d'allarme con le regole attuali. Non vuol dire che non ci siano rischi: le regole guardano solo alcuni numeri.</p>
+              <!-- L'analisi scritta dall'AI: compare solo se l'AI è accesa -->
+              <div id="blocco-ai" hidden>
+                <h3>Pro e contro secondo l'AI</h3>
+                <p class="testo-tesi" id="sintesi-ai"></p>
+                <h3>A favore</h3>
+                <ul class="punti-ai" id="pro-ai"></ul>
+                <h3>Contro</h3>
+                <ul class="punti-ai" id="contro-ai"></ul>
+                <h3>Da verificare prima di decidere</h3>
+                <ul class="punti-ai" id="verificare-ai"></ul>
+                <p class="fonte-notizie" id="fonte-ai"></p>
+              </div>
+              <p class="suggerimento" id="stato-ai"></p>
+            </div>
+            <p class="avvertenza">Regole meccaniche su dati pubblici: servono a farti le domande giuste, non a darti la risposta.
+              Non è consulenza finanziaria. La decisione è tua.</p>
+          </section>
+
           <!-- Le notizie sul titolo: le riempie app.js -->
           <section class="notizie" aria-labelledby="titolo-notizie">
             <h2 id="titolo-notizie">📰 Notizie</h2>
@@ -321,6 +346,7 @@
   <script src="agenti/fondamentale.js"></script>
   <script src="agenti/tecnico.js"></script>
   <script src="agenti/cacciatore.js"></script>
+  <script src="agenti/avvocato.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

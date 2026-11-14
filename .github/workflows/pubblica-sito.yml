@@ -59,7 +59,7 @@ jobs:
           SITO: ${{ steps.pages.outputs.base_url }}
         run: |
           mkdir -p data
-          for nome in prezzi storico intraday allarmi notizie analisi serie; do
+          for nome in prezzi storico intraday allarmi notizie analisi serie ai; do
             # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
             if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
                && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then
@@ -85,7 +85,17 @@ jobs:
         timeout-minutes: 15
         env:
           GIRO_SERALE: ${{ github.event.schedule == '23 21 * * 1-5' || inputs.agenti == true }}
+          # L'avvocato del diavolo con AI è SPENTO finché non crei il segreto ANTHROPIC_API_KEY.
+          # I tre freni alla spesa sono "Variables" (non segreti): se non le crei valgono i valori predefiniti.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODELLO: ${{ vars.AI_MODELLO }}
+          AI_CHIAMATE_AL_GIORNO: ${{ vars.AI_CHIAMATE_AL_GIORNO }}
+          AI_BUDGET_MENSILE_USD: ${{ vars.AI_BUDGET_MENSILE_USD }}
         run: |
+          # La libreria di Anthropic serve solo se l'AI è accesa
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            pip install --quiet "anthropic>=2.8,<3"
+          fi
           if [ "$GIRO_SERALE" = "true" ]; then
             python3 scripts/aggiorna_analisi.py
           else

@@ -109,7 +109,9 @@ function disegnaOccasioni() {
   for (const [lista, contenitore, vuoto] of [["classifica", "elenco-classifica", "vuoto-classifica"], ["quasi", "elenco-quasi", "vuoto-quasi"]]) {
     const sigle = occasioni(lista);
     $(contenitore).innerHTML = "";
-    sigle.forEach((ticker, i) => $(contenitore).appendChild(creaSchedaOccasione(ticker, lista === "classifica" ? i + 1 : null)));
+    sigle.forEach((ticker, i) => $(contenitore).appendChild(creaSchedaOccasione(
+      ticker, lista === "classifica" ? i + 1 : null,
+      rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "")));
     $(vuoto).hidden = sigle.length > 0;
   }
 
