@@ -67,4 +67,14 @@ def prova_copertura(chiave):
 
         righe.append(f"| {sigla} | {nome} | {bilancio} | {v('peTTM')} | {v('netProfitMarginTTM')} | {v('epsGrowthTTMYoy')} "
                      f"| {v('totalDebt/totalEquityQuarterly')} | {v('52WeekHigh')} | {testo_giudizi} | {testo_target} | {testo_data} |")
+    # Elenco completo dei numeri disponibili, per sapere come si chiamano (serve a chi scrive il collegamento)
+    for sigla in ("AAPL", "JPM"):
+        dati, _ = chiedi(chiave, "/stock/metric", symbol=sigla, metric="all")
+        m = (dati or {}).get("metric") or {}
+        righe += ["", f"Numeri di {sigla}: " + "; ".join(f"{k}={m[k]}" for k in sorted(m))]
+        for percorso in ("/stock/profile2", "/stock/earnings", "/stock/recommendation"):
+            altro, motivo = chiedi(chiave, percorso, symbol=sigla)
+            righe.append(f"{percorso} {sigla}: " + (json.dumps(altro[:2] if isinstance(altro, list) else altro)[:600] if altro else motivo))
+    calendario, motivo = chiedi(chiave, "/calendar/earnings", symbol="AAPL", **{"from": oggi, "to": tra_4_mesi})
+    righe.append("/calendar/earnings AAPL: " + (json.dumps(calendario)[:400] if calendario else motivo))
     return righe
