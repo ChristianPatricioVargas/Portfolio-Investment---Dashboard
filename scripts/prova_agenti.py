@@ -348,11 +348,18 @@ def prova_dal_vivo():
                      "e campanelli sui conti. Vedi \"Le fonti dei dati e i loro limiti\" nel README.")
     # Se esiste il segreto ALPHAVANTAGE_API_KEY, proviamo anche la fonte alternativa
     chiave = (os.environ.get("ALPHAVANTAGE_API_KEY") or "").strip()
-    if chiave:
+    if chiave and "--alphavantage" in sys.argv:    # già provata il 15/11/2026: i fondamentali sono a pagamento
         from agenti import alphavantage
         righe += [""] + alphavantage.prova_copertura(chiave)
     else:
-        righe += ["", "Alpha Vantage: non provata (manca il segreto ALPHAVANTAGE_API_KEY)."]
+        righe += ["", "Alpha Vantage: non riprovata (il 15/11/2026 dava gratis solo il calendario delle trimestrali)."]
+    # Se esiste il segreto FINNHUB_API_KEY, proviamo anche Finnhub
+    chiave = (os.environ.get("FINNHUB_API_KEY") or "").strip()
+    if chiave:
+        from agenti import finnhub
+        righe += [""] + finnhub.prova_copertura(chiave)
+    else:
+        righe += ["", "Finnhub: non provata (manca il segreto FINNHUB_API_KEY)."]
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")
