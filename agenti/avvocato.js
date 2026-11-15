@@ -14,11 +14,11 @@ function campanelliDi(ticker) {
   return (analisi.titoli[ticker] || {}).campanelli || [];
 }
 
-// "⚠️ 3 campanelli (1 da guardare subito)" per le schede, "" se non ce ne sono
+// "⚠ 3 campanelli (1 da guardare subito)" per le schede, "" se non ce ne sono
 function testoCampanelli(ticker) {
   const lista = campanelliDi(ticker);
   if (lista.length === 0) return "";
-  return `⚠️ ${lista.length} ${lista.length === 1 ? "campanello" : "campanelli"}`;
+  return `⚠ ${lista.length} ${lista.length === 1 ? "campanello" : "campanelli"}`;
 }
 
 // Il rischio più importante di un titolo, in una riga (il primo della lista: i gravi vengono prima)

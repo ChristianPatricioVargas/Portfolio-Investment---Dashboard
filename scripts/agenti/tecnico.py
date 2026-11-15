@@ -16,6 +16,7 @@ IMPORTANTE: l'analisi tecnica descrive il passato. Non prevede il futuro.
 from datetime import datetime, timedelta, timezone
 
 GIORNI_GRAFICO = 252      # un anno di Borsa: quanti giorni mandiamo alla pagina per il grafico
+GIORNI_CANDELE = 90       # per quanti giorni mandiamo anche le "candele" (circa 4 mesi di Borsa)
 FINESTRA_PIVOT = 5        # un "picco" è il prezzo più alto dei 5 giorni prima e dei 5 dopo
 TOLLERANZA_LIVELLO = 0.015   # due livelli più vicini dell'1,5% sono lo stesso livello
 
@@ -32,6 +33,30 @@ def chiusure(grafico):
         per_giorno[giorno] = float(prezzo)
     giorni = sorted(per_giorno)
     return giorni, [per_giorno[g] for g in giorni]
+
+
+def candele(grafico, giorni):
+    """Le "candele" degli ultimi giorni: per ogni giorno apertura, massimo, minimo, chiusura e volume.
+    Una candela racconta la giornata: da dove è partito il prezzo, fin dove è salito e sceso, dove ha chiuso.
+    "giorni" è la lista dei giorni del grafico: restituiamo le candele dei suoi ultimi 90 giorni
+    (None se Yahoo non dà questi dati, come capita per qualche ETF)."""
+    fuso = timedelta(seconds=grafico["meta"].get("gmtoffset", 0))
+    dati = grafico["indicators"]["quote"][0]
+    per_giorno = {}
+    for i, istante in enumerate(grafico.get("timestamp") or []):
+        valori = [(dati.get(campo) or [None] * (i + 1))[i] for campo in ("open", "high", "low", "close")]
+        if any(v is None for v in valori):
+            continue
+        volume = (dati.get("volume") or [None] * (i + 1))[i]
+        giorno = (datetime.fromtimestamp(istante, timezone.utc) + fuso).strftime("%Y-%m-%d")
+        per_giorno[giorno] = [round(float(v), 2) for v in valori] + [int(volume or 0)]
+    ultimi = giorni[-GIORNI_CANDELE:]
+    if not ultimi or any(g not in per_giorno for g in ultimi):
+        return None
+    colonne = list(zip(*(per_giorno[g] for g in ultimi)))
+    return {"da": len(giorni) - len(ultimi),      # la posizione, nella serie, del primo giorno con la candela
+            "apertura": list(colonne[0]), "massimo": list(colonne[1]), "minimo": list(colonne[2]),
+            "chiusura": list(colonne[3]), "volume": list(colonne[4])}
 
 
 def media_mobile(valori, giorni):

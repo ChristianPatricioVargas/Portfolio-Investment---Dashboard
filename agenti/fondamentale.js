@@ -160,10 +160,10 @@ function disegnaFondamentali() {
   if (!f) {
     const scheda = analisi.titoli[tickerAperto];
     return messaggio(fonteFondamentaliChiusa()
-      ? `⚠️ ${fonteFondamentaliChiusa()}. I fondamentali di questo titolo non sono disponibili.`
+      ? `⚠ ${fonteFondamentaliChiusa()}. I fondamentali di questo titolo non sono disponibili.`
       : scheda && scheda.tecnica
         ? "Per questa azienda la fonte gratuita dei fondamentali non ha dati (copre solo le aziende quotate anche negli Stati Uniti)."
-        : "⏳ I fondamentali arriveranno con il prossimo giro degli agenti.");
+        : "I fondamentali arriveranno con il prossimo giro degli agenti.");
   }
 
   // In alto: settore e prossima trimestrale
@@ -187,7 +187,7 @@ function disegnaFondamentali() {
   if (f.aggiornato) parti.push("dati del " + dataBreve(f.aggiornato));
   const usa = (analisi.titoli[tickerAperto] || {}).usa;
   if (usa && usa !== tickerAperto) parti.push(`conti della quotazione americana (${usa})`);
-  if (fonteFondamentaliChiusa()) parti.push("⚠️ all'ultimo giro la fonte non ha risposto: potrebbero essere vecchi");
+  if (fonteFondamentaliChiusa()) parti.push("⚠ all'ultimo giro la fonte non ha risposto: potrebbero essere vecchi");
   $("fonte-fondamentali").textContent = parti.join(" · ");
 }
 
@@ -249,7 +249,7 @@ function avanzamentoTesi(ticker) {
 
 // La frase che riassume l'avanzamento
 function testoAvanzamento(a) {
-  if (a.raggiunto) return `🎯 Target raggiunto: il prezzo è ${percUno(-a.mancante, true)} sopra il tuo target.`;
+  if (a.raggiunto) return `Target raggiunto: il prezzo è ${percUno(-a.mancante, true)} sopra il tuo target.`;
   if (a.strada === null) return `Il target è sotto il tuo prezzo medio: mancano ${percUno(a.mancante, true)} per arrivarci.`;
   if (a.strada < 0) return `Sei sotto il tuo prezzo medio (${percUno(a.prezzo / a.medio - 1, true)}). Al target mancano ${percUno(a.mancante, true)}.`;
   const inizio = a.vicino ? "Vicino al target: sei" : "Sei";
@@ -335,7 +335,7 @@ function disegnaTesi() {
     const nota = document.createElement("p");
     nota.className = "suggerimento";
     nota.textContent = t.uscita.some((u) => u.scattata)
-      ? "⚠️ Hai segnato una condizione di uscita come verificata: rileggi la tesi prima di decidere."
+      ? "⚠ Hai segnato una condizione di uscita come verificata: rileggi la tesi prima di decidere."
       : "Spunta una condizione quando si verifica: comparirà nella pagina Oggi.";
     corpo.appendChild(nota);
   }

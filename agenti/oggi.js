@@ -54,7 +54,7 @@ function statoTesi(ticker) {
   return { livello: "neutro", testo: t.target ? "In attesa del prezzo." : "Tesi scritta, senza target." };
 }
 
-const SIMBOLI_STATO = { bene: "🎯", attenzione: "⚠️", neutro: "•" };
+const SIMBOLI_STATO = { bene: "✓", attenzione: "⚠", neutro: "•" };
 
 // Una riga della pagina Oggi: titolo a sinistra, numero a destra, dettagli sotto. Toccandola si apre il titolo.
 function creaRigaOggi(ticker, destra, classeDestra, dettagli) {
@@ -76,49 +76,244 @@ function creaRigaOggi(ticker, destra, classeDestra, dettagli) {
   return riga;
 }
 
+// ---------- Piccoli mattoni per costruire tabelle e mini-grafici ----------
+
+// Crea un elemento con una classe e un testo (sempre testo semplice, per sicurezza)
+function crea(tipo, classe = "", testo = "") {
+  const elemento = document.createElement(tipo);
+  if (classe) elemento.className = classe;
+  if (testo) elemento.textContent = testo;
+  return elemento;
+}
+
+// L'intestazione di una tabella: colonne = [["Titolo", ""], ["Prezzo", "destra"], ...]
+function intestaTabella(tabella, colonne) {
+  tabella.innerHTML = "";
+  const riga = tabella.createTHead().insertRow();
+  for (const [nome, classe] of colonne) {
+    const cella = crea("th", classe, nome);
+    cella.scope = "col";
+    riga.appendChild(cella);
+  }
+  return tabella.createTBody();
+}
+
+// Il mini-grafico dell'ultimo mese di un titolo (dai prezzi di chiusura salvati)
+function creaMiniGrafico(ticker) {
+  const valori = Object.values(storico[ticker] || {}).slice(-22);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 72 24");
+  svg.setAttribute("class", "mini-grafico");
+  svg.setAttribute("aria-hidden", "true");
+  if (valori.length < 2) return svg;
+  const minimo = Math.min(...valori), massimo = Math.max(...valori);
+  const d = valori.map((v, i) => `${i ? "L" : "M"}${((i / (valori.length - 1)) * 72).toFixed(1)},${(22 - ((v - minimo) / (massimo - minimo || 1)) * 20).toFixed(1)}`).join(" ");
+  svg.innerHTML = `<path class="${valori[valori.length - 1] >= valori[0] ? "su" : "giu"}" d="${d}"/>`;
+  return svg;
+}
+
+// ▲ +0,82%  oppure  ▼ −1,14%: la freccia dice la direzione anche senza il colore
+function testoVariazione(numero) {
+  return (numero > 0 ? "▲ " : numero < 0 ? "▼ " : "") + percentuale(numero);
+}
+
+// ---------- La striscia dei prezzi in alto ----------
+
+function disegnaStriscia() {
+  const striscia = $("striscia");
+  striscia.innerHTML = "";
+  const voce = (nome, valore, variazione, alClic) => {
+    const elemento = crea(alClic ? "button" : "span", "voce-striscia");
+    if (alClic) { elemento.type = "button"; elemento.onclick = alClic; }
+    elemento.append(crea("span", "nome-striscia", nome), crea("span", "", valore));
+    if (variazione !== null) elemento.append(crea("span", classeColore(variazione), testoVariazione(variazione)));
+    striscia.appendChild(elemento);
+  };
+  // Prima i tuoi titoli (o tutti quelli dell'elenco, se non ne hai ancora), poi gli indici di mercato
+  const sigle = posizioni.length ? posizioni.map((p) => p.ticker) : titoli.map((t) => t.ticker);
+  for (const ticker of sigle) {
+    const p = prezzi[ticker];
+    if (p) voce(ticker.split(".")[0], numeroIt(p.prezzo, 2), p.chiusuraIeri ? p.prezzo / p.chiusuraIeri - 1 : null, () => vaiAlTitolo(ticker));
+  }
+  for (const m of mercati) voce(m.nome, numeroIt(m.valore, m.cifre), m.ieri ? m.valore / m.ieri - 1 : null);
+  if (controllatiIl) striscia.appendChild(crea("span", "ora-striscia", "aggiornato " + momento(controllatiIl)));
+}
+
+// ---------- Il grafico a candele della pagina Oggi ----------
+
+let tickerGraficoOggi = null;     // il titolo mostrato nel grafico della pagina Oggi
+
+function disegnaGraficoOggi() {
+  const sigle = posizioni.map((p) => p.ticker);
+  $("oggi-grafico").hidden = sigle.length === 0;
+  if (sigle.length === 0) return;
+  // Di partenza: la prima azione che possiedi (le azioni sono quelle da seguire più da vicino)
+  if (!sigle.includes(tickerGraficoOggi)) {
+    tickerGraficoOggi = sigle.find((t) => infoTitolo(t).tipo !== "ETF") || sigle[0];
+  }
+  const scelta = $("oggi-scelta-titolo");
+  scelta.innerHTML = "";
+  for (const ticker of sigle) {
+    const pulsante = crea("button", ticker === tickerGraficoOggi ? "attivo" : "", ticker.split(".")[0]);
+    pulsante.type = "button";
+    pulsante.title = infoTitolo(ticker).nome;
+    pulsante.onclick = () => { tickerGraficoOggi = ticker; disegnaGraficoOggi(); };
+    scelta.appendChild(pulsante);
+  }
+  const t = (analisi.titoli[tickerGraficoOggi] || {}).tecnica;
+  const p = prezzi[tickerGraficoOggi];
+  const riga = $("oggi-riga-grafico");
+  riga.innerHTML = "";
+  riga.append(crea("b", "", infoTitolo(tickerGraficoOggi).nome));
+  if (p) riga.append(crea("span", "numero", euro(p.prezzo)));
+  if (p && p.chiusuraIeri) riga.append(crea("span", "numero " + classeColore(p.prezzo / p.chiusuraIeri - 1), testoVariazione(p.prezzo / p.chiusuraIeri - 1)));
+  if (t) riga.append(crea("span", "tenue", `RSI ${numeroIt(t.rsi ?? 0, 0)} · ${percUno(t.dalMassimo, true)} dal massimo dell'anno`));
+  $("oggi-grafico-vuoto").hidden = Boolean(t);
+  const ticker = tickerGraficoOggi;
+  caricaSerie().then(() => {
+    if (ticker === tickerGraficoOggi && vistaAperta === "oggi") disegnaGraficoPrezzo($("grafico-oggi"), ticker);
+  });
+}
+
+// ---------- La pagina Oggi ----------
+
 function disegnaOggi() {
   $("data-oggi").textContent = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
   const haTitoli = posizioni.length > 0;
   $("oggi-vuoto").hidden = haTitoli;
-  $("oggi-portafoglio").hidden = !haTitoli;
-  $("oggi-titoli").hidden = !haTitoli;
+  for (const id of ["oggi-portafoglio", "oggi-titoli", "oggi-campanelli", "oggi-notizie", "oggi-composizione"]) $(id).hidden = !haTitoli;
+  const r = riepilogoPortafoglio();
 
-  // ---- 1. Come va il portafoglio ----
+  // ---- 1. I quattro numeri chiave ----
   if (haTitoli) {
-    const r = riepilogoPortafoglio();
-    $("oggi-valore").textContent = r.completo ? euro(r.valore) : "–";
-    const chip = $("oggi-gp");
-    chip.textContent = r.completo ? `${r.gp >= 0 ? "▲" : "▼"} ${euro(r.gp, true)} · ${percentuale(r.gp / r.investito)} dall'inizio` : "";
-    chip.className = "chip " + (r.completo ? classeColore(r.gp) : "");
-    const giorno = $("oggi-variazione");
-    giorno.textContent = r.completo && r.valoreIeri > 0
-      ? `Oggi ${euro(r.variazioneOggi, true)} · ${percentuale(r.variazioneOggi / r.valoreIeri)}` : "In attesa dei prezzi";
-    giorno.className = "sotto " + (r.completo ? classeColore(r.variazioneOggi) : "");
+    const numero = (id, testo, valore = 0) => { $(id).textContent = testo; $(id).className = classeColore(valore); };
+    numero("oggi-valore", r.completo ? euro(r.valore) : "–");
+    $("oggi-investito").textContent = "investito " + euro(r.investito);
+    numero("oggi-gp", r.completo ? euro(r.gp, true) : "–", r.completo ? r.gp : 0);
+    numero("oggi-gp-perc", r.completo ? testoVariazione(r.gp / r.investito) + " dall'inizio" : "in attesa dei prezzi", r.completo ? r.gp : 0);
+    const oggiNoto = r.completo && r.valoreIeri > 0;
+    numero("oggi-variazione", oggiNoto ? euro(r.variazioneOggi, true) : "–", oggiNoto ? r.variazioneOggi : 0);
+    numero("oggi-variazione-perc", oggiNoto ? testoVariazione(r.variazioneOggi / r.valoreIeri) : "in attesa dei prezzi", oggiNoto ? r.variazioneOggi : 0);
+    // Se vendessi tutto: la somma del netto di ogni posizione (ognuna paga tasse e commissione per conto suo)
+    const netto = posizioni.reduce((somma, p) => somma + (prezzi[p.ticker] ? calcolaVendita(p, prezzi[p.ticker].prezzo).netto : 0), 0);
+    numero("oggi-netto", r.completo ? euro(netto) : "–");
     $("oggi-fonte").textContent = Object.keys(prezzi).length ? testoFonte(posizioni.map((p) => p.ticker)) : "";
   }
 
-  // ---- 2. Cosa è successo ai miei titoli ----
+  // ---- 2. Il grafico ----
+  disegnaGraficoOggi();
+
+  // ---- 3. Le occasioni: una tabella con le 5 che spiccano ----
+  const migliori = occasioni(3).slice(0, QUANTE_SPICCANO);
+  const corpoOccasioni = intestaTabella($("tabella-occasioni"), [["#", ""], ["Azienda", ""], ["Calo", "destra"], ["Segnali", "destra"], ["Direzione", "destra"]]);
+  migliori.forEach((ticker, i) => {
+    const s = analisi.titoli[ticker];
+    const riga = corpoOccasioni.insertRow();
+    riga.className = "si-tocca";
+    riga.onclick = () => vaiAlTitolo(ticker);
+    riga.append(crea("td", "tenue", String(i + 1)), crea("td", "nome-cella", s.nome),
+      crea("td", "destra numero", s.tecnica ? percUno(s.tecnica.dalMassimo, true) : "–"),
+      crea("td", "destra numero" + (s.cacciatore.rispettati === 4 ? " in-evidenza" : ""), `${s.cacciatore.rispettati}/4`));
+    // La direzione recente del prezzo: una freccia e una parola, non solo un colore
+    const sale = s.tecnica && s.tecnica.sopraMm50;
+    riga.append(crea("td", "destra " + (s.tecnica ? (sale ? "positivo" : "negativo") : ""), s.tecnica ? (sale ? "↗ risale" : "↘ scende") : "–"));
+  });
+  $("tabella-occasioni").hidden = migliori.length === 0;
+  $("oggi-occasioni-vuoto").hidden = migliori.length > 0;
+  $("oggi-occasioni-vuoto").textContent = fonteFondamentaliChiusa()
+    ? "Le occasioni non sono disponibili: mancano i fondamentali (vedi la nota in fondo alla pagina)."
+    : analisi.classifica
+    ? "Oggi nessuna azienda della watchlist ha almeno 3 segnali su 4."
+    : "Le occasioni arriveranno con il prossimo giro degli agenti.";
+
+  // ---- 4. La tabella delle posizioni ----
+  const corpo = intestaTabella($("tabella-posizioni"), [["Titolo", ""], ["Prezzo", "destra"], ["Oggi", "destra"], ["Valore", "destra"],
+    ["Guad.", "destra"], ["RSI", "destra"], ["1 mese", ""], ["Target", ""], ["Rischi", "destra"]]);
+  for (const posizione of posizioni) {
+    const ticker = posizione.ticker;
+    const info = infoTitolo(ticker);
+    const c = calcola(posizione);
+    const t = (analisi.titoli[ticker] || {}).tecnica;
+    const riga = corpo.insertRow();
+    riga.className = "si-tocca";
+    riga.onclick = () => vaiAlTitolo(ticker);
+    const nome = crea("td", "nome-cella");
+    nome.append(crea("b", "", info.nome), crea("span", "tenue", " " + info.tipo));
+    riga.append(nome,
+      crea("td", "destra numero", c ? numeroIt(c.prezzo, 2) : "–"),
+      crea("td", "destra numero " + (c && c.oggi !== null ? classeColore(c.oggi) : ""), c && c.oggi !== null ? percentuale(c.oggi) : "–"),
+      crea("td", "destra numero", c ? numeroIt(c.valore, 2) : "–"),
+      crea("td", "destra numero " + (c ? classeColore(c.gp) : ""), c ? percentuale(c.gpPerc) : "–"),
+      crea("td", "destra numero", t && t.rsi !== null ? numeroIt(t.rsi, 0) : "–"));
+    const mini = crea("td");
+    mini.appendChild(creaMiniGrafico(ticker));
+    // L'avanzamento verso il TUO target (quello della scheda tesi)
+    const cellaTarget = crea("td", "cella-target");
+    const a = avanzamentoTesi(ticker);
+    if (a) {
+      const quota = a.strada === null ? (a.raggiunto ? 1 : 0) : Math.max(0, Math.min(1, a.strada));
+      const barra = crea("span", "barra-mini");
+      barra.innerHTML = `<span style="width:${(quota * 100).toFixed(0)}%"></span>`;
+      cellaTarget.append(barra, crea("span", "tenue", `${Math.round(quota * 100)}% · ${euroTondo.format(a.target)}`));
+    } else {
+      cellaTarget.appendChild(crea("span", "tenue", info.tipo === "ETF" ? "lungo termine" : "nessun target"));
+    }
+    const quanti = campanelliDi(ticker).length;
+    riga.append(mini, cellaTarget, crea("td", "destra numero" + (campanelliDi(ticker).some((x) => x.livello === "alto") ? " negativo" : ""), quanti ? String(quanti) : "–"));
+  }
+
+  // ---- 5. I campanelli d'allarme dei tuoi titoli: prima i più gravi ----
+  const tutti = posizioni.flatMap((p) => campanelliDi(p.ticker).map((c) => ({ ...c, ticker: p.ticker })))
+    .sort((a, b) => (a.livello !== "alto") - (b.livello !== "alto"));
+  const elencoCampanelli = $("elenco-oggi-campanelli");
+  elencoCampanelli.innerHTML = "";
+  for (const c of tutti.slice(0, 7)) {
+    const voce = crea("li");
+    const apri = crea("button", "si-tocca");
+    apri.type = "button";
+    apri.onclick = () => vaiAlTitolo(c.ticker);
+    apri.append(crea("span", "livello-breve " + c.livello, c.livello === "alto" ? "ALTO" : "MEDIO"), crea("b", "", infoTitolo(c.ticker).nome), crea("span", "", " · " + c.titolo.toLowerCase()));
+    voce.appendChild(apri);
+    elencoCampanelli.appendChild(voce);
+  }
+  if (tutti.length > 7) elencoCampanelli.appendChild(crea("li", "tenue", `e altri ${tutti.length - 7}: apri i titoli per vederli`));
+  $("oggi-campanelli-vuoto").hidden = tutti.length > 0;
+
+  // ---- 6. Cosa è successo ai miei titoli: notizia principale e fatti del giorno ----
   const elencoTitoli = $("elenco-oggi-titoli");
   elencoTitoli.innerHTML = "";
   for (const posizione of posizioni) {
     const ticker = posizione.ticker;
-    const r = calcola(posizione);
-    const f = (analisi.titoli[ticker] || {}).fondamentali;
+    const c = calcola(posizione);
     const notizia = (notizie[ticker] || []).find((n) => typeof n.link === "string" && n.link.startsWith("https://"));
-    const giorni = f && f.prossimaTrimestrale ? giorniA(f.prossimaTrimestrale) : null;
     elencoTitoli.appendChild(creaRigaOggi(
       ticker,
-      r && r.oggi !== null ? "oggi " + percentuale(r.oggi) : "–",
-      r && r.oggi !== null ? classeColore(r.oggi) : "",
+      c && c.oggi !== null ? "oggi " + percentuale(c.oggi) : "–",
+      c && c.oggi !== null ? classeColore(c.oggi) : "",
       [
-        r ? `Dall'acquisto ${percentuale(r.gpPerc)} · prezzo ${euro(r.prezzo)}` : "In attesa del prezzo",
-        notizia ? `📰 ${notizia.titolo} (${tempoFa(notizia.data)})` : null,
-        giorni !== null && giorni >= 0 && giorni <= GIORNI_AVVISO_TRIMESTRALE ? `📅 Trimestrale ${testoTrimestrale(f)}` : null,
-        rischioPrincipale(ticker) ? `${testoCampanelli(ticker)} · ${campanelliDi(ticker).map((c) => c.titolo.toLowerCase()).join(", ")}` : null,
+        notizia ? `${notizia.titolo} (${[notizia.fonte, tempoFa(notizia.data)].filter(Boolean).join(", ")})` : "Nessuna notizia recente.",
+        rischioPrincipale(ticker) ? "Rischio principale: " + rischioPrincipale(ticker) : null,
       ]));
   }
 
-  // ---- 3. Le mie tesi (solo azioni: gli ETF sono di lungo termine) ----
+  // ---- 7. Composizione (grafico ad anello) e prossime trimestrali ----
+  disegnaComposizione(r);
+  const elencoTrimestrali = $("elenco-trimestrali");
+  elencoTrimestrali.innerHTML = "";
+  const date = posizioni
+    .map((p) => ({ ticker: p.ticker, f: (analisi.titoli[p.ticker] || {}).fondamentali }))
+    .filter((x) => x.f && x.f.prossimaTrimestrale && giorniA(x.f.prossimaTrimestrale) >= 0)
+    .sort((a, b) => a.f.prossimaTrimestrale.localeCompare(b.f.prossimaTrimestrale));
+  for (const { ticker, f } of date) {
+    const giorni = giorniA(f.prossimaTrimestrale);
+    const riga = crea("div");
+    riga.append(crea("span", "", infoTitolo(ticker).nome),
+      crea("span", "numero " + (giorni <= 14 ? "attenzione" : "tenue"), `${dataBreve(f.prossimaTrimestrale).replace(/ \d{4}$/, "")} · ${giorni} g`));
+    elencoTrimestrali.appendChild(riga);
+  }
+  if (date.length === 0) elencoTrimestrali.appendChild(crea("div", "tenue", "Nessuna data disponibile."));
+
+  // ---- 8. Le mie tesi (solo azioni: gli ETF sono di lungo termine) ----
   const azioni = posizioni.filter((p) => infoTitolo(p.ticker).tipo !== "ETF");
   $("oggi-tesi").hidden = azioni.length === 0;
   const elencoTesi = $("elenco-oggi-tesi");
@@ -126,33 +321,40 @@ function disegnaOggi() {
   for (const posizione of azioni) {
     const stato = statoTesi(posizione.ticker);
     const a = avanzamentoTesi(posizione.ticker);
-    elencoTesi.appendChild(creaRigaOggi(
-      posizione.ticker,
-      a ? `target ${euro(a.target)}` : "",
-      "",
+    elencoTesi.appendChild(creaRigaOggi(posizione.ticker, a ? `target ${euro(a.target)}` : "", "",
       [`${SIMBOLI_STATO[stato.livello]} ${stato.testo}`]));
   }
 
-  // ---- 4. Le migliori occasioni del cacciatore ----
-  const migliori = occasioni(3).slice(0, OCCASIONI_IN_EVIDENZA);
-  const elencoOccasioni = $("elenco-oggi-occasioni");
-  elencoOccasioni.innerHTML = "";
-  for (const [i, ticker] of migliori.entries()) {
-    elencoOccasioni.appendChild(creaSchedaOccasione(ticker, i + 1, [testoDirezione(ticker),
-      rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "Nessun campanello d'allarme dalle regole."]
-      .filter(Boolean).join("\n")));
-  }
-  $("oggi-occasioni-vuoto").hidden = migliori.length > 0;
-  $("oggi-occasioni-vuoto").textContent = fonteFondamentaliChiusa()
-    ? "La classifica non è disponibile: mancano i fondamentali (vedi la nota in fondo alla pagina)."
-    : analisi.classifica
-    ? "Oggi nessuna azienda della watchlist ha almeno 3 segnali su 4."
-    : "⏳ Le occasioni arriveranno con il prossimo giro degli agenti.";
-
   $("oggi-aggiornamento").textContent = analisi.aggiornato
     ? `Gli agenti hanno lavorato l'ultima volta ${momento(analisi.aggiornato)} (due volte al giorno: verso le 13 e la sera).` +
-      (fonteFondamentaliChiusa() ? ` ⚠️ ${fonteFondamentaliChiusa()}: fondamentali, classifica e campanelli sui conti non sono aggiornati.` : "")
+      (fonteFondamentaliChiusa() ? ` ⚠ ${fonteFondamentaliChiusa()}: fondamentali, classifica e campanelli sui conti non sono aggiornati.` : "")
     : "Gli agenti non hanno ancora lavorato: lavorano due volte al giorno, verso le 13 e la sera.";
+}
+
+// Il grafico ad anello: una fetta per ogni titolo, grande quanto il suo peso nel portafoglio
+function disegnaComposizione(r) {
+  const anello = $("anello");
+  const legenda = $("legenda-anello");
+  anello.innerHTML = "";
+  legenda.innerHTML = "";
+  if (!r.completo || r.valore <= 0) return;
+  const fette = posizioni.map((p) => ({ ticker: p.ticker, valore: calcola(p).valore }))
+    .sort((a, b) => b.valore - a.valore);
+  const giro = 2 * Math.PI * 44;
+  let partenza = 0, disegno = "";
+  fette.forEach((f, i) => {
+    const quota = f.valore / r.valore;
+    // Tra una fetta e l'altra resta un piccolo spazio, così si distinguono anche senza il colore
+    disegno += `<circle class="fetta fetta-${(i % 6) + 1}" cx="60" cy="60" r="44" stroke-dasharray="${Math.max(quota * giro - 3, 1).toFixed(1)} ${giro.toFixed(1)}" stroke-dashoffset="${(-partenza * giro).toFixed(1)}" transform="rotate(-90 60 60)"/>`;
+    partenza += quota;
+    const voce = crea("div");
+    voce.append(crea("i", `fetta-${(i % 6) + 1}`), crea("span", "", infoTitolo(f.ticker).nome), crea("span", "numero", percUno(quota).replace(",0%", "%")));
+    legenda.appendChild(voce);
+  });
+  const inEtf = fette.filter((f) => infoTitolo(f.ticker).tipo === "ETF").reduce((somma, f) => somma + f.valore, 0) / r.valore;
+  anello.innerHTML = disegno + `<text class="centro-anello" x="60" y="58" text-anchor="middle">${Math.round(inEtf * 100)}%</text>
+    <text class="sotto-anello" x="60" y="73" text-anchor="middle">in ETF</text>`;
+  anello.setAttribute("aria-label", "Composizione del portafoglio: " + fette.map((f) => `${infoTitolo(f.ticker).nome} ${Math.round((f.valore / r.valore) * 100)}%`).join(", "));
 }
 
 // ---------- "Copia per l'analisi" ----------
@@ -282,5 +484,6 @@ async function copiaPerAnalisi() {
 
 // Collega i pulsanti della pagina Oggi (lo chiama app.js all'avvio)
 function collegaOggi() {
+  collegaGraficoPrezzo($("grafico-oggi"));
   $("copia-analisi").onclick = copiaPerAnalisi;
 }

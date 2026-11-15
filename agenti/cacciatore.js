@@ -153,7 +153,7 @@ function disegnaOccasioni() {
   const spiccano = forti.slice(0, QUANTE_SPICCANO);
   $("elenco-classifica").innerHTML = "";
   spiccano.forEach((ticker, i) => $("elenco-classifica").appendChild(creaSchedaOccasione(ticker, i + 1,
-    [testoDirezione(ticker), rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : ""]
+    [testoDirezione(ticker), rischioPrincipale(ticker) ? "⚠ Rischio principale: " + rischioPrincipale(ticker) : ""]
       .filter(Boolean).join("\n"))));
   $("vuoto-classifica").hidden = spiccano.length > 0;
 
@@ -206,10 +206,10 @@ function disegnaOccasioni() {
   const avviso = $("errori-occasioni");
   avviso.hidden = !fonteFondamentaliChiusa() && senzaConti.length === 0 && errori.length === 0;
   avviso.textContent = fonteFondamentaliChiusa()
-    ? `⚠️ ${fonteFondamentaliChiusa()}: senza i conti delle aziende resta solo il segnale del calo dai massimi.`
+    ? `⚠ ${fonteFondamentaliChiusa()}: senza i conti delle aziende resta solo il segnale del calo dai massimi.`
     : senzaConti.length
-      ? `ℹ️ Senza fondamentali (la fonte gratuita non le copre): ${senzaConti.join(", ")}. Per loro vale solo il segnale del calo dai massimi.`
-      : `⚠️ All'ultimo giro ${errori.length} ${errori.length === 1 ? "dato non è arrivato" : "dati non sono arrivati"}: per quei titoli vedi i dati di prima.`;
+      ? `Senza fondamentali (la fonte gratuita non le copre): ${senzaConti.join(", ")}. Per loro vale solo il segnale del calo dai massimi.`
+      : `⚠ All'ultimo giro ${errori.length} ${errori.length === 1 ? "dato non è arrivato" : "dati non sono arrivati"}: per quei titoli vedi i dati di prima.`;
 }
 
 // ---------- Aggiungere un titolo alla watchlist ----------

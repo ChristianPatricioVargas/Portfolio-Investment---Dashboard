@@ -41,6 +41,9 @@ FILE_ALLARMI = CARTELLA_DATI / "allarmi.json"
 
 INDIRIZZO_YAHOO = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={periodo}&interval={intervallo}"
 
+# I "termometri" del mercato mostrati nella striscia in alto: (sigla di Yahoo, nome, cifre decimali)
+MERCATI = [("^GDAXI", "DAX", 0), ("^STOXX50E", "Euro Stoxx 50", 0), ("^GSPC", "S&P 500", 0), ("EURUSD=X", "EUR/USD", 4)]
+
 # Di quanto deve scendere un titolo in giornata per far scattare l'allarme
 SOGLIE_ALLARME = {"Azione": -0.05, "ETF": -0.03}
 
@@ -89,6 +92,21 @@ def estrai_prezzi(dati):
         istante = datetime.fromtimestamp(int(info["regularMarketTime"]), timezone.utc)
         risultato["orario"] = istante.strftime("%Y-%m-%dT%H:%M:%SZ")
     return risultato
+
+
+def aggiorna_mercati(vecchi):
+    """Scarica gli indici di mercato per la striscia in alto. Non sono indispensabili:
+    se uno non risponde, resta il valore di prima."""
+    per_nome = {m["nome"]: m for m in vecchi or []}
+    for sigla, nome, cifre in MERCATI:
+        try:
+            info = chiedi_a_yahoo(urllib.parse.quote(sigla), "1d", "5m")["chart"]["result"][0]["meta"]
+            ieri = info.get("previousClose") or info["chartPreviousClose"]
+            per_nome[nome] = {"nome": nome, "valore": round(float(info["regularMarketPrice"]), cifre),
+                              "ieri": round(float(ieri), cifre), "cifre": cifre}
+        except Exception as errore:
+            print(f"ERRORE mercato {nome}: {errore}")
+    return [per_nome[nome] for _, nome, _ in MERCATI if nome in per_nome]
 
 
 def estrai_storico(dati, formato="%Y-%m-%d"):
@@ -306,7 +324,8 @@ def main():
                 print(f"ERRORE notifica di prova: {errore}")
 
     # Partiamo dai dati vecchi: se un titolo non risponde, teniamo gli ultimi noti
-    prezzi = leggi_json(FILE_PREZZI, {}).get("prezzi", {})
+    prezzi_salvati = leggi_json(FILE_PREZZI, {})
+    prezzi = prezzi_salvati.get("prezzi", {})
     storico = leggi_json(FILE_STORICO, {})
     intraday = leggi_json(FILE_INTRADAY, {})
 
@@ -336,6 +355,7 @@ def main():
         "fonte": "Yahoo Finance (Xetra)",
         "aggiornato": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "prezzi": prezzi,
+        "mercati": aggiorna_mercati(prezzi_salvati.get("mercati")),
     })
     scrivi_json(FILE_STORICO, storico)
     scrivi_json(FILE_INTRADAY, intraday)

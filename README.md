@@ -57,9 +57,15 @@ Scelte di progetto:
 
 ## Le pagine
 
-- **Oggi** (pagina iniziale): come va il portafoglio, cosa è successo ai miei titoli (prezzo, notizia principale,
-  trimestrale vicina, campanelli), stato delle tesi, le 3 migliori occasioni con il loro rischio principale,
-  e il pulsante **Copia per l'analisi**.
+L'aspetto è quello di una piattaforma: menu a icone (a sinistra sull'iPad, in basso sul telefono), striscia dei prezzi
+sempre visibile in alto con i miei titoli e gli indici di mercato (DAX, Euro Stoxx 50, S&P 500, euro/dollaro),
+riquadri compatti, numeri in carattere a larghezza fissa, tema chiaro o scuro.
+Il grafico del prezzo ha due modi: **candele** degli ultimi 3 mesi con i volumi, oppure **linea** dell'ultimo anno.
+
+- **Oggi** (pagina iniziale), a riquadri come una piattaforma di trading: quattro numeri chiave (valore, guadagno,
+  oggi, netto se vendessi tutto), grafico a candele di un mio titolo, tabella delle posizioni (prezzo, variazione,
+  RSI, mini-grafico del mese, avanzamento verso il mio target, rischi), le 5 occasioni, i campanelli d'allarme,
+  la composizione del portafoglio, le prossime trimestrali, lo stato delle tesi e **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
 - **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
@@ -205,7 +211,7 @@ Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi e ti
 | File | A cosa serve |
 |---|---|
 | `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni e Titolo |
-| `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina) |
+| `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina). I caratteri (IBM Plex Sans e Mono) sono caricati da Google Fonts |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
 | `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra) |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
@@ -298,4 +304,5 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 9. ✅ Cacciatore e watchlist
 10. ✅ Avvocato del diavolo (regole; versione con AI pronta ma spenta)
 11. ✅ Pagina "Oggi" e "Copia per l'analisi"
+13. ✅ Aspetto da piattaforma: menu a icone, striscia dei prezzi, grafico a candele, tabelle, tema chiaro e scuro
 12. ✅ Fondamentali da Finnhub (dopo aver scartato Yahoo e Alpha Vantage con prove dal vivo), agenti due volte al giorno

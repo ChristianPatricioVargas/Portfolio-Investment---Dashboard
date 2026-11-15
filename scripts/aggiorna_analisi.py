@@ -160,6 +160,7 @@ def analizza_titolo(yahoo, finnhub, voce, scheda, serie, oggi):
         if nuova is None:
             raise ValueError("storia dei prezzi troppo breve")
         scheda["tecnica"] = nuova
+        linee["candele"] = tecnico.candele(grafico, linee["giorni"])     # per il grafico a candele
         serie[ticker] = linee
         print(f"OK   tecnica {ticker}: RSI {nuova['rsi']}, {nuova['dalMassimo'] * 100:.0f}% dal massimo")
     except Exception as errore:

@@ -24,67 +24,134 @@
       if (temaScelto === "chiaro" || temaScelto === "scuro") document.documentElement.dataset.tema = temaScelto;
     } catch (errore) { /* resta automatico */ }
   </script>
+  <!-- I caratteri: IBM Plex Sans per i testi, IBM Plex Mono per i numeri (restano allineati in colonna) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Il menu: una colonna di icone a sinistra sull'iPad, una barra in basso sul telefono -->
+  <nav class="navigazione" id="navigazione" aria-label="Pagine">
+    <span class="logo" aria-hidden="true">
+      <svg width="30" height="30" viewBox="0 0 30 30"><rect width="30" height="30" rx="7"></rect><path d="M7 20 L12 14 L17 17 L23 9"></path></svg>
+    </span>
+    <a href="#oggi" data-vista="oggi">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="2.5" width="6" height="6" rx="1"></rect><rect x="11.5" y="2.5" width="6" height="6" rx="1"></rect><rect x="2.5" y="11.5" width="6" height="6" rx="1"></rect><rect x="11.5" y="11.5" width="6" height="6" rx="1"></rect></svg>
+      <span>Oggi</span>
+    </a>
+    <a href="#portafoglio" data-vista="portafoglio">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="6" width="15" height="10.5" rx="1.5"></rect><path d="M7 6 V4.2 a1 1 0 0 1 1 -1 h4 a1 1 0 0 1 1 1 V6"></path></svg>
+      <span>Portafoglio</span>
+    </a>
+    <a href="#occasioni" data-vista="occasioni">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="3.5"></circle><circle cx="10" cy="10" r="0.6"></circle></svg>
+      <span>Occasioni</span>
+    </a>
+  </nav>
+
+  <!-- La striscia dei prezzi in alto: i tuoi titoli e gli indici di mercato (la riempie agenti/oggi.js) -->
+  <div class="striscia" id="striscia" aria-label="Prezzi di oggi"></div>
+
   <main>
-    <!-- Le "linguette" in alto per passare da una pagina all'altra -->
-    <nav class="navigazione" id="navigazione" aria-label="Pagine">
-      <a href="#oggi" data-vista="oggi">Oggi</a>
-      <a href="#portafoglio" data-vista="portafoglio">Portafoglio</a>
-      <a href="#occasioni" data-vista="occasioni">Occasioni</a>
-    </nav>
 
     <!-- ===== VISTA "Oggi": il riepilogo di tutti gli agenti (la riempie agenti/oggi.js) ===== -->
     <div id="vista-oggi" hidden>
-      <header class="testata">
-        <div class="etichetta-alta" id="data-oggi"></div>
+      <header class="testata-pagina">
         <h1 class="titolo-pagina">Oggi</h1>
+        <span class="etichetta-alta" id="data-oggi"></span>
       </header>
 
       <p class="avviso" id="oggi-vuoto" hidden>Non hai ancora inserito acquisti: vai su <strong>Portafoglio</strong> e tocca <strong>+ Aggiungi</strong>.
         Intanto qui sotto trovi le occasioni del cacciatore.</p>
 
-      <!-- 1. Come va il portafoglio -->
-      <section class="riquadro" id="oggi-portafoglio">
-        <h2>💼 Come va il portafoglio</h2>
-        <div class="totale piccolo" id="oggi-valore">–</div>
-        <span class="chip" id="oggi-gp"></span>
-        <div class="sotto" id="oggi-variazione"></div>
-        <div class="fonte-prezzi" id="oggi-fonte"></div>
-      </section>
-
-      <!-- 2. Cosa è successo ai miei titoli -->
-      <section class="riquadro" id="oggi-titoli">
-        <h2>📌 I miei titoli</h2>
-        <div id="elenco-oggi-titoli"></div>
-      </section>
-
-      <!-- 3. Lo stato delle mie tesi -->
-      <section class="riquadro" id="oggi-tesi">
-        <h2>📝 Le mie tesi</h2>
-        <div id="elenco-oggi-tesi"></div>
-      </section>
-
-      <!-- 4. Le migliori occasioni del cacciatore -->
-      <div class="intestazione-sezione">
-        <h2>🎯 Le migliori occasioni</h2>
-        <a class="link" href="#occasioni">Tutte ›</a>
+      <!-- 1. I quattro numeri chiave del portafoglio -->
+      <div class="numeri-chiave" id="oggi-portafoglio">
+        <div class="numero-chiave"><span class="etichetta">Valore</span><b id="oggi-valore">–</b><small id="oggi-investito"></small></div>
+        <div class="numero-chiave"><span class="etichetta">Guadagno totale</span><b id="oggi-gp">–</b><small id="oggi-gp-perc"></small></div>
+        <div class="numero-chiave"><span class="etichetta">Oggi</span><b id="oggi-variazione">–</b><small id="oggi-variazione-perc"></small></div>
+        <div class="numero-chiave"><span class="etichetta">Se vendo tutto oggi</span><b id="oggi-netto">–</b><small>netto di tasse (26%) e commissioni</small></div>
       </div>
-      <div id="elenco-oggi-occasioni"></div>
-      <p class="vuoto" id="oggi-occasioni-vuoto" hidden></p>
 
-      <!-- 5. Copia per l'analisi -->
-      <section class="riquadro">
-        <h2>📋 Fatti aiutare a ragionare</h2>
-        <p class="suggerimento">Copia in un colpo solo tutti i dati (portafoglio, tesi, fondamentali, segnali tecnici, campanelli d'allarme,
-          occasioni, notizie) e incollali in una chat con Claude per farti fare un'analisi critica.</p>
-        <button type="button" class="pulsante" id="copia-analisi">Copia per l'analisi</button>
-        <p class="nota-riquadro" id="esito-copia" hidden></p>
-        <textarea id="testo-analisi" rows="8" readonly hidden aria-label="Testo per l'analisi"></textarea>
-        <p class="avvertenza">🔒 Il testo contiene i tuoi dati personali (importi, prezzi d'acquisto, tesi): resta sul dispositivo
-          finché non lo incolli tu da qualche parte.</p>
-      </section>
+      <!-- Due colonne affiancate sull'iPad (una sotto l'altra sul telefono) -->
+      <div class="griglia-oggi">
+        <div class="colonna-oggi">
+          <!-- 2. Il grafico a candele di un tuo titolo (scegli quale con i pulsanti) -->
+          <section class="riquadro" id="oggi-grafico">
+            <div class="intestazione-riquadro">
+              <div class="scelta-titolo" id="oggi-scelta-titolo" role="group" aria-label="Titolo del grafico"></div>
+              <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
+                <button type="button" data-modo="candele">Candele 3M</button>
+                <button type="button" data-modo="linea">Linea 1A</button>
+              </div>
+            </div>
+            <p class="riga-grafico" id="oggi-riga-grafico"></p>
+            <div class="legenda"></div>
+            <div class="area-grafico">
+              <svg id="grafico-oggi" class="grafico-prezzo" role="img"></svg>
+              <div class="fumetto" hidden></div>
+            </div>
+            <p class="vuoto" id="oggi-grafico-vuoto" hidden>Il grafico arriverà con il prossimo giro degli agenti.</p>
+          </section>
+          <!-- 4. La tabella delle posizioni -->
+          <section class="riquadro" id="oggi-titoli">
+            <div class="intestazione-riquadro">
+              <h2>Posizioni</h2>
+              <a class="link" href="#portafoglio">Portafoglio</a>
+            </div>
+            <div class="scorri"><table class="tabella" id="tabella-posizioni"></table></div>
+            <p class="fonte-prezzi" id="oggi-fonte"></p>
+          </section>
+          <!-- 6. Notizie e fatti del giorno, titolo per titolo -->
+          <section class="riquadro" id="oggi-notizie">
+            <h2>Cosa è successo ai miei titoli</h2>
+            <div id="elenco-oggi-titoli"></div>
+          </section>
+          <!-- 8. Lo stato delle mie tesi -->
+          <section class="riquadro" id="oggi-tesi">
+            <h2>Le mie tesi</h2>
+            <div id="elenco-oggi-tesi"></div>
+          </section>
+        </div>
+        <div class="colonna-oggi">
+          <!-- 3. Le occasioni del cacciatore -->
+          <section class="riquadro" id="oggi-occasioni">
+            <div class="intestazione-riquadro">
+              <h2>Occasioni · le 5 che spiccano</h2>
+              <a class="link" href="#occasioni">Tutte</a>
+            </div>
+            <div class="scorri"><table class="tabella" id="tabella-occasioni"></table></div>
+            <p class="vuoto" id="oggi-occasioni-vuoto" hidden></p>
+          </section>
+          <!-- 5. I campanelli d'allarme dei tuoi titoli -->
+          <section class="riquadro" id="oggi-campanelli">
+            <h2>Campanelli d'allarme</h2>
+            <ul class="campanelli-brevi" id="elenco-oggi-campanelli"></ul>
+            <p class="vuoto" id="oggi-campanelli-vuoto" hidden>Nessun campanello sui tuoi titoli con le regole attuali.</p>
+          </section>
+          <!-- 7. Composizione del portafoglio e prossime trimestrali -->
+          <section class="riquadro" id="oggi-composizione">
+            <h2>Composizione</h2>
+            <div class="composizione">
+              <svg id="anello" viewBox="0 0 120 120" role="img"></svg>
+              <div class="legenda-anello" id="legenda-anello"></div>
+            </div>
+            <h3>Prossime trimestrali</h3>
+            <div class="righe-brevi" id="elenco-trimestrali"></div>
+          </section>
+          <!-- 9. Copia per l'analisi -->
+          <section class="riquadro">
+            <h2>Fatti aiutare a ragionare</h2>
+            <p class="suggerimento">Copia tutti i dati (portafoglio, tesi, fondamentali, segnali tecnici, campanelli, occasioni, notizie)
+              e incollali in una chat con Claude per un'analisi critica.</p>
+            <button type="button" class="pulsante" id="copia-analisi">Copia per l'analisi</button>
+            <p class="nota-riquadro" id="esito-copia" hidden></p>
+            <textarea id="testo-analisi" rows="8" readonly hidden aria-label="Testo per l'analisi"></textarea>
+            <p class="avvertenza">Il testo contiene i tuoi dati personali (importi, prezzi d'acquisto, tesi): resta sul dispositivo
+              finché non lo incolli tu da qualche parte.</p>
+          </section>
+        </div>
+      </div>
 
       <footer>
         <p id="oggi-aggiornamento"></p>
@@ -141,7 +208,7 @@
 
       <footer>
         <p id="aggiornamento"></p>
-        <p>🔒 Quote, capitale investito e tesi restano salvati solo su questo dispositivo.</p>
+        <p>Quote, capitale investito e tesi restano salvati solo su questo dispositivo.</p>
         <p>
           <button class="link" id="backup" type="button">Copia backup</button> ·
           <button class="link" id="ripristina" type="button">Ripristina backup</button>
@@ -153,22 +220,22 @@
     <div id="vista-occasioni" hidden>
       <header class="testata">
         <div class="etichetta-alta">Il cacciatore</div>
-        <h1 class="titolo-pagina">🎯 Occasioni</h1>
+        <h1 class="titolo-pagina">Occasioni</h1>
         <p class="sotto">Le 5 aziende della watchlist che oggi rispettano meglio i tuoi criteri. Le altre sono negli elenchi chiusi più in basso.</p>
       </header>
-      <p class="avviso" id="attesa-occasioni">⏳ Le occasioni arriveranno con il prossimo giro degli agenti.</p>
+      <p class="avviso" id="attesa-occasioni">Le occasioni arriveranno con il prossimo giro degli agenti.</p>
       <div id="corpo-occasioni" hidden>
         <p class="avviso" id="errori-occasioni" hidden></p>
         <p class="nota-criteri" id="criteri-occasioni"></p>
 
-        <div class="intestazione-sezione"><h2>⭐ Le 5 che spiccano oggi</h2></div>
+        <div class="intestazione-sezione"><h2>Le 5 che spiccano oggi</h2></div>
         <p class="suggerimento">Le prime per numero di segnali e punteggio. È una selezione da studiare, non una previsione:
           nessuno sa quale salirà prima. La freccia dice solo dove sta andando il prezzo nelle ultime settimane.</p>
         <div id="elenco-classifica"></div>
         <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede: le vere occasioni sono rare.</p>
 
         <section class="riquadro">
-          <h2>👀 Il resto della watchlist</h2>
+          <h2>Il resto della watchlist</h2>
           <p class="suggerimento">Tocca una riga per aprire l'elenco, e un titolo per vedere le sue analisi. "Togli" lo nasconde su questo dispositivo.</p>
           <details class="glossario elenco-chiuso" id="sezione-altre-forti">
             <summary id="titolo-altre-forti">Altre con 3 o 4 segnali</summary>
@@ -189,7 +256,7 @@
         </section>
 
         <section class="riquadro">
-          <h2>➕ Aggiungi un titolo alla watchlist</h2>
+          <h2>Aggiungi un titolo alla watchlist</h2>
           <p class="suggerimento">La watchlist sta nel file <code>data/watchlist.json</code> del repository: è GitHub, ogni sera,
             a scaricare i dati. Qui prepari la riga da incollare nel file. La sigla è quella di
             <a href="https://finance.yahoo.com/lookup" target="_blank" rel="noopener noreferrer">Yahoo Finance</a>
@@ -244,7 +311,7 @@
 
           <!-- "Se vendo oggi": quanto resta in tasca dopo tasse e commissione (lo calcola agenti/fondamentale.js) -->
           <section class="riquadro" id="sezione-se-vendo" hidden>
-            <h2>💶 Se vendo oggi</h2>
+            <h2>Se vendo oggi</h2>
             <dl class="righe-conto" id="righe-se-vendo"></dl>
             <p class="nota-riquadro" id="nota-se-vendo" hidden></p>
             <p class="avvertenza">Stima con il prezzo indicato sopra, il 26% di tasse sul guadagno e 1 € di commissione.
@@ -267,13 +334,19 @@
 
           <!-- L'analista tecnico: l'andamento del prezzo (lo riempie agenti/tecnico.js) -->
           <section class="riquadro" id="sezione-tecnico">
-            <h2>📈 Analista tecnico <span class="ruolo">l'andamento del prezzo</span></h2>
-            <p class="vuoto" id="attesa-tecnico">⏳ L'analisi tecnica arriverà con il prossimo giro degli agenti.</p>
+            <h2>Analista tecnico <span class="ruolo">l'andamento del prezzo</span></h2>
+            <p class="vuoto" id="attesa-tecnico">L'analisi tecnica arriverà con il prossimo giro degli agenti.</p>
             <div id="corpo-tecnico" hidden>
               <p class="frase-agente" id="frase-tecnico"></p>
-              <div class="legenda" id="legenda-tecnico"></div>
+              <div class="intestazione-riquadro">
+                <div class="legenda" id="legenda-tecnico"></div>
+                <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
+                  <button type="button" data-modo="candele">Candele 3M</button>
+                  <button type="button" data-modo="linea">Linea 1A</button>
+                </div>
+              </div>
               <div class="area-grafico" id="area-grafico-tecnico">
-                <svg id="grafico-tecnico" role="img"></svg>
+                <svg id="grafico-tecnico" class="grafico-prezzo" role="img"></svg>
                 <div class="fumetto" hidden></div>
               </div>
               <dl class="numeri-agente" id="numeri-tecnico"></dl>
@@ -285,7 +358,7 @@
 
           <!-- L'analista fondamentale: i conti dell'azienda (lo riempie agenti/fondamentale.js) -->
           <section class="riquadro" id="sezione-fondamentali">
-            <h2>🔎 Analista fondamentale <span class="ruolo">i conti dell'azienda</span></h2>
+            <h2>Analista fondamentale <span class="ruolo">i conti dell'azienda</span></h2>
             <div id="corpo-fondamentali"></div>
             <details class="glossario" id="glossario-fondamentali">
               <summary>Cosa significano questi numeri?</summary>
@@ -302,7 +375,7 @@
 
           <!-- Il cacciatore: i quattro criteri delle occasioni, uno per uno (lo riempie agenti/cacciatore.js) -->
           <section class="riquadro" id="sezione-cacciatore" hidden>
-            <h2>🎯 Cacciatore <span class="ruolo">i criteri delle occasioni</span></h2>
+            <h2>Cacciatore <span class="ruolo">i criteri delle occasioni</span></h2>
             <p class="frase-agente" id="frase-cacciatore"></p>
             <ul class="elenco-criteri" id="elenco-criteri"></ul>
             <p class="avvertenza">Regole meccaniche su dati pubblici: un aiuto per scegliere cosa studiare, non un consiglio di acquisto.
@@ -311,10 +384,10 @@
 
           <!-- L'avvocato del diavolo: i campanelli d'allarme (lo riempie agenti/avvocato.js) -->
           <section class="riquadro" id="sezione-avvocato">
-            <h2>😈 Avvocato del diavolo <span class="ruolo">i rischi</span></h2>
-            <p class="vuoto" id="attesa-avvocato">⏳ I campanelli d'allarme arriveranno con il prossimo giro degli agenti.</p>
+            <h2>Avvocato del diavolo <span class="ruolo">i rischi</span></h2>
+            <p class="vuoto" id="attesa-avvocato">I campanelli d'allarme arriveranno con il prossimo giro degli agenti.</p>
             <div id="corpo-avvocato" hidden>
-              <p class="suggerimento" id="avvocato-incompleto" hidden>⚠️ Mancano i fondamentali di questo titolo: i campanelli su utili, debito e analisti
+              <p class="suggerimento" id="avvocato-incompleto" hidden>⚠ Mancano i fondamentali di questo titolo: i campanelli su utili, debito e analisti
                 non sono stati controllati. Qui sotto ci sono solo quelli su prezzo e notizie.</p>
               <ul class="elenco-campanelli" id="elenco-campanelli"></ul>
               <p class="vuoto" id="nessun-campanello" hidden>Nessun campanello d'allarme con le regole attuali. Non vuol dire che non ci siano rischi: le regole guardano solo alcuni numeri.</p>
@@ -338,7 +411,7 @@
 
           <!-- Le notizie sul titolo: le riempie app.js -->
           <section class="notizie" aria-labelledby="titolo-notizie">
-            <h2 id="titolo-notizie">📰 Notizie</h2>
+            <h2 id="titolo-notizie">Notizie</h2>
             <ul id="elenco-notizie"></ul>
             <p class="vuoto" id="nessuna-notizia" hidden></p>
             <button type="button" class="link" id="altre-notizie" hidden>Mostra altre</button>
@@ -360,7 +433,7 @@
           <!-- La scheda tesi: perché sono entrato, target, quando esco. Resta solo su questo dispositivo. -->
           <section class="riquadro" id="sezione-tesi">
             <div class="intestazione-riquadro">
-              <h2>📝 La mia tesi</h2>
+              <h2>La mia tesi</h2>
               <button class="link" id="modifica-tesi" type="button">Modifica</button>
             </div>
             <div id="corpo-tesi"></div>
@@ -384,7 +457,7 @@
               </div>
               <button type="button" class="link pericolo" id="elimina-tesi" hidden>Elimina questa tesi</button>
             </form>
-            <p class="avvertenza">🔒 La tesi resta solo su questo dispositivo ed è inclusa nel backup.</p>
+            <p class="avvertenza">La tesi resta solo su questo dispositivo ed è inclusa nel backup.</p>
           </section>
         </section>
       </div>

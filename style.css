@@ -4,23 +4,26 @@
   se vuoi cambiare un colore, lo cambi in un punto solo.
 */
 :root {
-  --sfondo: #0b0d12;        /* nero-blu dello sfondo */
-  --carta: #151922;         /* grigio scuro delle schede */
-  --carta-2: #232a38;       /* grigio un po' più chiaro (etichette, campi) */
-  --testo: #eef1f6;
-  --testo-tenue: #8a93a6;
-  --verde: #4be3a0;
-  --verde-sfondo: #0f3324;
-  --rosso: #ff8a7a;
-  --rosso-sfondo: #3a1717;
-  --ambra: #ffbe5c;         /* arancio dei campanelli "da tenere d'occhio" */
-  --ambra-sfondo: #3a2a14;
-  --accento: #8fb0ff;
-  --accento-forte: #3d63e0;
-  --linea-valore: #4c7dff;     /* linea blu del grafico: il valore */
-  --linea-investito: #a3abbd;  /* linea grigia tratteggiata: quanto hai investito */
-  --linea-mm50: #c97a1e;       /* linea arancione: media mobile a 50 giorni */
-  --linea-mm200: #a66bf0;      /* linea viola: media mobile a 200 giorni */
+  --sfondo: #0d1117;        /* blu-nero dello sfondo */
+  --carta: #151b23;         /* grigio-blu scuro dei riquadri */
+  --carta-2: #222b36;       /* un po' più chiaro (etichette, campi, pulsanti spenti) */
+  --bordo: #262d38;         /* il bordo sottile dei riquadri */
+  --testo: #e6edf3;
+  --testo-tenue: #8b949e;
+  --verde: #3fb68b;
+  --verde-sfondo: #12312a;
+  --rosso: #f0766d;
+  --rosso-sfondo: #3a1d1b;
+  --ambra: #e3b341;         /* giallo dei campanelli "da tenere d'occhio" */
+  --ambra-sfondo: #332a12;
+  --accento: #58a6ff;
+  --accento-forte: #1f6feb;
+  --linea-valore: #58a6ff;     /* linea blu del grafico: il valore */
+  --linea-investito: #8b949e;  /* linea grigia tratteggiata: quanto hai investito */
+  --linea-mm50: #d4a72c;       /* linea gialla: media mobile a 50 giorni */
+  --linea-mm200: #a371f7;      /* linea viola: media mobile a 200 giorni */
+  --carattere: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --carattere-numeri: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   color-scheme: dark;       /* dice a Safari di usare menu e tastiera scuri */
 }
 
@@ -31,44 +34,46 @@
      1. hai scelto "Chiaro" nel selettore in fondo alla pagina  → <html data-tema="chiaro">
      2. hai scelto "Automatico" e il dispositivo è in modalità chiara */
 :root[data-tema="chiaro"] {
-  --sfondo: #f3f5f9;        /* grigio chiarissimo dello sfondo */
-  --carta: #ffffff;         /* bianco delle schede */
-  --carta-2: #e7ebf2;       /* grigio chiaro (etichette, campi) */
-  --testo: #141823;
-  --testo-tenue: #5a6478;
-  --verde: #0b7a4b;
-  --verde-sfondo: #d9f3e6;
-  --rosso: #c0392b;
-  --rosso-sfondo: #fbe2de;
-  --ambra: #8f5400;
-  --ambra-sfondo: #fbe9c9;
-  --accento: #2f55d4;
-  --accento-forte: #3d63e0;
-  --linea-valore: #2f62e8;
-  --linea-investito: #7a8498;
-  --linea-mm50: #b3660f;
-  --linea-mm200: #8a4fd6;
+  --sfondo: #f6f8fa;        /* grigio chiarissimo dello sfondo */
+  --carta: #ffffff;         /* bianco dei riquadri */
+  --carta-2: #eaeef2;       /* grigio chiaro (etichette, campi) */
+  --bordo: #d0d7de;
+  --testo: #1f2328;
+  --testo-tenue: #59636e;
+  --verde: #1a7f5a;
+  --verde-sfondo: #dafbe1;
+  --rosso: #cf222e;
+  --rosso-sfondo: #ffebe9;
+  --ambra: #9a6700;
+  --ambra-sfondo: #fff8c5;
+  --accento: #0969da;
+  --accento-forte: #0969da;
+  --linea-valore: #0969da;
+  --linea-investito: #6e7781;
+  --linea-mm50: #9a6700;
+  --linea-mm200: #8250df;
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-tema="scuro"]) {
-  --sfondo: #f3f5f9;        /* grigio chiarissimo dello sfondo */
-    --carta: #ffffff;         /* bianco delle schede */
-    --carta-2: #e7ebf2;       /* grigio chiaro (etichette, campi) */
-    --testo: #141823;
-    --testo-tenue: #5a6478;
-    --verde: #0b7a4b;
-    --verde-sfondo: #d9f3e6;
-    --rosso: #c0392b;
-    --rosso-sfondo: #fbe2de;
-    --ambra: #8f5400;
-    --ambra-sfondo: #fbe9c9;
-    --accento: #2f55d4;
-    --accento-forte: #3d63e0;
-    --linea-valore: #2f62e8;
-    --linea-investito: #7a8498;
-    --linea-mm50: #b3660f;
-    --linea-mm200: #8a4fd6;
+  --sfondo: #f6f8fa;        /* grigio chiarissimo dello sfondo */
+    --carta: #ffffff;         /* bianco dei riquadri */
+    --carta-2: #eaeef2;       /* grigio chiaro (etichette, campi) */
+    --bordo: #d0d7de;
+    --testo: #1f2328;
+    --testo-tenue: #59636e;
+    --verde: #1a7f5a;
+    --verde-sfondo: #dafbe1;
+    --rosso: #cf222e;
+    --rosso-sfondo: #ffebe9;
+    --ambra: #9a6700;
+    --ambra-sfondo: #fff8c5;
+    --accento: #0969da;
+    --accento-forte: #0969da;
+    --linea-valore: #0969da;
+    --linea-investito: #6e7781;
+    --linea-mm50: #9a6700;
+    --linea-mm200: #8250df;
     color-scheme: light;
   }
 }
@@ -741,3 +746,302 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
 .scelta-tema .selettore { background: var(--carta); }
 /* Nel tema chiaro le ombre scure sarebbero troppo pesanti */
 :root[data-tema="chiaro"] .fumetto { box-shadow: 0 6px 20px rgba(20, 24, 35, 0.15); }
+
+
+/* =====================================================================================
+   STILE "PIATTAFORMA"
+   Da qui in giù la pagina prende l'aspetto di una piattaforma di trading: cornice da
+   applicazione (menu a icone, striscia dei prezzi), riquadri fitti con bordo sottile,
+   numeri in carattere a larghezza fissa, tabelle compatte. Queste regole vengono dopo
+   quelle sopra e quindi le aggiornano.
+   ===================================================================================== */
+
+body { font-family: var(--carattere); font-size: 14px; line-height: 1.45; padding-bottom: 72px; }
+
+/* I numeri: carattere a larghezza fissa, così restano allineati in colonna */
+.totale, .numero, .cifre, .chip, .numeri-titolo dd, .numeri-agente dd, .righe-conto dd, .numeri-acquisto,
+.riepilogo-periodo, .estremi-barra, .tabella td.numero, .fumetto b, .asse, .numeri-w, .striscia {
+  font-family: var(--carattere-numeri);
+  font-variant-numeric: tabular-nums;
+}
+
+main { max-width: 1320px; padding: 16px 16px 32px; }
+body.dettaglio main { max-width: 1320px; }
+
+/* ---------- Il menu: barra in basso sul telefono, colonna a sinistra sugli schermi larghi ---------- */
+
+.navigazione {
+  position: fixed;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 0;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background: var(--carta);
+  border-top: 1px solid var(--bordo);
+  overflow: visible;
+}
+.navigazione .logo { display: none; }
+.navigazione .logo rect { fill: var(--accento); }
+.navigazione .logo path { fill: none; stroke: var(--sfondo); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.navigazione a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 76px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: none;
+  color: var(--testo-tenue);
+  font-size: 11px;
+  font-weight: 500;
+}
+.navigazione a svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.navigazione a.attivo { background: var(--carta-2); color: var(--accento); }
+
+@media (min-width: 900px) {
+  body { padding-left: 76px; padding-bottom: 0; }
+  .navigazione {
+    top: 0;
+    right: auto;
+    width: 76px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 0;
+    border-top: none;
+    border-right: 1px solid var(--bordo);
+  }
+  .navigazione .logo { display: block; margin-bottom: 12px; }
+  .navigazione a { min-width: 0; width: 64px; padding: 9px 0; }
+}
+
+/* ---------- La striscia dei prezzi in alto ---------- */
+
+.striscia {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-height: 36px;
+  padding: env(safe-area-inset-top) 16px 0;
+  background: var(--sfondo);
+  border-bottom: 1px solid var(--bordo);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.striscia::-webkit-scrollbar { display: none; }
+.striscia:empty { display: none; }
+.voce-striscia { display: inline-flex; gap: 6px; align-items: baseline; padding: 9px 0; background: none; border: none; color: var(--testo); font: inherit; }
+button.voce-striscia { cursor: pointer; }
+.nome-striscia { color: var(--testo-tenue); }
+.ora-striscia { margin-left: auto; padding-left: 12px; color: var(--testo-tenue); }
+
+/* ---------- Testate, riquadri e titolini ---------- */
+
+.testata-pagina { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
+.titolo-pagina { margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
+.etichetta-alta { font-size: 11px; letter-spacing: 0.06em; }
+.testata { margin-bottom: 4px; }
+.testata .sotto { margin-top: 4px; font-size: 13px; }
+.totale { font-size: clamp(2rem, 6vw, 2.6rem); font-weight: 600; letter-spacing: -0.02em; }
+.totale.piccolo { font-size: clamp(1.6rem, 5vw, 2rem); }
+
+.riquadro, .grafico, .notizie, .numeri-titolo, .scheda, .numero-chiave, .posto-modulo, .riga-acquisto, dialog {
+  background: var(--carta);
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+}
+.riquadro, .grafico, .notizie { padding: 12px 14px; margin-top: 12px; }
+.numeri-titolo { padding: 12px 14px; margin-top: 12px; }
+.scheda { padding: 12px 14px; margin-bottom: 8px; }
+.riga-acquisto.selezionata { border-color: var(--accento); }
+
+/* I titoli dei riquadri: piccoli, maiuscoli, come le etichette di un terminale */
+h2, .riquadro h2, .notizie h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--testo-tenue);
+}
+.riquadro h3 { margin: 14px 0 6px; font-size: 10px; letter-spacing: 0.08em; }
+.intestazione-riquadro { gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.intestazione-riquadro h2 { margin: 0; }
+.intestazione-sezione { margin: 20px 0 8px; }
+.intestazione-sezione h2 { margin: 0; }
+.ruolo { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 12px; }
+
+/* ---------- Pulsanti, etichette, campi: angoli meno tondi ---------- */
+
+.pulsante { border-radius: 6px; padding: 8px 14px; font-size: 13px; background: var(--accento-forte); }
+.chip { border-radius: 4px; padding: 3px 8px; font-size: 12px; font-weight: 500; }
+.tag { border-radius: 3px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.sigla { width: 38px; height: 38px; border-radius: 6px; font-size: 10px; font-family: var(--carattere-numeri); }
+input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); background: var(--sfondo); }
+.selettore { border-radius: 6px; padding: 2px; }
+.selettore button { border-radius: 4px; padding: 4px 10px; font-size: 12px; min-width: 0; }
+.selettore button.attivo { background: var(--carta); color: var(--accento); box-shadow: inset 0 0 0 1px var(--bordo); }
+.periodi button { border-radius: 4px; padding: 4px 10px; font-size: 12px; }
+.periodi button.attivo { background: var(--carta-2); color: var(--accento); box-shadow: inset 0 0 0 1px var(--bordo); }
+.avviso { border-radius: 6px; border: 1px solid var(--bordo); border-left: 3px solid var(--accento); margin-top: 12px; font-size: 13px; }
+.fumetto { border-radius: 6px; border: 1px solid var(--bordo); background: var(--carta); font-size: 12px; }
+.barra-tesi { height: 6px; border-radius: 3px; }
+.barra-piena { border-radius: 3px; background: var(--accento); }
+.avvertenza { font-size: 11px; }
+.frase-agente { font-size: 14px; }
+.info .nome { font-size: 14px; }
+.info .dettaglio, .dettaglio-oggi, .titolo-notizia { font-size: 13px; }
+.cifre .valore { font-size: 14px; }
+.scheda-occasione.tutti-i-segnali { box-shadow: none; border-color: var(--accento); }
+.campanello .livello { border-radius: 3px; }
+.elenco-criteri .simbolo { border-radius: 4px; }
+
+/* ---------- La pagina Oggi: numeri chiave e griglia di riquadri ---------- */
+
+.numeri-chiave { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.numero-chiave { display: flex; flex-direction: column; gap: 3px; padding: 10px 14px; min-width: 0; }
+.numero-chiave .etichetta { color: var(--testo-tenue); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.numero-chiave b { font-family: var(--carattere-numeri); font-size: clamp(1.05rem, 3.6vw, 1.4rem); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.numero-chiave small { color: var(--testo-tenue); font-size: 12px; }
+.numero-chiave small.positivo { color: var(--verde); }
+.numero-chiave small.negativo { color: var(--rosso); }
+
+.griglia-oggi { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
+.colonna-oggi { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.colonna-oggi > .riquadro { margin-top: 0; }
+@media (min-width: 900px) {
+  .numeri-chiave { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .griglia-oggi { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; }
+}
+
+/* I pulsanti per scegliere il titolo del grafico */
+.scelta-titolo { display: flex; gap: 4px; flex-wrap: wrap; }
+.scelta-titolo button {
+  padding: 4px 10px;
+  border: 1px solid var(--bordo);
+  border-radius: 4px;
+  background: none;
+  color: var(--testo-tenue);
+  font: 500 12px var(--carattere-numeri);
+  cursor: pointer;
+}
+.scelta-titolo button.attivo { background: var(--carta-2); color: var(--accento); border-color: var(--accento); }
+.riga-grafico { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; margin: 0 0 6px; }
+.riga-grafico b { font-weight: 600; }
+.tenue { color: var(--testo-tenue); }
+.attenzione { color: var(--ambra); }
+
+/* ---------- Le tabelle ---------- */
+
+.scorri { overflow-x: auto; }     /* sul telefono una tabella larga scorre di lato, dentro il suo riquadro */
+.tabella { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.tabella th {
+  padding: 4px 6px 6px;
+  color: var(--testo-tenue);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+.tabella td { padding: 8px 6px; border-top: 1px solid var(--bordo); vertical-align: middle; }
+.tabella th:first-child, .tabella td:first-child { padding-left: 0; }
+.tabella th:last-child, .tabella td:last-child { padding-right: 0; }
+.tabella .destra { text-align: right; }
+.tabella .nome-cella { white-space: normal; min-width: 104px; }
+.tabella .nome-cella b { font-weight: 600; }
+.tabella .in-evidenza { color: var(--accento); font-weight: 600; }
+.tabella tr.si-tocca { cursor: pointer; }
+.tabella tr.si-tocca:hover td { background: var(--carta-2); }
+
+.mini-grafico { display: block; width: 72px; height: 24px; }
+.mini-grafico path { fill: none; stroke-width: 1.4; }
+.mini-grafico path.su { stroke: var(--verde); }
+.mini-grafico path.giu { stroke: var(--rosso); }
+
+.cella-target { min-width: 92px; }
+.barra-mini { display: block; height: 4px; border-radius: 2px; background: var(--carta-2); margin-bottom: 3px; }
+.barra-mini span { display: block; height: 4px; border-radius: 2px; background: var(--accento); }
+.cella-target .tenue { font-size: 11px; font-family: var(--carattere-numeri); }
+
+/* ---------- Campanelli in breve, composizione, trimestrali ---------- */
+
+.campanelli-brevi { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 13px; }
+.campanelli-brevi button { width: 100%; padding: 5px 0; background: none; border: none; color: var(--testo); font: inherit; text-align: left; cursor: pointer; }
+.campanelli-brevi b { font-weight: 600; }
+.livello-breve {
+  display: inline-block;
+  min-width: 46px;
+  margin-right: 8px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--ambra-sfondo);
+  color: var(--ambra);
+  font: 600 10px var(--carattere-numeri);
+  text-align: center;
+}
+.livello-breve.alto { background: var(--rosso-sfondo); color: var(--rosso); }
+
+.composizione { display: flex; align-items: center; gap: 16px; }
+#anello { width: 112px; height: 112px; flex: none; }
+.fetta { fill: none; stroke-width: 16; }
+.centro-anello { fill: var(--testo); font: 600 15px var(--carattere-numeri); }
+.sotto-anello { fill: var(--testo-tenue); font-size: 10px; }
+.legenda-anello { flex: 1; min-width: 0; display: grid; gap: 6px; font-size: 13px; }
+.legenda-anello div { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.legenda-anello i { width: 10px; height: 10px; border-radius: 2px; }
+.legenda-anello span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* I colori delle fette: sempre nello stesso ordine, dal titolo più pesante al più leggero */
+.fetta-1 { stroke: #58a6ff; } i.fetta-1 { background: #58a6ff; }
+.fetta-2 { stroke: #d4a72c; } i.fetta-2 { background: #d4a72c; }
+.fetta-3 { stroke: #a371f7; } i.fetta-3 { background: #a371f7; }
+.fetta-4 { stroke: #3fb68b; } i.fetta-4 { background: #3fb68b; }
+.fetta-5 { stroke: #f0766d; } i.fetta-5 { background: #f0766d; }
+.fetta-6 { stroke: #8b949e; } i.fetta-6 { background: #8b949e; }
+
+.righe-brevi { display: grid; gap: 5px; font-size: 13px; }
+.righe-brevi div { display: flex; justify-content: space-between; gap: 12px; }
+
+.riga-oggi { padding: 9px 0; border-top: 1px solid var(--bordo); }
+.riga-watchlist, #elenco-notizie li + li, .righe-conto .totale-riga, .avvertenza, #blocco-ai { border-color: var(--bordo); }
+
+/* ---------- Il grafico del prezzo: candele, volumi, medie ---------- */
+
+.grafico-prezzo { display: block; width: 100%; overflow: visible; }
+.grafico-prezzo path { fill: none; stroke-linejoin: round; }
+.grafico-prezzo path.linea-prezzo { stroke: var(--linea-valore); stroke-width: 2; }
+.grafico-prezzo path.linea-mm50 { stroke: var(--linea-mm50); stroke-width: 1.5; }
+.grafico-prezzo path.linea-mm200 { stroke: var(--linea-mm200); stroke-width: 1.5; }
+.grafico-prezzo .griglia { stroke: var(--bordo); stroke-width: 1; }
+.grafico-prezzo .asse { fill: var(--testo-tenue); font-size: 10px; }
+.grafico-prezzo .mirino { stroke: var(--testo-tenue); stroke-width: 1; }
+.grafico-prezzo .punto { fill: var(--linea-valore); stroke: var(--carta); stroke-width: 2; }
+.grafico-prezzo .livello { stroke: var(--testo-tenue); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.7; }
+.grafico-prezzo .stoppino { stroke-width: 1; }
+.grafico-prezzo .su { fill: var(--verde); stroke: var(--verde); }
+.grafico-prezzo .giu { fill: var(--rosso); stroke: var(--rosso); }
+.grafico-prezzo .corpo, .grafico-prezzo .volume { stroke: none; }
+.grafico-prezzo .volume { opacity: 0.4; }
+.grafico-prezzo .ultimo-prezzo { fill: var(--accento-forte); }
+.grafico-prezzo .ultimo-prezzo-testo { fill: #ffffff; font: 600 10px var(--carattere-numeri); }
+/* Nella legenda: il simbolo delle candele */
+i.linea-candele { display: inline-block; width: 6px; height: 12px; margin-right: 6px; vertical-align: middle; border-radius: 1px; background: var(--verde); }
+.legenda { font-size: 12px; flex-wrap: wrap; gap: 4px 14px; }
+
+footer { margin-top: 20px; font-size: 12px; }
+.scelta-tema { margin-top: 16px; font-size: 12px; }
+.scelta-tema .selettore { background: var(--carta-2); }
+
+a.link { text-decoration: none; font-size: 12px; }

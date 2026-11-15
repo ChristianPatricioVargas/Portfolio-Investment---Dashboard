@@ -122,6 +122,16 @@ def prova_tecnico_scheda():
     assert tecnico.analizza(giorni_finti(30), valori[:30]) == (None, None)        # troppo pochi dati
 
 
+def prova_tecnico_candele():
+    giorno = lambda g: int(__import__("datetime").datetime(2026, 11, g, 12, tzinfo=__import__("datetime").timezone.utc).timestamp())
+    grafico = {"meta": {"gmtoffset": 3600}, "timestamp": [giorno(10), giorno(11), giorno(12)],
+               "indicators": {"quote": [{"open": [10, 11, 12], "high": [11, 12.5, 13], "low": [9.5, 10.8, 11.9],
+                                          "close": [11, 12, 12.4], "volume": [100, None, 300]}]}}
+    c = tecnico.candele(grafico, ["2026-11-10", "2026-11-11", "2026-11-12"])
+    assert c["da"] == 0 and c["apertura"] == [10.0, 11.0, 12.0] and c["massimo"][1] == 12.5 and c["volume"] == [100, 0, 300]
+    assert tecnico.candele(grafico, ["2026-11-09", "2026-11-10"]) is None        # manca un giorno: niente candele
+
+
 def prova_tecnico_livelli():
     # Il prezzo rimbalza tre volte su 90 e viene respinto tre volte da 110
     onda = [100, 104, 108, 110, 108, 104, 100, 96, 92, 90, 92, 96] * 3 + [100, 101, 101, 101, 101, 101, 101]
@@ -317,7 +327,7 @@ def prova_ai_freni():
 
 
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
-         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_livelli,
+         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
          prova_ai_spenta_senza_chiave, prova_ai_freni]
