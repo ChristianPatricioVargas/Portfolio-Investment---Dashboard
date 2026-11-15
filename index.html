@@ -146,26 +146,31 @@
       <header class="testata">
         <div class="etichetta-alta">Il cacciatore</div>
         <h1 class="titolo-pagina">🎯 Occasioni</h1>
-        <p class="sotto">Grandi aziende solide scese molto dai massimi, secondo i tuoi criteri.</p>
+        <p class="sotto">Solo le aziende della watchlist che oggi hanno almeno un segnale. In cima quelle che ne hanno 3 o 4.</p>
       </header>
-      <p class="avviso" id="attesa-occasioni">⏳ La classifica arriverà con il prossimo giro serale degli agenti.</p>
+      <p class="avviso" id="attesa-occasioni">⏳ Le occasioni arriveranno con il prossimo giro degli agenti.</p>
       <div id="corpo-occasioni" hidden>
         <p class="avviso" id="errori-occasioni" hidden></p>
         <p class="nota-criteri" id="criteri-occasioni"></p>
 
-        <div class="intestazione-sezione"><h2>Rispettano tutti i criteri</h2></div>
+        <div class="intestazione-sezione"><h2>⭐ In evidenza: 3 o 4 segnali su 4</h2></div>
         <div id="elenco-classifica"></div>
-        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessun titolo della watchlist rispetta tutti e quattro i criteri. Succede spesso: le vere occasioni sono rare.</p>
-
-        <div class="intestazione-sezione"><h2>Ci vanno vicino (manca un criterio)</h2></div>
-        <div id="elenco-quasi"></div>
-        <p class="vuoto" id="vuoto-quasi" hidden>Nessun titolo.</p>
+        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede spesso: le vere occasioni sono rare.</p>
 
         <section class="riquadro">
-          <h2 id="titolo-watchlist">👀 La watchlist</h2>
+          <h2 id="titolo-quasi">Con 1 o 2 segnali</h2>
           <p class="suggerimento">Tocca un titolo per vedere le sue analisi. "Togli" lo nasconde su questo dispositivo.</p>
-          <div id="elenco-watchlist"></div>
-          <details class="glossario" id="sezione-tolti" hidden>
+          <div id="elenco-quasi"></div>
+          <p class="vuoto" id="vuoto-quasi" hidden>Nessuna azienda.</p>
+        </section>
+
+        <section class="riquadro">
+          <!-- Le aziende senza segnali: chiuse, per non fare confusione. Si aprono toccando la riga. -->
+          <details class="glossario elenco-chiuso" id="sezione-senza-segnali">
+            <summary id="titolo-watchlist">Altre aziende della watchlist, senza segnali</summary>
+            <div id="elenco-watchlist"></div>
+          </details>
+          <details class="glossario elenco-chiuso" id="sezione-tolti" hidden>
             <summary id="titolo-tolti">Titoli che hai tolto</summary>
             <div id="elenco-tolti"></div>
           </details>
@@ -176,10 +181,12 @@
           <p class="suggerimento">La watchlist sta nel file <code>data/watchlist.json</code> del repository: è GitHub, ogni sera,
             a scaricare i dati. Qui prepari la riga da incollare nel file. La sigla è quella di
             <a href="https://finance.yahoo.com/lookup" target="_blank" rel="noopener noreferrer">Yahoo Finance</a>
-            sulla Borsa principale dell'azienda (es. <code>NKE</code>, <code>MC.PA</code>, <code>7203.T</code>).</p>
+            sulla Borsa principale dell'azienda (es. <code>NKE</code>, <code>MC.PA</code>, <code>7203.T</code>). La sigla americana serve
+            per i fondamentali: per un'azienda americana è la stessa, per le altre è quella con cui è quotata negli Stati Uniti (es. <code>LVMUY</code> per LVMH).</p>
           <form id="modulo-watchlist">
             <label>Nome dell'azienda <input id="nuovo-nome" type="text" placeholder="es. Nike" required></label>
             <label>Sigla su Yahoo Finance <input id="nuovo-ticker" type="text" placeholder="es. NKE" autocapitalize="characters" autocomplete="off" required></label>
+            <label>Sigla americana (se la conosci) <input id="nuova-usa" type="text" placeholder="es. NKE" autocapitalize="characters" autocomplete="off"></label>
             <label>Area
               <select id="nuova-area"><option>Europa</option><option>USA</option><option>Asia</option></select>
             </label>
@@ -191,7 +198,7 @@
               <li><button type="button" class="link" id="copia-riga">Copia la riga</button></li>
               <li><a id="apri-watchlist" target="_blank" rel="noopener noreferrer">Apri il file su GitHub</a> (oppure cercalo nel repository: <code>data/watchlist.json</code>, poi la matita ✏️)</li>
               <li>Incolla la riga dopo la prima parentesi quadra <code>[</code> e tocca <strong>Commit changes</strong></li>
-              <li>Il titolo comparirà dopo il prossimo giro serale degli agenti</li>
+              <li>Il titolo comparirà dopo il prossimo giro degli agenti (verso le 13 e la sera)</li>
             </ol>
           </div>
         </section>
@@ -249,7 +256,7 @@
           <!-- L'analista tecnico: l'andamento del prezzo (lo riempie agenti/tecnico.js) -->
           <section class="riquadro" id="sezione-tecnico">
             <h2>📈 Analista tecnico <span class="ruolo">l'andamento del prezzo</span></h2>
-            <p class="vuoto" id="attesa-tecnico">⏳ L'analisi tecnica arriverà con il prossimo giro serale degli agenti.</p>
+            <p class="vuoto" id="attesa-tecnico">⏳ L'analisi tecnica arriverà con il prossimo giro degli agenti.</p>
             <div id="corpo-tecnico" hidden>
               <p class="frase-agente" id="frase-tecnico"></p>
               <div class="legenda" id="legenda-tecnico"></div>
@@ -274,7 +281,7 @@
               <p><b>Crescita</b>: ricavi e utili dell'ultimo trimestre rispetto allo stesso trimestre di un anno fa.</p>
               <p><b>Debito netto ÷ EBITDA</b>: quanti anni di guadagni operativi servirebbero per ripagare i debiti. Sotto 2 è tranquillo, sopra 3-4 è pesante.</p>
               <p><b>Margini</b>: quanto resta di ogni 100 incassati. Lordo = dopo i costi di produzione; operativo = dopo tutti i costi; netto = dopo tasse e interessi.</p>
-              <p><b>Target medio</b>: il prezzo che gli analisti si aspettano tra 12 mesi, in media. È un'opinione, non una promessa: spesso sbagliano.</p>
+              <p><b>Giudizi degli analisti</b>: quanti analisti delle banche consigliano il titolo (positivi), quanti sono neutri e quanti lo sconsigliano. Sono opinioni, non promesse: spesso sbagliano. Il target price medio non è incluso nella fonte gratuita: lo trovi su Trade Republic e puoi scriverlo nella tua tesi.</p>
               <p><b>Trimestrale</b>: ogni tre mesi l'azienda pubblica i conti. È il momento in cui il prezzo si muove di più.</p>
             </details>
             <p class="fonte-notizie" id="fonte-fondamentali"></p>
@@ -293,7 +300,7 @@
           <!-- L'avvocato del diavolo: i campanelli d'allarme (lo riempie agenti/avvocato.js) -->
           <section class="riquadro" id="sezione-avvocato">
             <h2>😈 Avvocato del diavolo <span class="ruolo">i rischi</span></h2>
-            <p class="vuoto" id="attesa-avvocato">⏳ I campanelli d'allarme arriveranno con il prossimo giro serale degli agenti.</p>
+            <p class="vuoto" id="attesa-avvocato">⏳ I campanelli d'allarme arriveranno con il prossimo giro degli agenti.</p>
             <div id="corpo-avvocato" hidden>
               <p class="suggerimento" id="avvocato-incompleto" hidden>⚠️ Mancano i fondamentali di questo titolo: i campanelli su utili, debito e analisti
                 non sono stati controllati. Qui sotto ci sono solo quelli su prezzo e notizie.</p>

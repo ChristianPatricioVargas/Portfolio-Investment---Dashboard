@@ -101,10 +101,11 @@ def costo_massimo(modello, testo):
 def riassunto_titolo(ticker, scheda, notizie):
     """Il testo che mandiamo a Claude: solo dati pubblici, in forma compatta."""
     f, t = scheda.get("fondamentali") or {}, scheda.get("tecnica") or {}
-    campi_fondamentali = ["valuta", "prezzo", "settore", "industria", "paese", "pe", "peAtteso", "crescitaRicavi",
-                          "crescitaUtili", "crescitaUtiliAttesa", "debitoNettoSuEbitda", "debitoSuCapitale",
-                          "margineLordo", "margineOperativo", "margineNetto", "roe", "target", "targetMin", "targetMax",
-                          "potenziale", "analisti", "raccomandazione", "revisioneStime", "prossimaTrimestrale", "sorprese"]
+    campi_fondamentali = ["settore", "paese", "pe", "peAtteso", "crescitaRicavi", "crescitaUtili", "crescitaUtiliAnno",
+                          "crescitaUtiliAttesa", "debitoNettoSuEbitda", "debitoSuCapitale", "margineLordo",
+                          "margineOperativo", "margineNetto", "roe", "analisti", "analistiPositivi", "analistiNeutri",
+                          "analistiNegativi", "raccomandazione", "raccomandazionePrima", "target", "potenziale",
+                          "prossimaTrimestrale", "sorprese"]
     campi_tecnici = ["mm50", "mm200", "rsi", "dalMassimo", "dalMinimo", "massimo52", "minimo52", "frase"]
     dati = {
         "azienda": scheda.get("nome"), "sigla": ticker,
@@ -125,7 +126,7 @@ def impronta(scheda, notizie):
     essenziale = {
         "notizie": sorted(n.get("titolo", "") for n in (notizie or [])[:10]),
         "campanelli": sorted(c["titolo"] for c in scheda.get("campanelli") or []),
-        "target": round(f["target"]) if f.get("target") else None,
+        "analisti": [f.get("analistiPositivi"), f.get("analistiNegativi")],
         "trimestrale": f.get("prossimaTrimestrale"),
     }
     return hashlib.sha256(json.dumps(essenziale, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]

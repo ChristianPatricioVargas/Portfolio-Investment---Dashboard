@@ -7,7 +7,8 @@ che rispettano i criteri della strategia "comprare titoli solidi scesi molto":
   1. CALO        scesa di almeno il 15% dal massimo delle ultime 52 settimane
   2. UTILI       utili in crescita (attesi dagli analisti, o nell'ultimo trimestre)
   3. CONTI       conti solidi: in utile e con un debito sostenibile
-  4. TARGET      target medio degli analisti almeno il 15% sopra il prezzo
+  4. ANALISTI    la maggioranza degli analisti è positiva (almeno il 60%).
+                 Se la fonte dà anche il target price, vale invece: target almeno il 15% sopra il prezzo
 
 Chi li rispetta tutti e quattro entra in classifica, ordinato per punteggio.
 Il cacciatore segnala e spiega il perché: non dice mai "compra". Decidi tu.
@@ -17,7 +18,8 @@ Il cacciatore segnala e spiega il perché: non dice mai "compra". Decidi tu.
 CRITERI = {
     "caloMinimo": 0.15,            # almeno −15% dal massimo a 52 settimane
     "potenzialeMinimo": 0.15,      # target almeno +15% sopra il prezzo
-    "analistiMinimi": 5,           # con meno analisti il target medio è poco affidabile
+    "analistiMinimi": 5,           # con meno analisti il giudizio medio è poco affidabile
+    "quotaPositiviMinima": 0.60,   # almeno 6 analisti su 10 con giudizio positivo
     "debitoSuEbitdaMassimo": 3.0,  # debito netto non oltre 3 anni di guadagni operativi
     "debitoSuCapitaleMassimo": 1.5,  # usato solo se manca il dato sopra
 }
@@ -80,15 +82,22 @@ def criterio_conti(f):
     return None, "dati sul debito non disponibili", 0
 
 
-def criterio_target(f):
-    potenziale, analisti = f.get("potenziale"), f.get("analisti")
-    if potenziale is None:
-        return None, "target degli analisti non disponibile", 0
+def criterio_analisti(f):
+    analisti, positivi, potenziale = f.get("analisti"), f.get("analistiPositivi"), f.get("potenziale")
+    if potenziale is None and positivi is None:
+        return None, "giudizi degli analisti non disponibili", 0
     if (analisti or 0) < CRITERI["analistiMinimi"]:
-        return False, f"solo {int(analisti or 0)} analisti: target poco affidabile", 0
-    ok = potenziale >= CRITERI["potenzialeMinimo"]
-    testo = f"target medio di {int(analisti)} analisti a {perc(potenziale)}"
-    return ok, testo, (min(max(potenziale, 0), 0.50) / 0.50 * 35 if ok else 0)
+        return False, f"solo {int(analisti or 0)} analisti: giudizio poco affidabile", 0
+    if potenziale is not None:
+        # La fonte dà il target price: usiamo quello
+        ok = potenziale >= CRITERI["potenzialeMinimo"]
+        testo = f"target medio di {int(analisti)} analisti a {perc(potenziale)}"
+        return ok, testo, (min(max(potenziale, 0), 0.50) / 0.50 * 35 if ok else 0)
+    quota = positivi / analisti
+    ok = quota >= CRITERI["quotaPositiviMinima"]
+    testo = f"{int(positivi)} analisti su {int(analisti)} sono positivi ({perc(quota, False)})"
+    # Da 60% di positivi (pochi punti) a 100% (tutti i punti)
+    return ok, testo, ((quota - 0.5) / 0.5 * 35 if ok else 0)
 
 
 def valuta(fondamentali, tecnica):
@@ -99,7 +108,7 @@ def valuta(fondamentali, tecnica):
         ("calo", "Scesa dai massimi", criterio_calo(f, tecnica)),
         ("utili", "Utili in crescita", criterio_utili(f)),
         ("conti", "Conti solidi", criterio_conti(f)),
-        ("target", "Target degli analisti", criterio_target(f)),
+        ("analisti", "Analisti positivi", criterio_analisti(f)),
     ]
     criteri = [{"chiave": chiave, "nome": nome, "ok": ok, "testo": testo} for chiave, nome, (ok, testo, _) in esiti]
     rispettati = sum(1 for c in criteri if c["ok"])

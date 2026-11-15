@@ -134,7 +134,7 @@ function disegnaOggi() {
   }
 
   // ---- 4. Le migliori occasioni del cacciatore ----
-  const migliori = occasioni().slice(0, OCCASIONI_IN_EVIDENZA);
+  const migliori = occasioni(3).slice(0, OCCASIONI_IN_EVIDENZA);
   const elencoOccasioni = $("elenco-oggi-occasioni");
   elencoOccasioni.innerHTML = "";
   for (const [i, ticker] of migliori.entries()) {
@@ -145,13 +145,13 @@ function disegnaOggi() {
   $("oggi-occasioni-vuoto").textContent = fonteFondamentaliChiusa()
     ? "La classifica non è disponibile: mancano i fondamentali (vedi la nota in fondo alla pagina)."
     : analisi.classifica
-    ? "Oggi nessun titolo della watchlist rispetta tutti i criteri."
-    : "⏳ Le occasioni arriveranno con il prossimo giro serale degli agenti.";
+    ? "Oggi nessuna azienda della watchlist ha almeno 3 segnali su 4."
+    : "⏳ Le occasioni arriveranno con il prossimo giro degli agenti.";
 
   $("oggi-aggiornamento").textContent = analisi.aggiornato
-    ? `Gli agenti hanno lavorato l'ultima volta ${momento(analisi.aggiornato)} (una volta al giorno, la sera).` +
+    ? `Gli agenti hanno lavorato l'ultima volta ${momento(analisi.aggiornato)} (due volte al giorno: verso le 13 e la sera).` +
       (fonteFondamentaliChiusa() ? ` ⚠️ ${fonteFondamentaliChiusa()}: fondamentali, classifica e campanelli sui conti non sono aggiornati.` : "")
-    : "Gli agenti non hanno ancora lavorato: il primo giro è la sera, dopo la chiusura delle Borse.";
+    : "Gli agenti non hanno ancora lavorato: lavorano due volte al giorno, verso le 13 e la sera.";
 }
 
 // ---------- "Copia per l'analisi" ----------
@@ -169,7 +169,7 @@ function righeAgenti(ticker, quanteNotizie) {
   const righe = [];
   const f = scheda.fondamentali;
   if (f) {
-    righe.push(`Fondamentali (${[f.settore, f.industria].filter(Boolean).join(", ") || "settore non disponibile"}; valuta ${f.valuta || "?"}; dati del ${f.aggiornato || "?"}):`);
+    righe.push(`Fondamentali (${f.settore || "settore non disponibile"}; fonte ${f.fonte || "?"}; dati del ${f.aggiornato || "?"}):`);
     for (const [, dati] of gruppiFondamentali(f)) righe.push(...righeDaDati(dati));
     if (testoTrimestrale(f)) righe.push(`  Prossima trimestrale: ${testoTrimestrale(f)}`);
     if (testoSorprese(f)) righe.push(`  Ultime trimestrali: ${testoSorprese(f)}`);
@@ -240,22 +240,23 @@ function testoPerAnalisi() {
   }
 
   titolo("Occasioni del cacciatore");
-  const migliori = occasioni().slice(0, OCCASIONI_NEL_TESTO);
+  const migliori = occasioni(3).slice(0, OCCASIONI_NEL_TESTO);
   if (analisi.criteri) {
-    righe.push(`Watchlist di grandi aziende (Europa, USA, grandi nomi asiatici). Criteri: almeno −${Math.round(analisi.criteri.caloMinimo * 100)}% dal massimo a 52 settimane, utili in crescita, conti solidi, target degli analisti almeno +${Math.round(analisi.criteri.potenzialeMinimo * 100)}%.`);
+    righe.push(`Watchlist di grandi aziende (Europa, USA, grandi nomi asiatici). I 4 segnali: almeno −${Math.round(analisi.criteri.caloMinimo * 100)}% dal massimo a 52 settimane, utili in crescita, conti solidi, maggioranza degli analisti positiva.`);
   }
-  if (migliori.length === 0) righe.push("Nessun titolo rispetta oggi tutti i criteri.");
+  if (migliori.length === 0) righe.push("Nessun titolo ha oggi almeno 3 segnali su 4.");
   migliori.forEach((ticker, i) => {
     const s = analisi.titoli[ticker];
-    righe.push("", `--- ${i + 1}. ${s.nome} (${ticker}, ${s.area}) – ${s.cacciatore.punteggio} punti su 100 ---`);
+    righe.push("", `--- ${i + 1}. ${s.nome} (${ticker}, ${s.area}) – ${s.cacciatore.rispettati} segnali su 4, ${s.cacciatore.punteggio} punti su 100 ---`);
     righe.push(`Perché compare: ${s.cacciatore.motivo}`);
     righe.push(...righeAgenti(ticker, 3));
   });
-  const quasi = occasioni("quasi").slice(0, 8).map((t) => analisi.titoli[t].nome);
-  if (quasi.length) righe.push("", `Ci vanno vicino (3 criteri su 4): ${quasi.join(", ")}.`);
+  const altre = occasioni(1, 2).slice(0, 12).map((t) => `${analisi.titoli[t].nome} (${segnali(t)})`);
+  if (altre.length) righe.push("", `Con 1 o 2 segnali: ${altre.join(", ")}.`);
 
   titolo("Note sui dati");
-  righe.push(`Prezzi: Yahoo Finance (Xetra). Fondamentali, target e analisi tecnica: Yahoo Finance, calcolati ${analisi.aggiornato ? "il " + momento(analisi.aggiornato) : "non ancora"}.`);
+  righe.push(`Prezzi e analisi tecnica: Yahoo Finance. Conti delle aziende e giudizi degli analisti: Finnhub (quotazione americana). Calcolati ${analisi.aggiornato ? "il " + momento(analisi.aggiornato) : "non ancora"}.`);
+  righe.push("Il target price medio degli analisti NON è in questi dati (la fonte gratuita non lo dà): se serve, cercalo tu e dimmi da dove viene.");
   if (fonteFondamentaliChiusa()) righe.push(`ATTENZIONE: ${fonteFondamentaliChiusa()}. Fondamentali, classifica e campanelli sui conti mancano o sono vecchi.`);
   righe.push("I dati possono essere incompleti o in ritardo. Campanelli e criteri sono regole meccaniche. Se un dato ti sembra strano, dimmelo.");
   return righe.join("\n");

@@ -29,9 +29,18 @@ function salvaWatchlist() {
 
 const nascosto = (ticker) => watchlistLocale.nascosti.includes(ticker);
 
-// Le sigle in classifica (o "quasi"), senza quelle che hai tolto
-function occasioni(lista = "classifica") {
-  return (analisi[lista] || []).filter((t) => analisi.titoli[t] && !nascosto(t));
+// Quanti segnali (criteri rispettati) ha un titolo: da 0 a 4
+function segnali(ticker) {
+  return ((analisi.titoli[ticker] || {}).cacciatore || {}).rispettati || 0;
+}
+
+// Le sigle della watchlist con almeno "minimo" segnali (e al massimo "massimo"), senza quelle che hai tolto.
+// Prima chi ha più segnali; a parità, chi ha il punteggio più alto.
+function occasioni(minimo = 3, massimo = 4) {
+  return Object.keys(analisi.titoli)
+    .filter((t) => analisi.titoli[t].gruppo === "watchlist" && !nascosto(t) && segnali(t) >= minimo && segnali(t) <= massimo)
+    .sort((a, b) => segnali(b) - segnali(a) ||
+      analisi.titoli[b].cacciatore.punteggio - analisi.titoli[a].cacciatore.punteggio || a.localeCompare(b));
 }
 
 // "✓" rispettato, "✗" non rispettato, "?" dato mancante: un simbolo, non solo un colore
@@ -66,6 +75,7 @@ function creaSchedaOccasione(ticker, posto = null, extra = "") {
   info.innerHTML = `<div class="nome"><span></span><span class="tag"></span></div>
     <div class="dettaglio motivo"></div><div class="criteri-brevi"></div><div class="dettaglio extra"></div>`;
   info.querySelector(".nome span").textContent = (posto ? posto + ". " : "") + s.nome;
+  scheda.classList.toggle("tutti-i-segnali", c.rispettati === 4);
   info.querySelector(".tag").textContent = s.area || "";
   info.querySelector(".motivo").textContent = c.motivo;
   const brevi = info.querySelector(".criteri-brevi");
@@ -83,9 +93,8 @@ function creaSchedaOccasione(ticker, posto = null, extra = "") {
   const cifre = document.createElement("div");
   cifre.className = "cifre";
   cifre.innerHTML = `<span class="valore"></span><span class="chip"></span>`;
-  cifre.querySelector(".valore").textContent = c.punteggio + " punti";
-  const f = s.fondamentali || {};
-  cifre.querySelector(".chip").textContent = f.potenziale !== null && f.potenziale !== undefined ? "target " + percUno(f.potenziale, true) : "";
+  cifre.querySelector(".valore").textContent = `${c.rispettati} su 4`;
+  cifre.querySelector(".chip").textContent = c.punteggio + " punti";
   scheda.appendChild(cifre);
   scheda.onclick = () => vaiAlTitolo(ticker);
   return scheda;
@@ -102,47 +111,54 @@ function disegnaOccasioni() {
 
   const p100 = (n) => Math.round(n * 100) + "%";
   $("criteri-occasioni").textContent =
-    `Criteri: almeno −${p100(criteri.caloMinimo)} dal massimo a 52 settimane · utili in crescita · ` +
-    `in utile e con debito sostenibile · target medio di almeno ${criteri.analistiMinimi} analisti a +${p100(criteri.potenzialeMinimo)} o più.`;
+    `I 4 segnali: almeno −${p100(criteri.caloMinimo)} dal massimo a 52 settimane · utili in crescita · ` +
+    `in utile e con debito sostenibile · almeno il ${p100(criteri.quotaPositiviMinima || 0.6)} degli analisti positivo (con almeno ${criteri.analistiMinimi} analisti).`;
 
-  // La classifica e i "quasi"
-  for (const [lista, contenitore, vuoto] of [["classifica", "elenco-classifica", "vuoto-classifica"], ["quasi", "elenco-quasi", "vuoto-quasi"]]) {
-    const sigle = occasioni(lista);
-    $(contenitore).innerHTML = "";
-    sigle.forEach((ticker, i) => $(contenitore).appendChild(creaSchedaOccasione(
-      ticker, lista === "classifica" ? i + 1 : null,
-      rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "")));
-    $(vuoto).hidden = sigle.length > 0;
-  }
-
-  const tutti = Object.entries(analisi.titoli).filter(([, s]) => s.gruppo === "watchlist");
-  // Tutta la watchlist: prima chi rispetta più criteri; a parità, chi è sceso di più dal massimo
-  const calo = (s) => (s.tecnica ? s.tecnica.dalMassimo : 0);
-  const visibili = tutti.filter(([t]) => !nascosto(t)).sort(([, a], [, b]) =>
-    ((b.cacciatore || {}).rispettati || 0) - ((a.cacciatore || {}).rispettati || 0) || calo(a) - calo(b) || a.nome.localeCompare(b.nome));
-  $("titolo-watchlist").textContent = `👀 La watchlist (${visibili.length} titoli)`;
-  const elenco = $("elenco-watchlist");
-  elenco.innerHTML = "";
-  for (const [ticker, s] of visibili) {
+  // Una riga compatta: il titolo (si tocca) e "Togli"
+  const creaRiga = (ticker) => {
+    const s = analisi.titoli[ticker];
     const riga = document.createElement("div");
     riga.className = "riga-watchlist";
     riga.innerHTML = `<button type="button" class="apri"><span class="nome-w"></span><span class="numeri-w"></span></button>
       <button type="button" class="link togli">Togli</button>`;
     riga.querySelector(".nome-w").textContent = `${s.nome} · ${s.area}`;
-    const t = s.tecnica, f = s.fondamentali, c = s.cacciatore;
-    riga.querySelector(".numeri-w").textContent = [
-      t ? percUno(t.dalMassimo, true) + " dal massimo" : null,
-      f && f.potenziale !== null && f.potenziale !== undefined ? "target " + percUno(f.potenziale, true) : null,
-      c ? `${c.rispettati} ${c.rispettati === 1 ? "criterio" : "criteri"} su 4` : "dati non ancora disponibili",
-    ].filter(Boolean).join(" · ");
+    const c = s.cacciatore;
+    const rispettati = c ? c.criteri.filter((x) => x.ok).map((x) => x.testo) : [];
+    riga.querySelector(".numeri-w").textContent = rispettati.length
+      ? `${rispettati.length} su 4: ${rispettati.join(", ")}`
+      : [s.tecnica ? percUno(s.tecnica.dalMassimo, true) + " dal massimo" : null,
+         c ? "nessun segnale" : "dati non ancora disponibili"].filter(Boolean).join(" · ");
     riga.querySelector(".apri").onclick = () => vaiAlTitolo(ticker);
     riga.querySelector(".togli").onclick = () => {
       watchlistLocale.nascosti.push(ticker);
       salvaWatchlist();
       disegnaOccasioni();
     };
-    elenco.appendChild(riga);
-  }
+    return riga;
+  };
+
+  // 1. In evidenza: 3 o 4 segnali su 4 (schede grandi, con il rischio principale)
+  const inEvidenza = occasioni(3);
+  $("elenco-classifica").innerHTML = "";
+  inEvidenza.forEach((ticker, i) => $("elenco-classifica").appendChild(creaSchedaOccasione(
+    ticker, i + 1, rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "")));
+  $("vuoto-classifica").hidden = inEvidenza.length > 0;
+
+  // 2. Da tenere d'occhio: 1 o 2 segnali (righe compatte)
+  const conSegnali = occasioni(1, 2);
+  $("titolo-quasi").textContent = `Con 1 o 2 segnali (${conSegnali.length})`;
+  $("elenco-quasi").innerHTML = "";
+  for (const ticker of conSegnali) $("elenco-quasi").appendChild(creaRiga(ticker));
+  $("vuoto-quasi").hidden = conSegnali.length > 0;
+
+  // 3. Tutte le altre: nessun segnale. Stanno in un elenco chiuso, da aprire solo se serve.
+  const tutti = Object.entries(analisi.titoli).filter(([, s]) => s.gruppo === "watchlist");
+  const senza = tutti.filter(([t]) => !nascosto(t) && segnali(t) === 0).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
+  $("titolo-watchlist").textContent = `Altre ${senza.length} aziende della watchlist, senza segnali`;
+  const elenco = $("elenco-watchlist");
+  elenco.innerHTML = "";
+  for (const [ticker] of senza) elenco.appendChild(creaRiga(ticker));
+  $("sezione-senza-segnali").hidden = senza.length === 0;
 
   // I titoli che hai tolto: si possono rimettere
   const tolti = tutti.filter(([t]) => nascosto(t));
@@ -164,13 +180,17 @@ function disegnaOccasioni() {
   }
 
   $("fonte-occasioni").textContent = analisi.aggiornato
-    ? `Fonte: Yahoo Finance · analisi del ${momento(analisi.aggiornato)}` : "";
+    ? `Fonti: Finnhub (conti e analisti), Yahoo Finance (prezzi) · analisi del ${momento(analisi.aggiornato)}` : "";
+  // Gli avvisi: fonte chiusa per tutti, oppure qualche azienda senza dati
   const errori = analisi.errori || [];
-  const fonteChiusa = errori.find((e) => e.includes("ha rifiutato"));
-  $("errori-occasioni").hidden = errori.length === 0;
-  $("errori-occasioni").textContent = fonteChiusa
-    ? `⚠️ ${fonteChiusa}: fondamentali, classifica e campanelli non sono aggiornati (o mancano). L'analisi tecnica non dipende da questa fonte.`
-    : `⚠️ All'ultimo giro ${errori.length} ${errori.length === 1 ? "dato non è arrivato" : "dati non sono arrivati"} da Yahoo Finance: per quei titoli vedi i dati del giorno prima.`;
+  const senzaConti = tutti.filter(([, s]) => !s.fondamentali).map(([, s]) => s.nome);
+  const avviso = $("errori-occasioni");
+  avviso.hidden = !fonteFondamentaliChiusa() && senzaConti.length === 0 && errori.length === 0;
+  avviso.textContent = fonteFondamentaliChiusa()
+    ? `⚠️ ${fonteFondamentaliChiusa()}: senza i conti delle aziende resta solo il segnale del calo dai massimi.`
+    : senzaConti.length
+      ? `ℹ️ Senza fondamentali (la fonte gratuita non le copre): ${senzaConti.join(", ")}. Per loro vale solo il segnale del calo dai massimi.`
+      : `⚠️ All'ultimo giro ${errori.length} ${errori.length === 1 ? "dato non è arrivato" : "dati non sono arrivati"}: per quei titoli vedi i dati di prima.`;
 }
 
 // ---------- Aggiungere un titolo alla watchlist ----------
@@ -191,6 +211,7 @@ function preparaRigaWatchlist(evento) {
     ticker: $("nuovo-ticker").value.trim().toUpperCase(),
     nome: $("nuovo-nome").value.trim(),
     area: $("nuova-area").value,
+    ...($("nuova-usa").value.trim() ? { usa: $("nuova-usa").value.trim().toUpperCase() } : {}),
   }).replace(/":/g, '": ').replace(/,"/g, ', "');
   $("riga-watchlist").value = "  " + riga + ",";
   $("istruzioni-aggiungi").hidden = false;
@@ -215,12 +236,13 @@ function disegnaCacciatore() {
   const c = s.cacciatore;
   $("sezione-cacciatore").hidden = !c;
   if (!c) return;
-  const posto = occasioni().indexOf(tickerAperto);
+  const quanti = `${c.rispettati} ${c.rispettati === 1 ? "segnale" : "segnali"} su 4`;
   $("frase-cacciatore").textContent = s.gruppo !== "watchlist"
-    ? `È un titolo del tuo elenco: oggi rispetterebbe ${c.rispettati} criteri su 4 del cacciatore.`
-    : posto >= 0 ? `In classifica al ${posto + 1}º posto: rispetta tutti e 4 i criteri (${c.punteggio} punti su 100).`
-    : c.rispettati === 3 ? "Ci va vicino: rispetta 3 criteri su 4."
-    : `Non è in classifica: rispetta ${c.rispettati} ${c.rispettati === 1 ? "criterio" : "criteri"} su 4.`;
+    ? `È un titolo del tuo elenco: oggi avrebbe ${quanti} del cacciatore.`
+    : c.rispettati === 4 ? `In evidenza: ha tutti e 4 i segnali (${c.punteggio} punti su 100).`
+    : c.rispettati === 3 ? `In evidenza: ha ${quanti} (${c.punteggio} punti su 100).`
+    : c.rispettati > 0 ? `Da tenere d'occhio: ha ${quanti}.`
+    : "Oggi non ha nessun segnale del cacciatore.";
   const elenco = $("elenco-criteri");
   elenco.innerHTML = "";
   for (const criterio of c.criteri) {

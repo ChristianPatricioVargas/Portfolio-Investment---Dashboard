@@ -7,7 +7,7 @@ una scatta:
 
   1. utili in calo, o trimestrale sotto le attese
   2. debito alto, o azienda in perdita
-  3. target o stime degli analisti abbassati
+  3. analisti che diventano più negativi (o target e stime abbassati, se la fonte li dà)
   4. prezzo sotto la media a 200 giorni
   5. trimestrale in arrivo (il prezzo può muoversi molto)
   6. notizie con parole negative (indagine, richiamo, causa, guidance tagliata...)
@@ -87,13 +87,13 @@ def variazione_target(storia, oggi):
 def regole_utili(f):
     trovati = []
     attesa, ultimo, ricavi = f.get("crescitaUtiliAttesa"), f.get("crescitaUtili"), f.get("crescitaRicavi")
-    if attesa is not None and attesa < 0:
+    if attesa is not None and attesa < -0.02:      # sotto il −2%: variazioni più piccole non sono un segnale
         trovati.append(campanello("utili", "alto", "Utili attesi in calo",
                                   f"Gli analisti si aspettano utili in calo ({perc(attesa)})."))
-    if ultimo is not None and ultimo < 0:
+    if ultimo is not None and ultimo < -0.02:
         trovati.append(campanello("utili", "alto" if ultimo <= -0.2 else "medio", "Utili in calo",
                                   f"Nell'ultimo trimestre gli utili sono scesi ({perc(ultimo)} su un anno prima)."))
-    if ricavi is not None and ricavi < 0:
+    if ricavi is not None and ricavi < -0.02:
         trovati.append(campanello("utili", "medio", "Ricavi in calo",
                                   f"Nell'ultimo trimestre i ricavi sono scesi ({perc(ricavi)} su un anno prima)."))
     sorprese = f.get("sorprese") or []
@@ -136,7 +136,15 @@ def regole_analisti(f, storia_target, oggi):
     if potenziale is not None and potenziale < 0:
         trovati.append(campanello("target", "medio", "Prezzo sopra il target",
                                   f"Il prezzo ha già superato il target medio degli analisti (il target è il {abs(potenziale) * 100:.0f}% più in basso)."))
-    voto = f.get("raccomandazione")
+    voto, prima = f.get("raccomandazione"), f.get("raccomandazionePrima")
+    if voto is not None and prima is not None and voto - prima >= 0.15:
+        trovati.append(campanello("target", "medio", "Analisti più freddi",
+                                  f"Nell'ultimo mese il giudizio medio degli analisti è peggiorato "
+                                  f"(da {prima:.1f} a {voto:.1f} su 5, dove 1 è il più positivo).".replace(".", ",", 2)))
+    positivi, totale = f.get("analistiPositivi"), f.get("analisti")
+    if positivi is not None and totale and totale >= 5 and positivi / totale < 0.4:
+        trovati.append(campanello("target", "medio", "Pochi analisti positivi",
+                                  f"Solo {int(positivi)} analisti su {int(totale)} hanno un giudizio positivo."))
     if voto is not None and voto > 3:
         trovati.append(campanello("target", "medio", "Analisti freddi",
                                   f"La raccomandazione media è {voto:.1f} su 5 (sopra 3 prevalgono i giudizi negativi).".replace(".", ",", 1)))
