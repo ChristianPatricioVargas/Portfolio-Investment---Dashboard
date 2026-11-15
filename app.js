@@ -24,6 +24,7 @@ let titoli = [];       // elenco dei titoli disponibili (da data/titoli.json)
 let prezzi = {};       // prezzi di ogni titolo (da data/prezzi.json)
 let storico = {};      // prezzi di chiusura passati (da data/storico.json)
 let controllatiIl = null; // quando GitHub ha controllato i prezzi l'ultima volta
+let mercati = [];         // gli indici di mercato per la striscia in alto (da data/prezzi.json)
 let notizie = {};         // le notizie di ogni titolo (da data/notizie.json)
 let notizieAggiornateIl = null;
 let notizieServizi = {};  // da quale servizio arrivano le notizie di ogni titolo (Google, Bing, Yahoo)
@@ -274,6 +275,7 @@ function disegna() {
   const tuoi = posizioni.length ? posizioni.map((p) => p.ticker) : titoli.map((t) => t.ticker);
   $("fonte-prezzi").textContent = Object.keys(prezzi).length ? testoFonte(tuoi) : "";
 
+  disegnaStriscia();
   // Disegniamo il resto della vista che stai guardando
   disegnaVista();
 }
@@ -328,7 +330,6 @@ function mostraVista() {
   $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
   $("vista-occasioni").hidden = vistaAperta !== "occasioni";
   $("vista-titolo").hidden = vistaAperta !== "titolo";
-  $("navigazione").hidden = vistaAperta === "titolo";
   if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
   document.querySelectorAll("#navigazione a").forEach((a) => a.classList.toggle("attivo", a.dataset.vista === vistaAperta));
   disegnaVista();
@@ -440,7 +441,7 @@ function disegnaNotizie() {
   // Per sicurezza teniamo solo le notizie con un link sicuro (https://)
   const elenco = (notizie[tickerAperto] || []).filter((n) => typeof n.link === "string" && n.link.startsWith("https://"));
   // Per gli ETF cerchiamo notizie sull'indice che seguono: lo diciamo nel titolo
-  $("titolo-notizie").textContent = info.tipo === "ETF" ? "📰 Notizie sui mercati" : `📰 Notizie su ${info.nome}`;
+  $("titolo-notizie").textContent = info.tipo === "ETF" ? "Notizie sui mercati" : `Notizie su ${info.nome}`;
 
   const lista = $("elenco-notizie");
   lista.innerHTML = "";
@@ -462,7 +463,7 @@ function disegnaNotizie() {
     ? "Le notizie vengono scaricate solo per i titoli del portafoglio e per quelli in classifica."
     : notizieAggiornateIl
       ? "Nessuna notizia negli ultimi 7 giorni."
-      : "⏳ Le notizie arriveranno con il prossimo aggiornamento automatico.";
+      : "Le notizie arriveranno con il prossimo aggiornamento automatico.";
 
   const altre = $("altre-notizie");
   altre.hidden = elenco.length <= NOTIZIE_VISIBILI;
@@ -762,9 +763,9 @@ function scriviNota(nota, area, punti, esclusi, acquisti) {
   if (punti.length < 2) {
     area.hidden = true;
     nota.hidden = false;
-    if (!acquisti.some((a) => a.data)) nota.textContent = "📅 Inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
-    else if (periodo === "1g") nota.textContent = "⏳ Il grafico di oggi comparirà dopo l'apertura della Borsa e il prossimo aggiornamento dei prezzi.";
-    else nota.textContent = "⏳ Il grafico comparirà dopo il prossimo aggiornamento automatico dei prezzi.";
+    if (!acquisti.some((a) => a.data)) nota.textContent = "Inserisci la data dei tuoi acquisti: così il grafico parte da quel giorno.";
+    else if (periodo === "1g") nota.textContent = "Il grafico di oggi comparirà dopo l'apertura della Borsa e il prossimo aggiornamento dei prezzi.";
+    else nota.textContent = "Il grafico comparirà dopo il prossimo aggiornamento automatico dei prezzi.";
     return false;
   }
   area.hidden = false;
@@ -970,6 +971,7 @@ function ridisegnaGrafici() {
     if (posizioni.some((p) => p.ticker === tickerAperto)) disegnaGraficoTitolo();
     disegnaGraficoTecnico();
   } else if (vistaAperta === "portafoglio") disegnaGrafico();
+  else if (vistaAperta === "oggi") disegnaGraficoOggi();
 }
 
 // Il selettore "%" / "€" del grafico della panoramica
@@ -1048,6 +1050,7 @@ async function avvia() {
     titoli = await rispostaTitoli.json();
     const datiPrezzi = await rispostaPrezzi.json();
     prezzi = datiPrezzi.prezzi || {};
+    mercati = Array.isArray(datiPrezzi.mercati) ? datiPrezzi.mercati : [];
 
     if (datiPrezzi.aggiornato) {
       controllatiIl = datiPrezzi.aggiornato;
@@ -1056,11 +1059,11 @@ async function avvia() {
         data.toLocaleString("it-IT", { dateStyle: "long", timeStyle: "short" }) +
         ". I prezzi sono quelli dell'ultimo scambio sulla borsa indicata sotto il totale.";
     } else {
-      $("avviso").textContent = "⏳ I prezzi non sono ancora arrivati: compariranno dopo il primo aggiornamento automatico.";
+      $("avviso").textContent = "I prezzi non sono ancora arrivati: compariranno dopo il primo aggiornamento automatico.";
       $("avviso").hidden = false;
     }
   } catch (errore) {
-    $("avviso").textContent = "⚠️ Non riesco a caricare i dati. Controlla la connessione e riprova.";
+    $("avviso").textContent = "⚠ Non riesco a caricare i dati. Controlla la connessione e riprova.";
     $("avviso").hidden = false;
   }
 
