@@ -75,7 +75,7 @@ function aggiungiGruppo(contenitore, titolo, dati) {
 
 // Se all'ultimo giro la fonte dei fondamentali ha rifiutato le richieste, restituisce il motivo (altrimenti "")
 function fonteFondamentaliChiusa() {
-  return (analisi.errori || []).find((e) => e.includes("ha rifiutato")) || "";
+  return (analisi.errori || []).find((e) => e.includes("ha rifiutato") || e.includes("FINNHUB_API_KEY")) || "";
 }
 
 // Prepara i gruppi di numeri di una scheda. Serve sia alla pagina sia a "Copia per l'analisi".
@@ -91,6 +91,7 @@ function gruppiFondamentali(f) {
     ["Crescita", [
       dato(f.crescitaRicavi, (v) => ["Ricavi", percUno(v, true), c2(v), "ultimo trimestre su un anno prima"]),
       dato(f.crescitaUtili, (v) => ["Utili", percUno(v, true), c2(v), "ultimo trimestre su un anno prima"]),
+      dato(f.crescitaUtiliAnno, (v) => ["Utili, ultimi 12 mesi", percUno(v, true), c2(v), "sui 12 mesi precedenti"]),
       dato(f.crescitaUtiliAttesa, (v) => ["Utili attesi", percUno(v, true), c2(v), "previsione degli analisti"]),
     ]],
     ["Debito", f.finanziario
@@ -105,11 +106,18 @@ function gruppiFondamentali(f) {
       dato(f.margineNetto, (v) => ["Netto", percUno(v), c2(v), "utile per ogni 100 di ricavi"]),
     ]],
     ["Analisti", [
+      dato(f.analistiPositivi, (v) => ["Giudizi positivi", `${v} su ${f.analisti}`, "",
+        `${f.analistiNeutri} neutri, ${f.analistiNegativi} negativi`]),
+      dato(f.raccomandazione, (v) => ["Giudizio medio", `${numeroIt(v)} su 5`, "", `${testoRaccomandazione(v)} (1 = il più positivo)`]),
+      f.raccomandazione !== null && f.raccomandazionePrima !== null && f.raccomandazionePrima !== undefined
+        ? ["Un mese fa", `${numeroIt(f.raccomandazionePrima)} su 5`, "",
+          f.raccomandazione > f.raccomandazionePrima + 0.04 ? "da allora è peggiorato"
+            : f.raccomandazione < f.raccomandazionePrima - 0.04 ? "da allora è migliorato" : "da allora è stabile"]
+        : null,
+      // Il target price c'è solo se la fonte lo dà (quella gratuita non lo dà)
       dato(f.target, (v) => ["Target medio a 12 mesi", prezzoIn(v, c), "",
         f.targetMin && f.targetMax ? `da ${prezzoIn(f.targetMin, c)} a ${prezzoIn(f.targetMax, c)}` : ""]),
-      dato(f.potenziale, (v) => ["Distanza dal target", percUno(v, true), c2(v), `prezzo ${prezzoIn(f.prezzo, c)}`]),
-      dato(f.analisti, (v) => ["Analisti", String(v), "", v < 5 ? "pochi: target poco affidabile" : ""]),
-      dato(f.raccomandazione, (v) => ["Raccomandazione media", `${numeroIt(v)} su 5`, "", `${testoRaccomandazione(v)} (1 = la più positiva)`]),
+      dato(f.potenziale, (v) => ["Distanza dal target", percUno(v, true), c2(v)]),
     ]],
   ];
 }
@@ -150,15 +158,18 @@ function disegnaFondamentali() {
       "Nella tua strategia è un investimento di lungo termine: qui conta l'andamento, non la singola trimestrale.");
   }
   if (!f) {
+    const scheda = analisi.titoli[tickerAperto];
     return messaggio(fonteFondamentaliChiusa()
-      ? `⚠️ ${fonteFondamentaliChiusa()}. I fondamentali di questo titolo non sono disponibili (vedi "Le fonti dei dati" nel README).`
-      : "⏳ I fondamentali arriveranno con il prossimo giro serale degli agenti.");
+      ? `⚠️ ${fonteFondamentaliChiusa()}. I fondamentali di questo titolo non sono disponibili.`
+      : scheda && scheda.tecnica
+        ? "Per questa azienda la fonte gratuita dei fondamentali non ha dati (copre solo le aziende quotate anche negli Stati Uniti)."
+        : "⏳ I fondamentali arriveranno con il prossimo giro degli agenti.");
   }
 
   // In alto: settore e prossima trimestrale
   const riga = document.createElement("p");
   riga.className = "riga-settore";
-  riga.textContent = [f.settore, f.industria].filter(Boolean).join(" · ");
+  riga.textContent = f.settore || "";
   if (riga.textContent) corpo.appendChild(riga);
 
   for (const [titolo, dati] of gruppiFondamentali(f)) aggiungiGruppo(corpo, titolo, dati);
@@ -172,10 +183,11 @@ function disegnaFondamentali() {
       : null,
   ]);
 
-  const parti = ["Fonte: Yahoo Finance"];
+  const parti = ["Fonte: " + (f.fonte || "Yahoo Finance")];
   if (f.aggiornato) parti.push("dati del " + dataBreve(f.aggiornato));
+  const usa = (analisi.titoli[tickerAperto] || {}).usa;
+  if (usa && usa !== tickerAperto) parti.push(`conti della quotazione americana (${usa})`);
   if (fonteFondamentaliChiusa()) parti.push("⚠️ all'ultimo giro la fonte non ha risposto: potrebbero essere vecchi");
-  if (f.valuta && f.valuta !== "EUR") parti.push(`prezzi e target in ${f.valuta}`);
   $("fonte-fondamentali").textContent = parti.join(" · ");
 }
 

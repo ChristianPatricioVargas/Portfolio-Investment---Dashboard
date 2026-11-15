@@ -1,14 +1,14 @@
 """
 aggiorna_analisi.py = il "direttore" della squadra di agenti.
 
-Non lo esegui tu: lo fa GitHub UNA VOLTA AL GIORNO, la sera dopo la chiusura delle Borse
-(le istruzioni sono in .github/workflows/pubblica-sito.yml). I prezzi invece continuano
-ad aggiornarsi ogni 30 minuti con aggiorna_prezzi.py: questo lavoro è più pesante e
-una volta al giorno basta.
+Non lo esegui tu: lo fa GitHub DUE VOLTE AL GIORNO, verso le 13 e la sera dopo la chiusura
+delle Borse (le istruzioni sono in .github/workflows/pubblica-sito.yml). I prezzi invece
+continuano ad aggiornarsi ogni 30 minuti con aggiorna_prezzi.py: questo lavoro è più pesante.
 
 Cosa fa, passo per passo:
   1. legge i titoli del portafoglio (data/titoli.json) e la watchlist (data/watchlist.json)
-  2. per ogni azione chiede a Yahoo Finance i dati e li passa all'analista fondamentale
+  2. per ogni azione chiede a Finnhub i conti dell'azienda e li passa all'analista fondamentale
+     (serve il segreto FINNHUB_API_KEY; senza, i fondamentali restano vuoti)
   3. per ogni titolo scarica due anni di prezzi e li passa all'analista tecnico
   4. il cacciatore controlla i suoi criteri e prepara la classifica delle occasioni;
      per i titoli in classifica scarica anche le notizie
@@ -26,12 +26,14 @@ Opzioni:
 """
 
 import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 
 from aggiorna_prezzi import CARTELLA_DATI, FILE_NOTIZIE, FILE_TITOLI, leggi_json, notizie_di, scrivi_json
 from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
-from agenti.yahoo import FonteNonDisponibile, Yahoo
+from agenti.finnhub import Finnhub, FonteNonDisponibile, TitoloNonCoperto
+from agenti.yahoo import Yahoo
 
 FILE_ANALISI = CARTELLA_DATI / "analisi.json"
 FILE_WATCHLIST = CARTELLA_DATI / "watchlist.json"   # le grandi aziende che il cacciatore tiene d'occhio
@@ -50,26 +52,31 @@ def ancora_fresca(analisi):
         fatta = datetime.strptime(analisi["aggiornato"], FORMATO_ORA).replace(tzinfo=timezone.utc)
     except (KeyError, TypeError, ValueError):
         return False
+    # Se ora c'è la chiave dei fondamentali ma l'analisi salvata non ne contiene nessuno
+    # (es. la chiave è appena stata creata), conviene rifarla subito
+    if os.environ.get("FINNHUB_API_KEY") and not any(s.get("fondamentali") for s in (analisi.get("titoli") or {}).values()):
+        return False
     return datetime.now(timezone.utc) - fatta < timedelta(hours=ORE_VALIDITA)
 
 
 def elenco_titoli():
     """Tutti i titoli da analizzare: quelli del portafoglio e quelli della watchlist.
-    "fonte" è la sigla da usare per i fondamentali: per Airbus è AIR.PA (Parigi, la Borsa
-    principale), perché su quella di Francoforte (AIR.DE) Yahoo ha meno dati sugli analisti."""
+    "usa" è la sigla americana dell'azienda, da usare per i fondamentali (Finnhub gratis copre
+    solo le aziende quotate negli Stati Uniti): per Airbus è EADSY, per SAP è SAP."""
     elenco = []
     for t in leggi_json(FILE_TITOLI, []):
         elenco.append({"ticker": t["ticker"], "nome": t["nome"], "tipo": t["tipo"], "gruppo": "portafoglio",
-                       "fonte": t.get("fondamentali") or t["ticker"], "notizie": t.get("notizie"),
+                       "usa": t.get("usa") or "", "notizie": t.get("notizie"),
                        "notizie_en": t.get("notizie_en")})
     # La watchlist: saltiamo i doppioni e i titoli che sono già nel portafoglio
-    gia_visti = {v["ticker"] for v in elenco} | {v["fonte"] for v in elenco}
+    gia_visti = {v["ticker"] for v in elenco}
+    sigle_usa_mie = {v["usa"] for v in elenco if v["usa"]}
     for t in leggi_json(FILE_WATCHLIST, []):
-        if not t.get("ticker") or t["ticker"] in gia_visti:
+        if not t.get("ticker") or t["ticker"] in gia_visti or t.get("usa") in sigle_usa_mie:
             continue
         gia_visti.add(t["ticker"])
         elenco.append({"ticker": t["ticker"], "nome": t.get("nome") or t["ticker"], "tipo": "Azione",
-                       "gruppo": "watchlist", "area": t.get("area") or "", "fonte": t["ticker"],
+                       "gruppo": "watchlist", "area": t.get("area") or "", "usa": t.get("usa") or "",
                        "notizie": t.get("notizie"), "notizie_en": t.get("notizie_en")})
     return elenco
 
@@ -108,10 +115,7 @@ def notizie_occasioni(elenco, da_seguire):
     scrivi_json(FILE_NOTIZIE, dati)
 
 
-fonte_chiusa_detta = set()   # per scrivere "fonte chiusa" una volta sola nel registro di GitHub
-
-
-def analizza_titolo(yahoo, voce, scheda, serie, oggi):
+def analizza_titolo(yahoo, finnhub, voce, scheda, serie, oggi):
     """Fa lavorare gli agenti su un titolo: aggiorna la sua scheda e la sua serie per il grafico.
     Restituisce gli errori incontrati."""
     errori = []
@@ -119,22 +123,30 @@ def analizza_titolo(yahoo, voce, scheda, serie, oggi):
 
     # --- Analista fondamentale (solo azioni: un ETF contiene migliaia di aziende) ---
     if voce["tipo"] == "Azione":
+        scheda["usa"] = voce["usa"]
         try:
-            nuova = fondamentale.analizza(yahoo.riepilogo(voce["fonte"]), oggi)
+            if not finnhub:
+                raise FonteNonDisponibile("Manca il segreto FINNHUB_API_KEY: i fondamentali non vengono scaricati")
+            if not voce["usa"]:
+                raise TitoloNonCoperto(f"{voce['nome']} non ha una sigla americana: niente fondamentali")
+            # Il settore non cambia: se lo conosciamo già, risparmiamo una richiesta
+            vecchio = scheda.get("fondamentali") or {}
+            nuova = fondamentale.analizza(finnhub.grezzi(voce["usa"], oggi, con_profilo=not vecchio.get("settore")), oggi)
             if not fondamentale.ha_dati(nuova):
-                raise ValueError("Yahoo ha risposto senza dati")
+                raise TitoloNonCoperto(f"Finnhub ha dati troppo scarsi per {voce['usa']}")
+            if not nuova["settore"] and vecchio.get("settore"):
+                for campo in ("settore", "paese", "valuta", "finanziario"):
+                    nuova[campo] = vecchio.get(campo)
             nuova["aggiornato"] = oggi
             scheda["fondamentali"] = nuova
-            # Ricordiamo il target di ogni giorno: serve all'avvocato per accorgersi se viene abbassato
-            scheda["storiaTarget"] = avvocato.aggiorna_storia_target(scheda.get("storiaTarget"), nuova["target"], oggi)
-            print(f"OK   fondamentali {ticker}: P/E {nuova['pe']}, target {nuova['target']} {nuova['valuta']}")
+            print(f"OK   fondamentali {ticker} ({voce['usa']}): P/E {nuova['pe']}, "
+                  f"{nuova['analistiPositivi']} analisti positivi su {nuova['analisti']}")
         except FonteNonDisponibile as errore:
-            # La fonte è chiusa per tutti i titoli (il direttore lo conta una volta sola, non 90)
+            errori.append(str(errore))          # vale per tutti i titoli: il direttore lo conta una volta sola
+        except TitoloNonCoperto as errore:
+            scheda.pop("fondamentali", None)    # meglio nessun dato che un dato vecchio di un'altra fonte
             errori.append(str(errore))
-            if voce["ticker"] not in fonte_chiusa_detta:
-                if not fonte_chiusa_detta:
-                    print(f"ERRORE fondamentali: {errore}. Per questo giro tengo quelli di prima, se ci sono.")
-                fonte_chiusa_detta.add(voce["ticker"])
+            print(f"SENZA fondamentali {ticker}: {errore}")
         except Exception as errore:
             errori.append(f"fondamentali {ticker}: {errore}")
             print(f"ERRORE fondamentali {ticker}: {errore} (tengo quelli di prima, se ci sono)")
@@ -164,6 +176,8 @@ def main():
     adesso = datetime.now(timezone.utc)
     oggi = adesso.strftime("%Y-%m-%d")
     yahoo = Yahoo()
+    chiave = (os.environ.get("FINNHUB_API_KEY") or "").strip()
+    finnhub = Finnhub(chiave) if chiave else None
     schede, errori = {}, []
     vecchie_serie = leggi_json(FILE_SERIE, {})
     serie = {}
@@ -175,9 +189,11 @@ def main():
         scheda.update({"nome": voce["nome"], "tipo": voce["tipo"], "gruppo": voce["gruppo"], "area": voce.get("area", "")})
         if voce["ticker"] in vecchie_serie:
             serie[voce["ticker"]] = vecchie_serie[voce["ticker"]]
-        for errore in analizza_titolo(yahoo, voce, scheda, serie, oggi):
+        for errore in analizza_titolo(yahoo, finnhub, voce, scheda, serie, oggi):
             if errore not in errori:        # lo stesso errore (es. "fonte chiusa") si segna una volta sola
                 errori.append(errore)
+                if "FINNHUB_API_KEY" in errore or "ha rifiutato" in errore:
+                    print(f"ERRORE fondamentali: {errore}. Per questo giro tengo quelli di prima, se ci sono.")
         schede[voce["ticker"]] = scheda
 
     # --- Cacciatore: controlla i criteri su ogni azione con dati recenti ---
@@ -215,7 +231,7 @@ def main():
 
     risultato = {
         "aggiornato": adesso.strftime(FORMATO_ORA),
-        "fonte": "Yahoo Finance (non ufficiale)",
+        "fonte": "Finnhub (fondamentali), Yahoo Finance (prezzi)",
         "errori": errori,       # la pagina li mostra, così sai se una fonte non ha funzionato
         "criteri": cacciatore.CRITERI,
         "classifica": in_classifica,

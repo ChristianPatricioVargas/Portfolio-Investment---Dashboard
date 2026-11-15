@@ -19,7 +19,7 @@ e un file JavaScript che li mostra nella pagina.
 
 | Agente | Domanda | Cosa fa | Calcoli | Pagina |
 |---|---|---|---|---|
-| 🔎 **Analista fondamentale** | *Se* è una buona azienda | P/E, crescita di ricavi e utili, debito, margini, target medio e numero di analisti, raccomandazione media, prossima trimestrale | `scripts/agenti/fondamentale.py` | `agenti/fondamentale.js` |
+| 🔎 **Analista fondamentale** | *Se* è una buona azienda | P/E, crescita di ricavi e utili, debito, margini, giudizi degli analisti (positivi, neutri, negativi) e giudizio medio, prossima trimestrale | `scripts/agenti/fondamentale.py` | `agenti/fondamentale.js` |
 | 📈 **Analista tecnico** | *Quando* guardarla | Medie mobili a 50 e 200 giorni, RSI a 14 giorni, distanza da massimo e minimo a 52 settimane, supporti e resistenze, una frase di riassunto | `scripts/agenti/tecnico.py` | `agenti/tecnico.js` |
 | 🎯 **Cacciatore** | *Dove* sono le occasioni | Applica 4 criteri a una watchlist di grandi aziende e fa la classifica, spiegando il motivo | `scripts/agenti/cacciatore.py` | `agenti/cacciatore.js` |
 | 😈 **Avvocato del diavolo** | *Cosa può andare storto* | Campanelli d'allarme con regole semplici; in più, se accesa, un'analisi pro e contro scritta da un'AI | `scripts/agenti/avvocato.py`, `avvocato_ai.py` | `agenti/avvocato.js` |
@@ -27,14 +27,14 @@ e un file JavaScript che li mostra nella pagina.
 
 Attorno agli agenti:
 
-- **Il fattorino** (`scripts/agenti/yahoo.py`) va a prendere i dati grezzi da Yahoo Finance.
+- **I fattorini** vanno a prendere i dati grezzi: `scripts/agenti/yahoo.py` i prezzi da Yahoo Finance, `scripts/agenti/finnhub.py` i conti delle aziende da Finnhub.
 - **Il direttore** (`scripts/aggiorna_analisi.py`) fa lavorare gli agenti in ordine e salva il risultato.
 - **Le prove automatiche** (`scripts/prova_agenti.py`) controllano i calcoli con dati finti di cui si conosce il risultato.
 
 ```
-            GitHub Actions (ogni sera)                         Il mio browser
+        GitHub Actions (due volte al giorno)                    Il mio browser
  ┌──────────────────────────────────────────────┐      ┌───────────────────────────────┐
- │ Yahoo Finance ─► fattorino ─► fondamentale   │      │ analisi.json + i MIEI dati    │
+ │ Finnhub + Yahoo ─► fattorini ─► fondamentale │      │ analisi.json + i MIEI dati    │
  │                           ─► tecnico         │      │ (acquisti, tesi: solo qui)    │
  │   watchlist ─► cacciatore ─► avvocato (─► AI)│ ───► │   ─► Oggi · Portafoglio ·     │
  │                    │                         │ sito │      Occasioni · Titolo       │
@@ -47,9 +47,10 @@ Scelte di progetto:
 
 - **Dati personali solo in locale.** Gli agenti su GitHub lavorano solo su dati pubblici. Acquisti, tesi e
   titoli tolti dalla watchlist stanno nel browser (`localStorage`) e nel backup.
-- **Nessun segreto nel codice.** Le chiavi (`NTFY_TOPIC`, `ANTHROPIC_API_KEY`) stanno in GitHub Secrets.
-- **Pochi minuti di GitHub Actions.** I prezzi si aggiornano ogni 30 minuti; gli agenti lavorano una volta al giorno,
-  alle 21:23 UTC (dopo la chiusura di Wall Street). Se quel giro salta, lavorano al primo giro utile.
+- **Nessun segreto nel codice.** Le chiavi (`NTFY_TOPIC`, `FINNHUB_API_KEY`, `ANTHROPIC_API_KEY`) stanno in GitHub Secrets.
+- **Pochi minuti di GitHub Actions.** I prezzi si aggiornano ogni 30 minuti; gli agenti lavorano due volte al giorno:
+  alle 11:53 UTC (in Italia 12:53 d'inverno, 13:53 d'estate) e alle 21:23 UTC (dopo la chiusura di Wall Street).
+  Ogni giro dura circa 8 minuti. Se un giro salta, lavorano al primo giro utile.
 - **Se una fonte non risponde, niente si rompe.** Resta la scheda del giorno prima e la pagina Occasioni lo dice.
 - **Nessuna libreria da installare** per la pagina e per gli agenti (solo Python e JavaScript "puri");
   la libreria di Anthropic viene installata solo se l'AI è accesa.
@@ -60,7 +61,7 @@ Scelte di progetto:
   trimestrale vicina, campanelli), stato delle tesi, le 3 migliori occasioni con il loro rischio principale,
   e il pulsante **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
-- **Occasioni**: la classifica del cacciatore, i titoli che ci vanno vicino, tutta la watchlist.
+- **Occasioni**: solo le aziende della watchlist con almeno un segnale. In cima, in evidenza, quelle con 3 o 4 segnali su 4; poi quelle con 1 o 2; le altre stanno in un elenco chiuso.
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
   avvocato del diavolo, notizie. Per i miei titoli anche acquisti, rendimento, **scheda tesi** e **Se vendo oggi**.
 
@@ -84,23 +85,24 @@ la spunto io: comparirà nella pagina Oggi.
 La watchlist è in `data/watchlist.json`: circa 90 grandi aziende di Europa e Stati Uniti e, per l'Asia, solo nomi
 molto noti (Toyota, Sony, Samsung, TSMC...). Niente aziende piccole o poco trasparenti.
 
-Un titolo entra in classifica se rispetta **tutti e quattro** i criteri (le soglie sono in cima a `scripts/agenti/cacciatore.py`):
+I quattro segnali (le soglie sono in cima a `scripts/agenti/cacciatore.py`):
 
 1. **Calo**: almeno −15% dal massimo a 52 settimane
 2. **Utili in crescita**: attesi dagli analisti, o nell'ultimo trimestre
 3. **Conti solidi**: in utile e con debito netto non oltre 3 volte l'EBITDA (per banche e assicurazioni conta solo l'utile)
-4. **Target**: target medio di almeno 5 analisti, almeno +15% sopra il prezzo
+4. **Analisti positivi**: almeno il 60% degli analisti (e almeno 5 analisti) ha un giudizio positivo
 
-Il punteggio (0-100) ordina la classifica: più calo, più distanza dal target, più crescita e meno debito = più punti.
+La pagina mostra solo chi ha almeno un segnale, e mette in evidenza chi ne ha 3 o 4.
+Il punteggio (0-100) ordina le aziende a parità di segnali: più calo, più crescita, meno debito e più analisti positivi = più punti.
 
 **Togliere un titolo**: nella pagina Occasioni, "Togli" lo nasconde su questo dispositivo (si può rimettere).
 **Aggiungere un titolo**: la pagina Occasioni prepara la riga da incollare in `data/watchlist.json`
-(serve la sigla di Yahoo Finance sulla Borsa principale: `NKE`, `MC.PA`, `7203.T`...). Deve stare nel repository
-perché è GitHub, non il browser, a scaricare i dati.
+(servono la sigla di Yahoo Finance sulla Borsa principale, es. `MC.PA`, e la sigla americana per i fondamentali,
+es. `LVMUY`). Deve stare nel repository perché è GitHub, non il browser, a scaricare i dati.
 
 Per **comprare** un titolo della watchlist e seguirlo nel Portafoglio va aggiunto a `data/titoli.json` con la sigla
-di Xetra in euro (es. `NKE.DE`) e, nel campo `fondamentali`, la sigla della Borsa principale (es. `NKE`):
-così i prezzi sono in euro e i dati sugli analisti sono completi.
+di Xetra in euro (es. `NKE.DE`) e, nel campo `usa`, la sigla americana (es. `NKE`):
+così i prezzi sono in euro e i fondamentali arrivano da Finnhub.
 
 ### L'avvocato del diavolo
 
@@ -108,14 +110,12 @@ Campanelli d'allarme, in due livelli (**attenzione** e **da tenere d'occhio**):
 
 - utili o ricavi in calo, ultima trimestrale sotto le attese
 - debito alto, azienda in perdita
-- target medio abbassato nell'ultimo mese, stime sugli utili tagliate negli ultimi 90 giorni, prezzo già sopra il target
+- giudizio medio degli analisti peggiorato nell'ultimo mese, pochi analisti positivi
 - prezzo sotto la media a 200 giorni
 - trimestrale in arrivo entro 14 giorni
 - notizie con parole negative nel titolo (indagine, richiamo, causa, multa, guidance tagliata, profit warning...)
 
 Nessun campanello **non** vuol dire nessun rischio: le regole guardano solo alcuni numeri.
-Il campanello "target abbassato" funziona dopo qualche settimana, perché confronta il target di oggi con quelli
-che il direttore ha visto nei giorni precedenti.
 
 #### La versione con AI (spenta)
 
@@ -160,34 +160,35 @@ campanelli, occasioni e notizie. Incollandolo in una chat con Claude si ottiene 
 
 ## Le fonti dei dati e i loro limiti
 
-| Dato | Fonte | Stato (prova dal vivo del 14 novembre 2026, dai server di GitHub) |
+| Dato | Fonte | Note |
 |---|---|---|
-| Prezzi e storico (analisi tecnica) | Yahoo Finance (grafico) | ✅ Funziona: 8 titoli su 8 |
-| Fondamentali, target, trimestrali | Yahoo Finance (riepilogo) | ❌ **Non funziona**: Yahoo rifiuta le richieste che arrivano da GitHub (errore 429, "troppe richieste") |
-| Notizie | Google News, Bing News, Yahoo Finance | ✅ Come prima |
+| Prezzi, storico, analisi tecnica | Yahoo Finance (grafico) | Senza chiave. Funziona dai server di GitHub |
+| Conti delle aziende, giudizi degli analisti, trimestrali | **Finnhub**, con chiave gratuita (`FINNHUB_API_KEY` nei Secrets) | Il piano gratuito copre le aziende quotate negli Stati Uniti: per questo ogni titolo ha una sigla americana (campo `usa`) |
+| Notizie | Google News, Bing News, Yahoo Finance | Senza chiave |
 
-**Cosa vuol dire in pratica.** Finché non c'è una fonte per i fondamentali che funzioni:
+**Come ci si è arrivati** (prove dal vivo del 14-15 novembre 2026, fatte dai server di GitHub):
 
-- ✅ funzionano con dati veri: analisi tecnica, scheda tesi, "Se vendo oggi", campanelli su prezzo e notizie,
-  pagina Oggi, "Copia per l'analisi", watchlist ordinata per calo dai massimi;
-- ❌ restano vuoti: scheda dei fondamentali, classifica del cacciatore (servono utili, debito e target),
-  campanelli su utili, debito e analisti, analisi con AI. La pagina lo dice in chiaro, non mostra numeri inventati.
+1. *Yahoo Finance* dà i prezzi, ma **rifiuta le richieste dei fondamentali** che partono da GitHub (errore 429).
+   Esistono librerie che si fingono un browser per farsi accettare: scelta scartata, perché aggira un rifiuto esplicito.
+2. *Alpha Vantage* gratuito: i fondamentali sono diventati a pagamento (resta gratis solo il calendario delle trimestrali).
+3. *Finnhub* gratuito: dà circa 130 numeri di bilancio per azienda, i giudizi degli analisti mese per mese,
+   le sorprese sulle trimestrali e la data della prossima. **Non dà il target price medio** (a pagamento)
+   e non copre le sigle europee dirette, ma copre le stesse aziende con la loro sigla americana
+   (SAP → `SAP`, Airbus → `EADSY`, Toyota → `TM`, LVMH → `LVMUY`...).
 
-Il codice che legge i fondamentali è pronto e provato con dati finti, ma la porta è chiusa. Il fattorino chiede
-una volta sola per giro e, se Yahoo rifiuta, non insiste.
+**Conseguenze sul progetto:**
 
-**Le alternative** (nessuna è ancora collegata: solo `scripts/agenti/yahoo.py` e `fondamentale.py` conoscono
-la forma dei dati di Yahoo, quindi cambiare fonte non tocca gli altri agenti):
+- Il quarto segnale del cacciatore non è "target almeno +15%" ma "**almeno il 60% degli analisti è positivo**".
+  Se un giorno la fonte desse il target, il codice userebbe quello (è già previsto).
+- Il mio target lo scrivo io nella scheda tesi (lo si trova su Trade Republic): la barra di avanzamento usa quello.
+- I conti sono quelli della quotazione americana: percentuali, margini e giudizi valgono per l'azienda;
+  il calo dai massimi è calcolato sui prezzi della Borsa principale (Yahoo).
+- Un'azienda senza sigla americana, o non coperta dal piano gratuito, resta nella watchlist con analisi tecnica
+  e notizie ma senza fondamentali: la pagina Occasioni le elenca.
+- Solo `scripts/agenti/finnhub.py` e `fondamentale.py` conoscono la forma dei dati di Finnhub:
+  cambiare fonte non tocca gli altri agenti.
 
-| Alternativa | Gratis? | Limite |
-|---|---|---|
-| Alpha Vantage (con chiave) | Sì | Circa 25 richieste al giorno: basterebbe per le azioni possedute ogni giorno e per la watchlist a rotazione (ogni titolo ogni 4-5 giorni). Da verificare che copra target degli analisti e titoli europei |
-| Finnhub, Financial Modeling Prep (con chiave) | Sì, ma | Il piano gratuito copre in pratica solo le aziende americane |
-| Un piano a pagamento di uno di questi servizi | No | Copertura completa |
-| Una libreria che si finge un browser per farsi accettare da Yahoo | Sì | Aggira un rifiuto esplicito di Yahoo: non l'ho fatto, è una scelta da prendere consapevolmente |
-
-Per ricontrollare lo stato delle fonti: **Actions → Prova agenti → Run workflow**. La tabella compare sotto "Summary".
-Il controllo resta rosso finché la fonte dei fondamentali non risponde: è voluto, dice la verità.
+Per ricontrollare le fonti: **Actions → Prova agenti → Run workflow**. La tabella compare sotto "Summary".
 
 ## Privacy
 
@@ -208,11 +209,11 @@ Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi e ti
 | `data/watchlist.json` | Le grandi aziende che il cacciatore tiene d'occhio |
 | `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI) |
 | `scripts/aggiorna_prezzi.py` | Scarica prezzi, storico e notizie e manda gli allarmi (ogni 30 minuti) |
-| `scripts/aggiorna_analisi.py` | Il direttore degli agenti (una volta al giorno) |
+| `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
 | `scripts/prova_agenti.py` | Le prove automatiche degli agenti |
 | `scripts/confronta_borse.py` | Programma di prova: confronta i prezzi di Xetra, Francoforte, Stoccarda e Monaco |
-| `.github/workflows/pubblica-sito.yml` | Ogni 30 minuti nei giorni di Borsa: prezzi, allarmi, pubblicazione. Una volta al giorno: anche gli agenti |
+| `.github/workflows/pubblica-sito.yml` | Ogni 30 minuti nei giorni di Borsa: prezzi, allarmi, pubblicazione. Due volte al giorno: anche gli agenti |
 | `.github/workflows/prova-agenti.yml` | Le prove automatiche e la prova dal vivo delle fonti |
 | `.github/workflows/confronta-borse.yml` | Il pulsante "Run workflow" per il confronto tra borse |
 
@@ -294,3 +295,4 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 9. ✅ Cacciatore e watchlist
 10. ✅ Avvocato del diavolo (regole; versione con AI pronta ma spenta)
 11. ✅ Pagina "Oggi" e "Copia per l'analisi"
+12. ✅ Fondamentali da Finnhub (dopo aver scartato Yahoo e Alpha Vantage con prove dal vivo), agenti due volte al giorno

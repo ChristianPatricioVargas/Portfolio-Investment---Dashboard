@@ -15,8 +15,10 @@ on:
     # Lunedì-venerdì, ai minuti 7 e 37 di ogni ora dalle 7 alle 20 (ora UTC).
     # In Italia sono le 8-21 d'inverno e le 9-22 d'estate.
     - cron: "7,37 7-20 * * 1-5"
-    # Una volta al giorno, la sera (21:23 UTC = dopo la chiusura di Wall Street):
-    # il giro in cui lavorano anche gli "agenti" (fondamentali, analisi tecnica, occasioni, rischi).
+    # Due volte al giorno lavorano anche gli "agenti" (fondamentali, analisi tecnica, occasioni, rischi):
+    #  - 11:53 UTC: in Italia sono le 12:53 d'inverno e le 13:53 d'estate (pronto per quando esci da scuola)
+    #  - 21:23 UTC: la sera, dopo la chiusura di Wall Street
+    - cron: "53 11 * * 1-5"
     - cron: "23 21 * * 1-5"
   push:
     branches: [main]   # quando unisci una modifica al codice, il sito si aggiorna subito
@@ -27,7 +29,7 @@ on:
         type: boolean
         default: false
       agenti:
-        description: "Fai lavorare subito anche gli agenti (analisi giornaliera), senza aspettare stasera"
+        description: "Fai lavorare subito anche gli agenti, senza aspettare il prossimo giro"
         type: boolean
         default: false
 
@@ -79,12 +81,14 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           PROVA_NOTIFICA: ${{ inputs.prova_notifica }}
 
-      - name: Fai lavorare gli agenti (una volta al giorno)
+      - name: Fai lavorare gli agenti (due volte al giorno)
         # Se una fonte non risponde, il sito esce comunque con le analisi del giorno prima
         continue-on-error: true
-        timeout-minutes: 15
+        timeout-minutes: 25
         env:
-          GIRO_SERALE: ${{ github.event.schedule == '23 21 * * 1-5' || inputs.agenti == true }}
+          GIRO_SERALE: ${{ github.event.schedule == '53 11 * * 1-5' || github.event.schedule == '23 21 * * 1-5' || inputs.agenti == true }}
+          # La chiave gratuita di Finnhub, da cui arrivano i conti delle aziende: sta nei Secrets, non nel codice
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
           # L'avvocato del diavolo con AI è SPENTO finché non crei il segreto ANTHROPIC_API_KEY.
           # I tre freni alla spesa sono "Variables" (non segreti): se non le crei valgono i valori predefiniti.
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

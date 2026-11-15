@@ -32,10 +32,9 @@ jobs:
       - name: Prove dei calcoli (con dati finti, senza internet)
         run: python3 scripts/prova_agenti.py
 
-      - name: Prova dal vivo delle fonti (Yahoo Finance)
+      - name: Prova dal vivo delle fonti (Yahoo Finance per i prezzi, Finnhub per i fondamentali)
         # La tabella con il risultato compare nella pagina dell'esecuzione, sotto "Summary"
         run: python3 scripts/prova_agenti.py --dal-vivo
         env:
-          # Facoltativo: se crei questo segreto, la prova controlla anche la fonte alternativa Alpha Vantage
-          ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
+          # La chiave gratuita di Finnhub (fondamentali): sta nei Secrets, non nel codice
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}

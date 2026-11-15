@@ -666,3 +666,11 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
 .dettaglio-oggi { color: var(--testo-tenue); font-size: 0.85rem; line-height: 1.4; }
 #testo-analisi { margin-top: 10px; font-size: 0.8rem; font-family: ui-monospace, Menlo, monospace; }
 #copia-analisi { margin-top: 4px; }
+
+/* Un'occasione con tutti e 4 i segnali: bordo acceso */
+.scheda-occasione.tutti-i-segnali { box-shadow: inset 0 0 0 1.5px var(--accento); }
+.scheda-occasione .cifre .valore { white-space: nowrap; }
+.elenco-chiuso { margin-top: 0; }
+.elenco-chiuso + .elenco-chiuso { margin-top: 12px; }
+.elenco-chiuso summary { font-size: 0.95rem; }
+.elenco-chiuso > div { margin-top: 8px; }

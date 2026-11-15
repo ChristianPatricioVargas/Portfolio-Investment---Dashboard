@@ -1,11 +1,17 @@
 """
-finnhub.py = un altro "fattorino" IN PROVA, come alphavantage.py.
+finnhub.py = il "fattorino" dei fondamentali: va a prendere i dati grezzi da Finnhub.
 
-Finnhub è un servizio ufficiale con chiave gratuita. Dobbiamo sapere che cosa dà
-davvero nel piano gratuito, e per quali titoli: questo file fa solo quella verifica.
+Finnhub è un servizio ufficiale con chiave gratuita (circa 60 richieste al minuto).
+Nel piano gratuito copre le aziende quotate negli Stati Uniti: per questo ogni titolo
+ha una sigla americana (campo "usa" in data/titoli.json e data/watchlist.json).
+Quasi tutte le grandi aziende europee e asiatiche ne hanno una (es. SAP → SAP, Airbus → EADSY).
 
-La chiave arriva dal segreto FINNHUB_API_KEY di GitHub e viaggia in un'intestazione
-della richiesta (non nell'indirizzo), così non può finire stampata per sbaglio.
+Cosa dà gratis:  numeri di bilancio, giudizi degli analisti, sorprese sulle trimestrali,
+                 data della prossima trimestrale, settore.
+Cosa NON dà:     il target price medio degli analisti (è a pagamento).
+
+La chiave NON sta nel codice: arriva dal segreto FINNHUB_API_KEY di GitHub e viaggia in
+un'intestazione della richiesta (non nell'indirizzo), così non può finire stampata per sbaglio.
 """
 
 import json
@@ -13,68 +19,59 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta
 
 INDIRIZZO = "https://finnhub.io/api/v1"
-PAUSA = 1.2    # il piano gratuito permette circa 60 richieste al minuto
 
 
-def chiedi(chiave, percorso, **parametri):
-    """Una richiesta a Finnhub. Restituisce (dati, "") oppure (None, motivo del rifiuto)."""
-    time.sleep(PAUSA)
-    richiesta = urllib.request.Request(f"{INDIRIZZO}{percorso}?{urllib.parse.urlencode(parametri)}",
-                                       headers={"X-Finnhub-Token": chiave})
-    try:
-        with urllib.request.urlopen(richiesta, timeout=30) as risposta:
-            return json.load(risposta), ""
-    except urllib.error.HTTPError as errore:
-        return None, f"rifiutato ({errore.code})"       # 403 = non incluso nel piano gratuito
-    except Exception as errore:
-        return None, type(errore).__name__
+class FonteNonDisponibile(Exception):
+    """Finnhub ha rifiutato la chiave o tutte le richieste: per questo giro non insistiamo."""
 
 
-def prova_copertura(chiave):
-    """Per pochi titoli chiede quattro cose e scrive una tabella con ciò che arriva davvero."""
-    campione = [
-        ("AAPL", "Apple (USA)"), ("SAP", "SAP a New York"), ("TM", "Toyota a New York"),
-        ("ASML", "ASML a New York"), ("NVO", "Novo Nordisk a New York"), ("EADSY", "Airbus negli USA"),
-        ("SAP.DE", "SAP su Xetra"), ("AIR.PA", "Airbus a Parigi"),
-    ]
-    righe = ["## Prova di Finnhub (fonte alternativa per i fondamentali)", "",
-             "| Sigla | Cosa | Numeri di bilancio | P/E | Margine netto | Crescita utili | Debito/capitale | Massimo 52 sett. | Giudizi degli analisti | Target | Trimestrale |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"]
-    oggi = time.strftime("%Y-%m-%d")
-    tra_4_mesi = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 120 * 86400))
-    for sigla, nome in campione:
-        dati, motivo = chiedi(chiave, "/stock/metric", symbol=sigla, metric="all")
-        m = (dati or {}).get("metric") or {}
-        v = lambda campo: m.get(campo, "–")
-        bilancio = f"✓ {len(m)} numeri" if m else f"✗ {motivo or 'vuoto'}"
+class TitoloNonCoperto(Exception):
+    """Questa sigla non è inclusa nel piano gratuito (o non esiste)."""
 
-        giudizi, motivo = chiedi(chiave, "/stock/recommendation", symbol=sigla)
-        if giudizi:
-            g = giudizi[0]
-            testo_giudizi = (f"✓ {g.get('strongBuy', 0) + g.get('buy', 0)} positivi, {g.get('hold', 0)} neutri, "
-                             f"{g.get('sell', 0) + g.get('strongSell', 0)} negativi ({g.get('period')})")
-        else:
-            testo_giudizi = f"✗ {motivo or 'vuoto'}"
 
-        target, motivo = chiedi(chiave, "/stock/price-target", symbol=sigla)
-        testo_target = f"✓ {target.get('targetMean')}" if target and target.get("targetMean") else f"✗ {motivo or 'vuoto'}"
+class Finnhub:
+    def __init__(self, chiave, pausa=1.05):
+        self.chiave = chiave
+        self.pausa = pausa            # secondi tra una richiesta e l'altra: restiamo sotto le 60 al minuto
+        self.rifiutato = None         # il motivo, se la fonte è chiusa per tutto il giro
 
-        calendario, motivo = chiedi(chiave, "/calendar/earnings", symbol=sigla, **{"from": oggi, "to": tra_4_mesi})
-        date = (calendario or {}).get("earningsCalendar") or []
-        testo_data = f"✓ {min(d.get('date', '') for d in date)}" if date else f"✗ {motivo or 'nessuna data'}"
+    def _chiedi(self, percorso, **parametri):
+        """Una richiesta a Finnhub. Se dice "troppe richieste" aspetta un minuto e riprova una volta sola."""
+        if self.rifiutato:
+            raise FonteNonDisponibile(self.rifiutato)
+        richiesta = urllib.request.Request(f"{INDIRIZZO}{percorso}?{urllib.parse.urlencode(parametri)}",
+                                           headers={"X-Finnhub-Token": self.chiave})
+        for tentativo in range(2):
+            time.sleep(self.pausa)
+            try:
+                with urllib.request.urlopen(richiesta, timeout=30) as risposta:
+                    return json.load(risposta)
+            except urllib.error.HTTPError as errore:
+                if errore.code == 429 and tentativo == 0:
+                    time.sleep(60)                      # limite al minuto raggiunto: aspettiamo e riproviamo
+                    continue
+                if errore.code == 403:
+                    raise TitoloNonCoperto(f"{parametri.get('symbol')} non è incluso nel piano gratuito di Finnhub") from errore
+                if errore.code in (401, 429):
+                    motivo = "la chiave non è valida" if errore.code == 401 else "troppe richieste"
+                    self.rifiutato = f"Finnhub ha rifiutato le richieste dei fondamentali ({motivo})"
+                    raise FonteNonDisponibile(self.rifiutato) from errore
+                raise
 
-        righe.append(f"| {sigla} | {nome} | {bilancio} | {v('peTTM')} | {v('netProfitMarginTTM')} | {v('epsGrowthTTMYoy')} "
-                     f"| {v('totalDebt/totalEquityQuarterly')} | {v('52WeekHigh')} | {testo_giudizi} | {testo_target} | {testo_data} |")
-    # Elenco completo dei numeri disponibili, per sapere come si chiamano (serve a chi scrive il collegamento)
-    for sigla in ("AAPL", "JPM"):
-        dati, _ = chiedi(chiave, "/stock/metric", symbol=sigla, metric="all")
-        m = (dati or {}).get("metric") or {}
-        righe += ["", f"Numeri di {sigla}: " + "; ".join(f"{k}={m[k]}" for k in sorted(m))]
-        for percorso in ("/stock/profile2", "/stock/earnings", "/stock/recommendation"):
-            altro, motivo = chiedi(chiave, percorso, symbol=sigla)
-            righe.append(f"{percorso} {sigla}: " + (json.dumps(altro[:2] if isinstance(altro, list) else altro)[:600] if altro else motivo))
-    calendario, motivo = chiedi(chiave, "/calendar/earnings", symbol="AAPL", **{"from": oggi, "to": tra_4_mesi})
-    righe.append("/calendar/earnings AAPL: " + (json.dumps(calendario)[:400] if calendario else motivo))
-    return righe
+    def grezzi(self, sigla, oggi, con_profilo=True):
+        """Tutti i dati grezzi di un titolo, pronti per l'analista fondamentale.
+        con_profilo=False salta la richiesta del settore (non cambia mai: basta chiederlo una volta)."""
+        numeri = (self._chiedi("/stock/metric", symbol=sigla, metric="all") or {}).get("metric") or {}
+        if not numeri:
+            raise TitoloNonCoperto(f"Finnhub non ha dati per {sigla}")
+        tra_4_mesi = (datetime.strptime(oggi, "%Y-%m-%d") + timedelta(days=120)).strftime("%Y-%m-%d")
+        return {
+            "metric": numeri,
+            "recommendation": self._chiedi("/stock/recommendation", symbol=sigla) or [],
+            "earnings": self._chiedi("/stock/earnings", symbol=sigla) or [],
+            "calendar": (self._chiedi("/calendar/earnings", symbol=sigla, **{"from": oggi, "to": tra_4_mesi}) or {}).get("earningsCalendar") or [],
+            "profile": (self._chiedi("/stock/profile2", symbol=sigla) or {}) if con_profilo else {},
+        }

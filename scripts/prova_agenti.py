@@ -20,38 +20,34 @@ from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
 OGGI = "2026-11-14"
 
 
-def n(valore):
-    """Scrive un numero come fa Yahoo: {"raw": 1.5, "fmt": "1.50"}"""
-    return {"raw": valore, "fmt": str(valore)}
-
-
 def azienda_finta(**modifiche):
-    """Una risposta di Yahoo inventata: un'azienda sana, scesa dai massimi, con target più alto."""
+    """Una risposta di Finnhub inventata: un'azienda sana, con utili in crescita e analisti positivi.
+    Le percentuali sono scritte come le scrive Finnhub: 15.0 vuol dire 15%."""
     grezzi = {
-        "price": {"currency": "EUR", "regularMarketPrice": n(100.0), "marketCap": n(5e10)},
-        "summaryDetail": {"trailingPE": n(20.0), "forwardPE": n(16.0),
-                          "fiftyTwoWeekHigh": n(130.0), "fiftyTwoWeekLow": n(90.0)},
-        "financialData": {
-            "currentPrice": n(100.0), "targetMeanPrice": n(125.0), "targetLowPrice": n(95.0),
-            "targetHighPrice": n(150.0), "numberOfAnalystOpinions": n(24), "recommendationMean": n(1.9),
-            "revenueGrowth": n(0.08), "earningsGrowth": n(0.12), "grossMargins": n(0.55),
-            "operatingMargins": n(0.22), "profitMargins": n(0.15), "returnOnEquity": n(0.18),
-            "totalDebt": n(8e9), "totalCash": n(3e9), "ebitda": n(5e9), "debtToEquity": n(45.0),
-            "freeCashflow": n(2e9),
+        "metric": {
+            "peTTM": 20.0, "forwardPE": 16.0,
+            "revenueGrowthQuarterlyYoy": 8.0, "epsGrowthQuarterlyYoy": 12.0, "epsGrowthTTMYoy": 10.0,
+            "grossMarginTTM": 55.0, "operatingMarginTTM": 22.0, "netProfitMarginTTM": 15.0, "roeTTM": 18.0,
+            "totalDebt/totalEquityQuarterly": 0.45,
+            # capitalizzazione 50 miliardi, debito netto 5, EBITDA 5 (valore d'impresa 55 = 11 volte l'EBITDA)
+            "marketCapitalization": 50000.0, "enterpriseValue": 55000.0, "evEbitdaTTM": 11.0,
         },
-        "defaultKeyStatistics": {"trailingEps": n(5.0), "forwardEps": n(6.25)},
-        "calendarEvents": {"earnings": {"earningsDate": [n(1795651200)]}},   # 26 novembre 2026
-        "earningsTrend": {"trend": [{"period": "0y", "growth": n(0.2), "epsTrend": {
-            "current": n(6.0), "30daysAgo": n(6.0), "90daysAgo": n(5.9)}}]},
-        "earningsHistory": {"history": [
-            {"quarter": n(1782777600), "epsActual": n(1.3), "epsEstimate": n(1.2), "surprisePercent": n(0.0833)},
-            {"quarter": n(1790726400), "epsActual": n(1.4), "epsEstimate": n(1.3), "surprisePercent": n(0.0769)},
-        ]},
-        "assetProfile": {"sector": "Technology", "industry": "Software", "country": "Germany"},
+        "recommendation": [
+            {"period": "2026-11-01", "strongBuy": 8, "buy": 10, "hold": 5, "sell": 1, "strongSell": 0},
+            {"period": "2026-10-01", "strongBuy": 8, "buy": 10, "hold": 5, "sell": 1, "strongSell": 0},
+        ],
+        "earnings": [
+            {"period": "2026-09-30", "actual": 1.4, "estimate": 1.3, "surprisePercent": 7.69},
+            {"period": "2026-06-30", "actual": 1.3, "estimate": 1.2, "surprisePercent": 8.33},
+        ],
+        "calendar": [{"date": "2026-11-26"}, {"date": "2027-02-25"}],
+        "profile": {"finnhubIndustry": "Technology", "currency": "USD", "country": "DE"},
     }
-    for percorso, valore in modifiche.items():
-        blocco, chiave = percorso.split("__")
-        grezzi[blocco][chiave] = n(valore) if isinstance(valore, (int, float)) else valore
+    for chiave, valore in modifiche.items():
+        if chiave in grezzi:
+            grezzi[chiave] = valore             # sostituisce un blocco intero (es. recommendation=[...])
+        else:
+            grezzi["metric"][chiave.replace("__", "/")] = valore    # oppure un singolo numero di bilancio
     return grezzi
 
 
@@ -64,27 +60,29 @@ def uguale(a, b, tolleranza=1e-6):
 def prova_fondamentale():
     f = fondamentale.analizza(azienda_finta(), OGGI)
     assert f["pe"] == 20.0 and f["peAtteso"] == 16.0
-    assert uguale(f["potenziale"], 0.25), f["potenziale"]             # target 125 su prezzo 100
-    assert uguale(f["crescitaUtiliAttesa"], 0.25)                      # utile atteso 6,25 su 5
-    assert uguale(f["debitoNettoSuEbitda"], 1.0)                       # (8 − 3) miliardi su 5
+    assert uguale(f["crescitaUtiliAttesa"], 0.25)                      # P/E 20 con gli utili di oggi, 16 con quelli attesi
+    assert uguale(f["crescitaUtili"], 0.12) and uguale(f["margineNetto"], 0.15)   # percentuali → frazioni
+    assert uguale(f["debitoNettoSuEbitda"], 1.0)                       # debito netto 5 miliardi su 5 di EBITDA
     assert uguale(f["debitoSuCapitale"], 0.45)
-    assert f["prossimaTrimestrale"] == "2026-11-26" and not f["trimestraleStimata"]
-    assert len(f["sorprese"]) == 2 and f["sorprese"][-1]["effettivo"] == 1.4
-    assert uguale(f["revisioneStime"], 6.0 / 5.9 - 1, 1e-3)
-    assert f["analisti"] == 24 and not f["finanziario"]
+    assert f["prossimaTrimestrale"] == "2026-11-26"
+    assert len(f["sorprese"]) == 2 and f["sorprese"][-1]["effettivo"] == 1.4      # la più recente per ultima
+    assert (f["analisti"], f["analistiPositivi"], f["analistiNeutri"], f["analistiNegativi"]) == (24, 18, 5, 1)
+    assert uguale(f["raccomandazione"], (8 * 1 + 10 * 2 + 5 * 3 + 1 * 4) / 24, 1e-2)
+    assert f["target"] is None and not f["finanziario"]                # il target price gratis non c'è
     assert fondamentale.ha_dati(f)
+    assert fondamentale.analizza(azienda_finta(profile={"finnhubIndustry": "Banking"}), OGGI)["finanziario"]
 
 
 def prova_fondamentale_dati_mancanti():
-    """Yahoo spesso lascia dei buchi ({} al posto del numero): non deve rompersi niente."""
-    grezzi = azienda_finta(financialData__ebitda={}, financialData__targetMeanPrice={},
-                           defaultKeyStatistics__trailingEps=-1.0)
-    grezzi["calendarEvents"] = {}
+    """Spesso mancano dei numeri (o sono scritti "None"): non deve rompersi niente."""
+    grezzi = azienda_finta(evEbitdaTTM=None, forwardPE=None, recommendation=[], calendar=[], earnings=[{"period": "x"}])
     f = fondamentale.analizza(grezzi, OGGI)
-    assert f["debitoNettoSuEbitda"] is None and f["target"] is None and f["potenziale"] is None
-    assert uguale(f["crescitaUtiliAttesa"], 0.2)          # utili negativi: usa la stima degli analisti
+    assert f["debitoNettoSuEbitda"] is None and f["crescitaUtiliAttesa"] is None
+    assert f["analisti"] is None and f["raccomandazione"] is None and f["sorprese"] == []
     assert f["prossimaTrimestrale"] is None
     assert not fondamentale.ha_dati(fondamentale.analizza({}, OGGI))   # risposta vuota
+    # Più cassa che debiti: il valore d'impresa è più basso della capitalizzazione
+    assert fondamentale.analizza(azienda_finta(enterpriseValue=45000.0), OGGI)["debitoNettoSuEbitda"] < 0
 
 
 # ---------- Analista tecnico ----------
@@ -131,29 +129,35 @@ def prova_tecnico_livelli():
 # ---------- Cacciatore ----------
 
 def prova_cacciatore():
-    # L'azienda finta: −23% dal massimo (100 su 130), utili +25%, debito 1×EBITDA, target +25% con 24 analisti
+    # L'azienda finta: utili attesi +25%, debito 1×EBITDA, 18 analisti positivi su 24 (75%). Il calo viene dalla tecnica.
     f = fondamentale.analizza(azienda_finta(), OGGI)
-    esito = cacciatore.valuta(f, None)
+    esito = cacciatore.valuta(f, {"dalMassimo": -0.23})
     assert esito["rispettati"] == 4, esito
     assert esito["motivo"].startswith("-23% dal massimo"), esito["motivo"]
+    assert "18 analisti su 24 sono positivi (75%)" in esito["motivo"]
     assert 0 < esito["punteggio"] <= 100
 
-    # Poco calo: 100 su un massimo di 105 → il primo criterio non è rispettato
-    poco_calo = cacciatore.valuta(fondamentale.analizza(azienda_finta(summaryDetail__fiftyTwoWeekHigh=105.0), OGGI), None)
+    # Poco calo: il primo criterio non è rispettato
+    poco_calo = cacciatore.valuta(f, {"dalMassimo": -0.02})
     assert poco_calo["rispettati"] == 3 and poco_calo["criteri"][0]["ok"] is False
 
-    # Se c'è l'analisi tecnica, il calo si prende da lì
-    assert cacciatore.valuta(f, {"dalMassimo": -0.02})["criteri"][0]["ok"] is False
-
-    # Troppo debito: 30 miliardi su 5 di EBITDA
-    debito = cacciatore.valuta(fondamentale.analizza(azienda_finta(financialData__totalDebt=3e10), OGGI), None)
+    # Troppo debito: debito netto 30 miliardi su 5 di EBITDA
+    debito = cacciatore.valuta(fondamentale.analizza(azienda_finta(enterpriseValue=80000.0, evEbitdaTTM=16.0), OGGI), None)
     assert debito["criteri"][2]["ok"] is False and "debito alto" in debito["criteri"][2]["testo"]
 
-    # Pochi analisti: il target non conta
-    pochi = cacciatore.valuta(fondamentale.analizza(azienda_finta(financialData__numberOfAnalystOpinions=2), OGGI), None)
-    assert pochi["criteri"][3]["ok"] is False
+    # Analisti divisi: solo 10 positivi su 24 → il quarto criterio non è rispettato
+    freddi = azienda_finta(recommendation=[{"period": "2026-11-01", "strongBuy": 2, "buy": 8, "hold": 12, "sell": 2, "strongSell": 0}])
+    assert cacciatore.valuta(fondamentale.analizza(freddi, OGGI), None)["criteri"][3]["ok"] is False
 
-    # Senza fondamentali (fonte chiusa) resta il solo criterio del calo, preso dall'analisi tecnica
+    # Pochi analisti: il giudizio non conta
+    pochi = azienda_finta(recommendation=[{"period": "2026-11-01", "strongBuy": 2, "buy": 1, "hold": 0, "sell": 0, "strongSell": 0}])
+    assert cacciatore.valuta(fondamentale.analizza(pochi, OGGI), None)["criteri"][3]["ok"] is False
+
+    # Se un giorno la fonte desse il target price, il quarto criterio userebbe quello
+    con_target = dict(f, potenziale=0.25)
+    assert "target medio di 24 analisti a +25%" in cacciatore.valuta(con_target, None)["criteri"][3]["testo"]
+
+    # Senza fondamentali resta il solo criterio del calo, preso dall'analisi tecnica
     solo_tecnica = cacciatore.valuta(None, {"dalMassimo": -0.3})
     assert solo_tecnica["rispettati"] == 1 and [c["ok"] for c in solo_tecnica["criteri"]] == [True, None, None, None]
 
@@ -178,6 +182,9 @@ def prova_watchlist():
     sigle = [t["ticker"] for t in watchlist]
     assert len(sigle) == len(set(sigle)), "doppioni nella watchlist"
     assert all(t.get("nome") and t.get("area") in ("Europa", "USA", "Asia") for t in watchlist)
+    americane = [t["usa"] for t in watchlist if t.get("usa")]
+    assert len(americane) == len(set(americane)), "due titoli con la stessa sigla americana"
+    assert len(americane) >= len(watchlist) - 5, "troppi titoli senza sigla americana: resterebbero senza fondamentali"
 
 
 # ---------- Avvocato del diavolo ----------
@@ -195,20 +202,20 @@ def prova_avvocato_azienda_sana():
 
 
 def prova_avvocato_campanelli():
-    grezzi = azienda_finta(financialData__earningsGrowth=-0.3, financialData__totalDebt=3e10,
-                           financialData__targetMeanPrice=90.0, financialData__recommendationMean=3.4,
-                           defaultKeyStatistics__forwardEps=4.0)
-    grezzi["earningsTrend"]["trend"][0]["epsTrend"]["90daysAgo"] = n(7.0)       # stime tagliate: da 7 a 6
-    grezzi["earningsHistory"]["history"][-1]["epsActual"] = n(1.0)              # ultima trimestrale sotto le attese
+    grezzi = azienda_finta(
+        epsGrowthQuarterlyYoy=-30.0, forwardPE=25.0,                   # utili in calo, e attesi in calo
+        enterpriseValue=80000.0, evEbitdaTTM=16.0,                     # debito netto 6 volte l'EBITDA
+        recommendation=[{"period": "2026-11-01", "strongBuy": 0, "buy": 4, "hold": 10, "sell": 8, "strongSell": 2},
+                        {"period": "2026-10-01", "strongBuy": 2, "buy": 8, "hold": 10, "sell": 4, "strongSell": 0}],
+        earnings=[{"period": "2026-09-30", "actual": 1.0, "estimate": 1.3}, {"period": "2026-06-30", "actual": 1.3, "estimate": 1.2}])
     scheda = {"tipo": "Azione", "fondamentali": fondamentale.analizza(grezzi, OGGI),
-              "tecnica": {"sopraMm200": False, "incrocio": "ribasso"},
-              "storiaTarget": {"2026-10-10": 110.0, "2026-11-14": 90.0}}
+              "tecnica": {"sopraMm200": False, "incrocio": "ribasso"}}
     notizie = [{"titolo": "Azienda Finta: indagine dell'antitrust"}, {"titolo": "Azienda Finta taglia le stime per il 2027"},
                {"titolo": "A causa del maltempo slitta la presentazione"}]
     trovati = avvocato.controlla(scheda, notizie, OGGI)
     for atteso in ["Utili attesi in calo", "Utili in calo", "Trimestrale sotto le attese", "Debito alto",
-                   "Target degli analisti abbassato", "Stime sugli utili tagliate", "Prezzo sopra il target",
-                   "Analisti freddi", "Sotto la media a 200 giorni", "Trimestrale in arrivo", "Notizie da leggere"]:
+                   "Analisti più freddi", "Pochi analisti positivi", "Analisti freddi",
+                   "Sotto la media a 200 giorni", "Trimestrale in arrivo", "Notizie da leggere"]:
         assert atteso in tipi(trovati), f"manca: {atteso} in {tipi(trovati)}"
     assert trovati[0]["livello"] == "alto" and trovati[-1]["livello"] == "medio"   # prima i più gravi
     notizia = next(c for c in trovati if c["tipo"] == "notizie")
@@ -314,59 +321,53 @@ PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
 # ---------- Prova dal vivo (con internet) ----------
 
 def prova_dal_vivo():
-    """Chiede a Yahoo i dati veri di pochi titoli e scrive una tabella. Restituisce True se la fonte funziona."""
+    """Chiede i dati veri di pochi titoli alle due fonti e scrive una tabella.
+    Restituisce True se le fonti funzionano."""
+    from agenti.finnhub import Finnhub
     from agenti.yahoo import Yahoo
     yahoo = Yahoo()
-    righe = ["## Prova dal vivo delle fonti (Yahoo Finance)", "",
-             "| Titolo | Fondamentali | P/E | Target | Analisti | Trimestrale | Tecnica | RSI | Dal massimo | Criteri |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
-    riusciti = tecniche_ok = 0
-    campione = ["SAP.DE", "AIR.PA", "AAPL", "JPM", "7203.T", "005930.KS", "AZN.L", "NOVO-B.CO"]
-    for ticker in campione:
+    chiave = (os.environ.get("FINNHUB_API_KEY") or "").strip()
+    finnhub = Finnhub(chiave) if chiave else None
+    oggi = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+    righe = ["## Prova dal vivo delle fonti", "",
+             "Prezzi storici: Yahoo Finance. Fondamentali: Finnhub (con la sigla americana dell'azienda).", "",
+             "| Azienda | Prezzi (Yahoo) | RSI | Dal massimo | Fondamentali (Finnhub) | P/E | Margine netto | Utili attesi | Debito÷EBITDA | Analisti positivi | Trimestrale | Segnali |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    # (sigla di Yahoo per i prezzi, sigla americana per i fondamentali)
+    campione = [("SAP.DE", "SAP"), ("AIR.PA", "EADSY"), ("AAPL", "AAPL"), ("JPM", "JPM"),
+                ("7203.T", "TM"), ("005930.KS", "SSNLF"), ("AZN.L", "AZN"), ("NOVO-B.CO", "NVO")]
+    prezzi_ok = conti_ok = 0
+    for ticker, usa in campione:
         f, t = {}, None
-        try:
-            f = fondamentale.analizza(yahoo.riepilogo(ticker))
-            stato_f = "ok" if fondamentale.ha_dati(f) else "vuoti"
-        except Exception as errore:
-            stato_f = f"ERRORE {type(errore).__name__}: {errore}"
         try:
             grafico = yahoo.grafico(ticker, "2y")
             t, _ = tecnico.analizza(*tecnico.chiusure(grafico), grafico["meta"].get("currency") or "")
             stato_t = "ok" if t else "pochi dati"
         except Exception as errore:
             stato_t = f"ERRORE {type(errore).__name__}: {errore}"
-        riusciti += stato_f == "ok" and stato_t == "ok"
-        tecniche_ok += stato_t == "ok"
-        criteri = cacciatore.valuta(f, t)["rispettati"] if stato_f == "ok" else "–"
-        righe.append(f"| {ticker} | {stato_f} | {f.get('pe')} | {f.get('target')} {f.get('valuta', '')} | {f.get('analisti')} "
-                     f"| {f.get('prossimaTrimestrale')} | {stato_t} | {t['rsi'] if t else '–'} "
-                     f"| {t['dalMassimo'] if t else '–'} | {criteri} su 4 |")
-    righe += ["", f"Prezzi storici (analisi tecnica): {tecniche_ok} titoli su {len(campione)}.",
-              f"Fondamentali e analisti: {riusciti} titoli su {len(campione)}."]
-    if yahoo.rifiutato:
-        righe.append(f"**{yahoo.rifiutato}.** Senza questa fonte restano vuoti: fondamentali, classifica del cacciatore "
-                     "e campanelli sui conti. Vedi \"Le fonti dei dati e i loro limiti\" nel README.")
-    # Se esiste il segreto ALPHAVANTAGE_API_KEY, proviamo anche la fonte alternativa
-    chiave = (os.environ.get("ALPHAVANTAGE_API_KEY") or "").strip()
-    if chiave and "--alphavantage" in sys.argv:    # già provata il 15/11/2026: i fondamentali sono a pagamento
-        from agenti import alphavantage
-        righe += [""] + alphavantage.prova_copertura(chiave)
-    else:
-        righe += ["", "Alpha Vantage: non riprovata (il 15/11/2026 dava gratis solo il calendario delle trimestrali)."]
-    # Se esiste il segreto FINNHUB_API_KEY, proviamo anche Finnhub
-    chiave = (os.environ.get("FINNHUB_API_KEY") or "").strip()
-    if chiave:
-        from agenti import finnhub
-        righe += [""] + finnhub.prova_copertura(chiave)
-    else:
-        righe += ["", "Finnhub: non provata (manca il segreto FINNHUB_API_KEY)."]
+        try:
+            if not finnhub:
+                raise RuntimeError("manca il segreto FINNHUB_API_KEY")
+            f = fondamentale.analizza(finnhub.grezzi(usa, oggi), oggi)
+            stato_f = "ok" if fondamentale.ha_dati(f) else "vuoti"
+        except Exception as errore:
+            stato_f = f"ERRORE {type(errore).__name__}: {errore}"
+        prezzi_ok += stato_t == "ok"
+        conti_ok += stato_f == "ok"
+        segnali = f"{cacciatore.valuta(f, t)['rispettati']} su 4" if stato_f == "ok" else "–"
+        righe.append(f"| {ticker} / {usa} | {stato_t} | {t['rsi'] if t else '–'} | {t['dalMassimo'] if t else '–'} | {stato_f} "
+                     f"| {f.get('pe')} | {f.get('margineNetto')} | {f.get('crescitaUtiliAttesa')} | {f.get('debitoNettoSuEbitda')} "
+                     f"| {f.get('analistiPositivi')} su {f.get('analisti')} | {f.get('prossimaTrimestrale')} | {segnali} |")
+    righe += ["", f"Prezzi storici (analisi tecnica): {prezzi_ok} titoli su {len(campione)}.",
+              f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}."]
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")
     if riepilogo:
-        with open(riepilogo, "a", encoding="utf-8") as f:
-            f.write(testo + "\n")
-    return riusciti >= len(campione) - 1
+        with open(riepilogo, "a", encoding="utf-8") as file:
+            file.write(testo + "\n")
+    # Tolleriamo un titolo mancante per fonte: un singolo intoppo non deve far scattare l'allarme
+    return prezzi_ok >= len(campione) - 1 and conti_ok >= len(campione) - 1
 
 
 def main():
