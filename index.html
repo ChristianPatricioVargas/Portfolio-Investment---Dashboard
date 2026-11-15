@@ -146,28 +146,32 @@
       <header class="testata">
         <div class="etichetta-alta">Il cacciatore</div>
         <h1 class="titolo-pagina">🎯 Occasioni</h1>
-        <p class="sotto">Solo le aziende della watchlist che oggi hanno almeno un segnale. In cima quelle che ne hanno 3 o 4.</p>
+        <p class="sotto">Le 5 aziende della watchlist che oggi rispettano meglio i tuoi criteri. Le altre sono negli elenchi chiusi più in basso.</p>
       </header>
       <p class="avviso" id="attesa-occasioni">⏳ Le occasioni arriveranno con il prossimo giro degli agenti.</p>
       <div id="corpo-occasioni" hidden>
         <p class="avviso" id="errori-occasioni" hidden></p>
         <p class="nota-criteri" id="criteri-occasioni"></p>
 
-        <div class="intestazione-sezione"><h2>⭐ In evidenza: 3 o 4 segnali su 4</h2></div>
+        <div class="intestazione-sezione"><h2>⭐ Le 5 che spiccano oggi</h2></div>
+        <p class="suggerimento">Le prime per numero di segnali e punteggio. È una selezione da studiare, non una previsione:
+          nessuno sa quale salirà prima. La freccia dice solo dove sta andando il prezzo nelle ultime settimane.</p>
         <div id="elenco-classifica"></div>
-        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede spesso: le vere occasioni sono rare.</p>
+        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede: le vere occasioni sono rare.</p>
 
         <section class="riquadro">
-          <h2 id="titolo-quasi">Con 1 o 2 segnali</h2>
-          <p class="suggerimento">Tocca un titolo per vedere le sue analisi. "Togli" lo nasconde su questo dispositivo.</p>
-          <div id="elenco-quasi"></div>
-          <p class="vuoto" id="vuoto-quasi" hidden>Nessuna azienda.</p>
-        </section>
-
-        <section class="riquadro">
-          <!-- Le aziende senza segnali: chiuse, per non fare confusione. Si aprono toccando la riga. -->
+          <h2>👀 Il resto della watchlist</h2>
+          <p class="suggerimento">Tocca una riga per aprire l'elenco, e un titolo per vedere le sue analisi. "Togli" lo nasconde su questo dispositivo.</p>
+          <details class="glossario elenco-chiuso" id="sezione-altre-forti">
+            <summary id="titolo-altre-forti">Altre con 3 o 4 segnali</summary>
+            <div id="elenco-altre-forti"></div>
+          </details>
+          <details class="glossario elenco-chiuso" id="sezione-quasi">
+            <summary id="titolo-quasi">Con 1 o 2 segnali</summary>
+            <div id="elenco-quasi"></div>
+          </details>
           <details class="glossario elenco-chiuso" id="sezione-senza-segnali">
-            <summary id="titolo-watchlist">Altre aziende della watchlist, senza segnali</summary>
+            <summary id="titolo-watchlist">Senza segnali</summary>
             <div id="elenco-watchlist"></div>
           </details>
           <details class="glossario elenco-chiuso" id="sezione-tolti" hidden>

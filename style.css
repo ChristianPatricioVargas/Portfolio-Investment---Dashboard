@@ -674,3 +674,6 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
 .elenco-chiuso + .elenco-chiuso { margin-top: 12px; }
 .elenco-chiuso summary { font-size: 0.95rem; }
 .elenco-chiuso > div { margin-top: 8px; }
+
+/* La riga in più nelle schede delle occasioni può avere due frasi, una per riga */
+.scheda-occasione .extra { white-space: pre-line; }

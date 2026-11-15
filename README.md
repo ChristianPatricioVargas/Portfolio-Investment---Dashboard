@@ -61,7 +61,7 @@ Scelte di progetto:
   trimestrale vicina, campanelli), stato delle tesi, le 3 migliori occasioni con il loro rischio principale,
   e il pulsante **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
-- **Occasioni**: solo le aziende della watchlist con almeno un segnale. In cima, in evidenza, quelle con 3 o 4 segnali su 4; poi quelle con 1 o 2; le altre stanno in un elenco chiuso.
+- **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
   avvocato del diavolo, notizie. Per i miei titoli anche acquisti, rendimento, **scheda tesi** e **Se vendo oggi**.
 
@@ -92,7 +92,7 @@ I quattro segnali (le soglie sono in cima a `scripts/agenti/cacciatore.py`):
 3. **Conti solidi**: in utile e con debito netto non oltre 3 volte l'EBITDA (per banche e assicurazioni conta solo l'utile)
 4. **Analisti positivi**: almeno il 60% degli analisti (e almeno 5 analisti) ha un giudizio positivo
 
-La pagina mostra solo chi ha almeno un segnale, e mette in evidenza chi ne ha 3 o 4.
+La pagina mette in cima le 5 aziende con più segnali e punteggio più alto. È una selezione da studiare, non una previsione.
 Il punteggio (0-100) ordina le aziende a parità di segnali: più calo, più crescita, meno debito e più analisti positivi = più punti.
 
 **Togliere un titolo**: nella pagina Occasioni, "Togli" lo nasconde su questo dispositivo (si può rimettere).

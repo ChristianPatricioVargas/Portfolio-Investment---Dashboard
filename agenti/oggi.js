@@ -138,8 +138,9 @@ function disegnaOggi() {
   const elencoOccasioni = $("elenco-oggi-occasioni");
   elencoOccasioni.innerHTML = "";
   for (const [i, ticker] of migliori.entries()) {
-    elencoOccasioni.appendChild(creaSchedaOccasione(ticker, i + 1,
-      rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "Nessun campanello d'allarme dalle regole."));
+    elencoOccasioni.appendChild(creaSchedaOccasione(ticker, i + 1, [testoDirezione(ticker),
+      rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "Nessun campanello d'allarme dalle regole."]
+      .filter(Boolean).join("\n")));
   }
   $("oggi-occasioni-vuoto").hidden = migliori.length > 0;
   $("oggi-occasioni-vuoto").textContent = fonteFondamentaliChiusa()
