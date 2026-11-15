@@ -16,6 +16,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Portafoglio">
   <meta name="theme-color" content="#0b0d12">
+  <!-- Applica subito il tema che hai scelto (chiaro o scuro), prima di disegnare la pagina:
+       così non si vede un lampo del colore sbagliato. Con "Automatico" non serve fare niente. -->
+  <script>
+    try {
+      var temaScelto = localStorage.getItem("tema");
+      if (temaScelto === "chiaro" || temaScelto === "scuro") document.documentElement.dataset.tema = temaScelto;
+    } catch (errore) { /* resta automatico */ }
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -379,6 +387,15 @@
             <p class="avvertenza">🔒 La tesi resta solo su questo dispositivo ed è inclusa nel backup.</p>
           </section>
         </section>
+      </div>
+    </div>
+    <!-- Il tema della pagina: segue il dispositivo, oppure sempre chiaro o sempre scuro -->
+    <div class="scelta-tema">
+      <span>Aspetto</span>
+      <div class="selettore" role="group" aria-label="Aspetto della pagina">
+        <button type="button" data-tema="auto">Automatico</button>
+        <button type="button" data-tema="chiaro">Chiaro</button>
+        <button type="button" data-tema="scuro">Scuro</button>
       </div>
     </div>
   </main>

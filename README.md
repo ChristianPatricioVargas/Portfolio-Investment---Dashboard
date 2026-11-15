@@ -205,7 +205,7 @@ Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi e ti
 | File | A cosa serve |
 |---|---|
 | `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni e Titolo |
-| `style.css` | L'aspetto: colori, spazi, modalità scura |
+| `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina) |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
 | `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra) |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
