@@ -72,8 +72,14 @@ def prossima_trimestrale(calendario, oggi):
     return future[0] if future else None
 
 
-def analizza(grezzi, oggi=None):
-    """Dai dati grezzi di Finnhub alla scheda dei fondamentali."""
+def analizza(grezzi, oggi=None, quotazione_estera=False):
+    """Dai dati grezzi di Finnhub alla scheda dei fondamentali.
+
+    quotazione_estera=True per le aziende non americane, di cui leggiamo la versione quotata negli USA.
+    Per loro due numeri che ricaviamo con un calcolo (utili attesi e debito netto ÷ EBITDA) NON sono
+    affidabili: nella prova dal vivo AstraZeneca risultava con un debito di 5 volte l'EBITDA (è circa 1,5)
+    e Samsung con utili attesi a +99%. Meglio nessun numero che un numero sbagliato: li lasciamo vuoti
+    e gli altri agenti usano i dati diretti (crescita degli utili già realizzata, debito ÷ capitale)."""
     oggi = oggi or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     m = grezzi.get("metric") or {}
     profilo = grezzi.get("profile") or {}
@@ -83,13 +89,15 @@ def analizza(grezzi, oggi=None):
     # gli utili previsti: se il P/E atteso è più basso, vuol dire che gli analisti si aspettano utili più alti.
     pe, pe_atteso = numero(m, "peTTM"), numero(m, "forwardPE")
     crescita_attesa = pe / pe_atteso - 1 if pe and pe_atteso and pe > 0 and pe_atteso > 0 else None
+    if quotazione_estera:
+        crescita_attesa = None
 
     # Debito netto ÷ EBITDA (quanti anni di guadagni operativi servono per ripagare i debiti).
     # Finnhub non lo dà direttamente, ma si ricava: il "valore d'impresa" è capitalizzazione + debito netto,
     # e il rapporto valore d'impresa ÷ EBITDA ci dice quanto vale l'EBITDA.
     valore_impresa, capitalizzazione, multiplo = numero(m, "enterpriseValue"), numero(m, "marketCapitalization"), numero(m, "evEbitdaTTM")
     debito_ebitda = None
-    if valore_impresa and capitalizzazione and multiplo and multiplo > 0 and valore_impresa > 0:
+    if not quotazione_estera and valore_impresa and capitalizzazione and multiplo and multiplo > 0 and valore_impresa > 0:
         debito_ebitda = (valore_impresa - capitalizzazione) / (valore_impresa / multiplo)
 
     settore = profilo.get("finnhubIndustry") or ""

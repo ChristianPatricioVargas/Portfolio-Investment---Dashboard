@@ -71,6 +71,11 @@ def prova_fondamentale():
     assert f["target"] is None and not f["finanziario"]                # il target price gratis non c'è
     assert fondamentale.ha_dati(f)
     assert fondamentale.analizza(azienda_finta(profile={"finnhubIndustry": "Banking"}), OGGI)["finanziario"]
+    # Azienda non americana: i due numeri ricavati con un calcolo restano vuoti, gli altri ci sono
+    estera = fondamentale.analizza(azienda_finta(), OGGI, quotazione_estera=True)
+    assert estera["crescitaUtiliAttesa"] is None and estera["debitoNettoSuEbitda"] is None
+    assert uguale(estera["debitoSuCapitale"], 0.45) and uguale(estera["crescitaUtili"], 0.12)
+    assert cacciatore.valuta(estera, {"dalMassimo": -0.2})["rispettati"] == 4     # i criteri usano i dati diretti
 
 
 def prova_fondamentale_dati_mancanti():
@@ -331,11 +336,12 @@ def prova_dal_vivo():
     oggi = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
     righe = ["## Prova dal vivo delle fonti", "",
              "Prezzi storici: Yahoo Finance. Fondamentali: Finnhub (con la sigla americana dell'azienda).", "",
-             "| Azienda | Prezzi (Yahoo) | RSI | Dal massimo | Fondamentali (Finnhub) | P/E | Margine netto | Utili attesi | Debito÷EBITDA | Analisti positivi | Trimestrale | Segnali |",
+             "| Azienda | Prezzi (Yahoo) | RSI | Dal massimo | Fondamentali (Finnhub) | P/E | Margine netto | Crescita utili | Debito÷capitale | Analisti positivi | Trimestrale | Segnali |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     # (sigla di Yahoo per i prezzi, sigla americana per i fondamentali)
     campione = [("SAP.DE", "SAP"), ("AIR.PA", "EADSY"), ("AAPL", "AAPL"), ("JPM", "JPM"),
                 ("7203.T", "TM"), ("005930.KS", "SSNLF"), ("AZN.L", "AZN"), ("NOVO-B.CO", "NVO")]
+    americane = {"AAPL", "JPM"}
     prezzi_ok = conti_ok = 0
     for ticker, usa in campione:
         f, t = {}, None
@@ -348,7 +354,7 @@ def prova_dal_vivo():
         try:
             if not finnhub:
                 raise RuntimeError("manca il segreto FINNHUB_API_KEY")
-            f = fondamentale.analizza(finnhub.grezzi(usa, oggi), oggi)
+            f = fondamentale.analizza(finnhub.grezzi(usa, oggi), oggi, quotazione_estera=usa not in americane)
             stato_f = "ok" if fondamentale.ha_dati(f) else "vuoti"
         except Exception as errore:
             stato_f = f"ERRORE {type(errore).__name__}: {errore}"
@@ -356,7 +362,7 @@ def prova_dal_vivo():
         conti_ok += stato_f == "ok"
         segnali = f"{cacciatore.valuta(f, t)['rispettati']} su 4" if stato_f == "ok" else "–"
         righe.append(f"| {ticker} / {usa} | {stato_t} | {t['rsi'] if t else '–'} | {t['dalMassimo'] if t else '–'} | {stato_f} "
-                     f"| {f.get('pe')} | {f.get('margineNetto')} | {f.get('crescitaUtiliAttesa')} | {f.get('debitoNettoSuEbitda')} "
+                     f"| {f.get('pe')} | {f.get('margineNetto')} | {f.get('crescitaUtili')} | {f.get('debitoSuCapitale')} "
                      f"| {f.get('analistiPositivi')} su {f.get('analisti')} | {f.get('prossimaTrimestrale')} | {segnali} |")
     righe += ["", f"Prezzi storici (analisi tecnica): {prezzi_ok} titoli su {len(campione)}.",
               f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}."]

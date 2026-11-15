@@ -131,7 +131,8 @@ def analizza_titolo(yahoo, finnhub, voce, scheda, serie, oggi):
                 raise TitoloNonCoperto(f"{voce['nome']} non ha una sigla americana: niente fondamentali")
             # Il settore non cambia: se lo conosciamo già, risparmiamo una richiesta
             vecchio = scheda.get("fondamentali") or {}
-            nuova = fondamentale.analizza(finnhub.grezzi(voce["usa"], oggi, con_profilo=not vecchio.get("settore")), oggi)
+            nuova = fondamentale.analizza(finnhub.grezzi(voce["usa"], oggi, con_profilo=not vecchio.get("settore")), oggi,
+                                          quotazione_estera=voce.get("area") != "USA")
             if not fondamentale.ha_dati(nuova):
                 raise TitoloNonCoperto(f"Finnhub ha dati troppo scarsi per {voce['usa']}")
             if not nuova["settore"] and vecchio.get("settore"):

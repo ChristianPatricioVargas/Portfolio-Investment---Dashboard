@@ -183,6 +183,9 @@ campanelli, occasioni e notizie. Incollandolo in una chat con Claude si ottiene 
 - Il mio target lo scrivo io nella scheda tesi (lo si trova su Trade Republic): la barra di avanzamento usa quello.
 - I conti sono quelli della quotazione americana: percentuali, margini e giudizi valgono per l'azienda;
   il calo dai massimi è calcolato sui prezzi della Borsa principale (Yahoo).
+- Per le aziende non americane due numeri ricavati con un calcolo (utili attesi e debito netto ÷ EBITDA) nella prova
+  dal vivo risultavano sbagliati: restano vuoti, e gli agenti usano la crescita degli utili già realizzata e il
+  rapporto debito ÷ capitale, che arrivano direttamente dalla fonte.
 - Un'azienda senza sigla americana, o non coperta dal piano gratuito, resta nella watchlist con analisi tecnica
   e notizie ma senza fondamentali: la pagina Occasioni le elenca.
 - Solo `scripts/agenti/finnhub.py` e `fondamentale.py` conoscono la forma dei dati di Finnhub:
