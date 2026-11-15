@@ -24,6 +24,55 @@
   color-scheme: dark;       /* dice a Safari di usare menu e tastiera scuri */
 }
 
+/* ---------- Tema chiaro ----------
+   I colori qui sopra sono quelli del tema scuro. Il tema chiaro cambia solo i valori delle variabili:
+   tutto il resto della pagina li usa per nome e si adatta da solo.
+   Si attiva in due modi:
+     1. hai scelto "Chiaro" nel selettore in fondo alla pagina  → <html data-tema="chiaro">
+     2. hai scelto "Automatico" e il dispositivo è in modalità chiara */
+:root[data-tema="chiaro"] {
+  --sfondo: #f3f5f9;        /* grigio chiarissimo dello sfondo */
+  --carta: #ffffff;         /* bianco delle schede */
+  --carta-2: #e7ebf2;       /* grigio chiaro (etichette, campi) */
+  --testo: #141823;
+  --testo-tenue: #5a6478;
+  --verde: #0b7a4b;
+  --verde-sfondo: #d9f3e6;
+  --rosso: #c0392b;
+  --rosso-sfondo: #fbe2de;
+  --ambra: #8f5400;
+  --ambra-sfondo: #fbe9c9;
+  --accento: #2f55d4;
+  --accento-forte: #3d63e0;
+  --linea-valore: #2f62e8;
+  --linea-investito: #7a8498;
+  --linea-mm50: #b3660f;
+  --linea-mm200: #8a4fd6;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-tema="scuro"]) {
+  --sfondo: #f3f5f9;        /* grigio chiarissimo dello sfondo */
+    --carta: #ffffff;         /* bianco delle schede */
+    --carta-2: #e7ebf2;       /* grigio chiaro (etichette, campi) */
+    --testo: #141823;
+    --testo-tenue: #5a6478;
+    --verde: #0b7a4b;
+    --verde-sfondo: #d9f3e6;
+    --rosso: #c0392b;
+    --rosso-sfondo: #fbe2de;
+    --ambra: #8f5400;
+    --ambra-sfondo: #fbe9c9;
+    --accento: #2f55d4;
+    --accento-forte: #3d63e0;
+    --linea-valore: #2f62e8;
+    --linea-investito: #7a8498;
+    --linea-mm50: #b3660f;
+    --linea-mm200: #8a4fd6;
+    color-scheme: light;
+  }
+}
+
 * { box-sizing: border-box; }
 
 /* Ciò che ha l'attributo "hidden" resta sempre nascosto */
@@ -674,3 +723,21 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
 .elenco-chiuso + .elenco-chiuso { margin-top: 12px; }
 .elenco-chiuso summary { font-size: 0.95rem; }
 .elenco-chiuso > div { margin-top: 8px; }
+
+/* La riga in più nelle schede delle occasioni può avere due frasi, una per riga */
+.scheda-occasione .extra { white-space: pre-line; }
+
+/* ---------- Il selettore del tema, in fondo a ogni pagina ---------- */
+
+.scelta-tema {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+  color: var(--testo-tenue);
+  font-size: 0.85rem;
+}
+.scelta-tema .selettore { background: var(--carta); }
+/* Nel tema chiaro le ombre scure sarebbero troppo pesanti */
+:root[data-tema="chiaro"] .fumetto { box-shadow: 0 6px 20px rgba(20, 24, 35, 0.15); }

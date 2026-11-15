@@ -61,6 +61,17 @@ function creaSigla(ticker) {
   return sigla;
 }
 
+const QUANTE_SPICCANO = 5;   // quante aziende mostrare in cima alla pagina Occasioni
+
+// Dove sta andando il prezzo adesso (dall'analisi tecnica). Non è una previsione: descrive le ultime settimane.
+function testoDirezione(ticker) {
+  const t = (analisi.titoli[ticker] || {}).tecnica;
+  if (!t) return "";
+  if (t.sopraMm50 && t.sopraMm200) return "↗ Il prezzo è sopra le medie a 50 e 200 giorni: la tendenza è già positiva.";
+  if (t.sopraMm50) return "↗ Il prezzo è tornato sopra la media a 50 giorni: sta provando a risalire.";
+  return "↘ Il prezzo è ancora sotto la media a 50 giorni: per ora non sta risalendo.";
+}
+
 // La scheda di un'occasione: nome, perché compare, i criteri. Toccandola si apre il dettaglio.
 // "extra" è una riga in più in fondo (la usa la pagina Oggi per il rischio principale).
 function creaSchedaOccasione(ticker, posto = null, extra = "") {
@@ -137,24 +148,32 @@ function disegnaOccasioni() {
     return riga;
   };
 
-  // 1. In evidenza: 3 o 4 segnali su 4 (schede grandi, con il rischio principale)
-  const inEvidenza = occasioni(3);
+  // 1. Le 5 che spiccano: le prime per numero di segnali e punteggio (schede grandi)
+  const forti = occasioni(3);
+  const spiccano = forti.slice(0, QUANTE_SPICCANO);
   $("elenco-classifica").innerHTML = "";
-  inEvidenza.forEach((ticker, i) => $("elenco-classifica").appendChild(creaSchedaOccasione(
-    ticker, i + 1, rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : "")));
-  $("vuoto-classifica").hidden = inEvidenza.length > 0;
+  spiccano.forEach((ticker, i) => $("elenco-classifica").appendChild(creaSchedaOccasione(ticker, i + 1,
+    [testoDirezione(ticker), rischioPrincipale(ticker) ? "⚠️ Rischio principale: " + rischioPrincipale(ticker) : ""]
+      .filter(Boolean).join("\n"))));
+  $("vuoto-classifica").hidden = spiccano.length > 0;
 
-  // 2. Da tenere d'occhio: 1 o 2 segnali (righe compatte)
+  // 2. Le altre con 3 o 4 segnali, e quelle con 1 o 2: elenchi chiusi, righe compatte
+  const altreForti = forti.slice(QUANTE_SPICCANO);
+  $("titolo-altre-forti").textContent = `Altre ${altreForti.length} con 3 o 4 segnali`;
+  $("elenco-altre-forti").innerHTML = "";
+  for (const ticker of altreForti) $("elenco-altre-forti").appendChild(creaRiga(ticker));
+  $("sezione-altre-forti").hidden = altreForti.length === 0;
+
   const conSegnali = occasioni(1, 2);
-  $("titolo-quasi").textContent = `Con 1 o 2 segnali (${conSegnali.length})`;
+  $("titolo-quasi").textContent = `${conSegnali.length} con 1 o 2 segnali`;
   $("elenco-quasi").innerHTML = "";
   for (const ticker of conSegnali) $("elenco-quasi").appendChild(creaRiga(ticker));
-  $("vuoto-quasi").hidden = conSegnali.length > 0;
+  $("sezione-quasi").hidden = conSegnali.length === 0;
 
   // 3. Tutte le altre: nessun segnale. Stanno in un elenco chiuso, da aprire solo se serve.
   const tutti = Object.entries(analisi.titoli).filter(([, s]) => s.gruppo === "watchlist");
   const senza = tutti.filter(([t]) => !nascosto(t) && segnali(t) === 0).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
-  $("titolo-watchlist").textContent = `Altre ${senza.length} aziende della watchlist, senza segnali`;
+  $("titolo-watchlist").textContent = `${senza.length} senza segnali`;
   const elenco = $("elenco-watchlist");
   elenco.innerHTML = "";
   for (const [ticker] of senza) elenco.appendChild(creaRiga(ticker));
@@ -237,10 +256,11 @@ function disegnaCacciatore() {
   $("sezione-cacciatore").hidden = !c;
   if (!c) return;
   const quanti = `${c.rispettati} ${c.rispettati === 1 ? "segnale" : "segnali"} su 4`;
+  const posto = occasioni(3).indexOf(tickerAperto);
   $("frase-cacciatore").textContent = s.gruppo !== "watchlist"
     ? `È un titolo del tuo elenco: oggi avrebbe ${quanti} del cacciatore.`
-    : c.rispettati === 4 ? `In evidenza: ha tutti e 4 i segnali (${c.punteggio} punti su 100).`
-    : c.rispettati === 3 ? `In evidenza: ha ${quanti} (${c.punteggio} punti su 100).`
+    : posto >= 0 && posto < QUANTE_SPICCANO ? `Tra le ${QUANTE_SPICCANO} che spiccano (${posto + 1}º posto): ha ${quanti}, ${c.punteggio} punti su 100.`
+    : c.rispettati >= 3 ? `Ha ${quanti} (${c.punteggio} punti su 100), ma non è tra le prime ${QUANTE_SPICCANO}.`
     : c.rispettati > 0 ? `Da tenere d'occhio: ha ${quanti}.`
     : "Oggi non ha nessun segnale del cacciatore.";
   const elenco = $("elenco-criteri");

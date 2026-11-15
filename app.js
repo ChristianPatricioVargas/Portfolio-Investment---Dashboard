@@ -1003,6 +1003,35 @@ function scegliPeriodo(chiave) {
   ridisegnaGrafici();
 }
 
+// ---------- Il tema: automatico, chiaro o scuro ----------
+// "auto" segue le impostazioni del dispositivo (lo fa il CSS da solo).
+// "chiaro" e "scuro" mettono un'etichetta su <html> che il CSS riconosce.
+// La scelta resta salvata su questo dispositivo.
+
+const COLORI_BARRA = { chiaro: "#f3f5f9", scuro: "#0b0d12" };   // il colore della barra in alto di Safari
+
+function temaScelto() {
+  try {
+    const salvato = localStorage.getItem("tema");
+    return salvato === "chiaro" || salvato === "scuro" ? salvato : "auto";
+  } catch (errore) {
+    return "auto";
+  }
+}
+
+function applicaTema(tema) {
+  if (tema === "auto") delete document.documentElement.dataset.tema;
+  else document.documentElement.dataset.tema = tema;
+  try {
+    if (tema === "auto") localStorage.removeItem("tema");
+    else localStorage.setItem("tema", tema);
+  } catch (errore) { /* non importa */ }
+  document.querySelectorAll(".scelta-tema button").forEach((b) => b.classList.toggle("attivo", b.dataset.tema === tema));
+  // Il tema che si vede davvero: quello scelto, oppure quello del dispositivo
+  const chiaro = tema === "chiaro" || (tema === "auto" && window.matchMedia("(prefers-color-scheme: light)").matches);
+  document.querySelector('meta[name="theme-color"]').content = COLORI_BARRA[chiaro ? "chiaro" : "scuro"];
+}
+
 // ---------- Avvio ----------
 
 async function avvia() {
@@ -1094,6 +1123,10 @@ async function avvia() {
   collegaTecnico();
   collegaCacciatore();
   collegaOggi();
+  // Il selettore del tema; se cambi le impostazioni del dispositivo, "Automatico" si adegua subito
+  document.querySelectorAll(".scelta-tema button").forEach((b) => (b.onclick = () => applicaTema(b.dataset.tema)));
+  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => applicaTema(temaScelto()));
+  applicaTema(temaScelto());
   $("backup").onclick = copiaBackup;
   $("ripristina").onclick = ripristinaBackup;
 
