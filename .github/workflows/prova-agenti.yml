@@ -3,6 +3,8 @@
 #
 # Parte da solo quando una pull request cambia i programmi degli agenti,
 # oppure a mano: Actions → "Prova agenti" → Run workflow.
+# A mano si possono anche scrivere delle sigle di Yahoo da provare (es. "ROG.SW RO.SW"):
+# serve a scoprire la sigla giusta di un titolo che dà "errore 404".
 
 name: Prova agenti
 
@@ -14,6 +16,11 @@ on:
       - "data/titoli.json"
       - ".github/workflows/prova-agenti.yml"
   workflow_dispatch:
+    inputs:
+      sigle:
+        description: "Sigle di Yahoo da provare, separate da spazi (facoltativo, es. ROG.SW RO.SW)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -38,3 +45,10 @@ jobs:
         env:
           # La chiave gratuita di Finnhub (fondamentali): sta nei Secrets, non nel codice
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+
+      - name: Prova delle sigle di Yahoo scritte a mano (solo se ce ne sono)
+        if: ${{ always() && inputs.sigle != '' }}
+        # La sigla passa da una variabile, non dentro il comando: così un testo strano non può fare danni
+        run: python3 scripts/trova_sigla.py
+        env:
+          SIGLE: ${{ inputs.sigle }}
