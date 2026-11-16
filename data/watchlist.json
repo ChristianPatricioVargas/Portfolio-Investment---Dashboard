@@ -62,7 +62,7 @@
   {"ticker": "DHL.DE", "nome": "DHL Group", "area": "Europa", "usa": "DHLGY"},
   {"ticker": "NESN.SW", "nome": "Nestlé", "area": "Europa", "usa": "NSRGY"},
   {"ticker": "NOVN.SW", "nome": "Novartis", "area": "Europa", "usa": "NVS"},
-  {"ticker": "ROG.SW", "nome": "Roche", "area": "Europa", "usa": "RHHBY"},
+  {"ticker": "RO.SW", "nome": "Roche", "area": "Europa", "usa": "RHHBY"},
   {"ticker": "NOVO-B.CO", "nome": "Novo Nordisk", "area": "Europa", "usa": "NVO"},
   {"ticker": "AZN.L", "nome": "AstraZeneca", "area": "Europa", "usa": "AZN"},
   {"ticker": "SHEL.L", "nome": "Shell", "area": "Europa", "usa": "SHEL"},

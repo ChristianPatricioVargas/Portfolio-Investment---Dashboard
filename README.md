@@ -105,6 +105,10 @@ Il punteggio (0-100) ordina le aziende a parità di segnali: più calo, più cre
 **Aggiungere un titolo**: la pagina Occasioni prepara la riga da incollare in `data/watchlist.json`
 (servono la sigla di Yahoo Finance sulla Borsa principale, es. `MC.PA`, e la sigla americana per i fondamentali,
 es. `LVMUY`). Deve stare nel repository perché è GitHub, non il browser, a scaricare i dati.
+Se non si è sicuri della sigla (o un titolo dà "errore 404"): **Actions → Prova agenti → Run workflow**,
+scrivendo le sigle candidate nel campo "Sigle di Yahoo da provare" (es. `RO.SW ROG.SW`). Sotto "Summary" compare
+una tabella con quelle che Yahoo riconosce, la borsa e la valuta. Così si è scoperto che Roche è `RO.SW`
+(la vecchia `ROG.SW` dà 404).
 
 Per **comprare** un titolo della watchlist e seguirlo nel Portafoglio va aggiunto a `data/titoli.json` con la sigla
 di Xetra in euro (es. `NKE.DE`) e, nel campo `usa`, la sigla americana (es. `NKE`):
@@ -221,6 +225,7 @@ Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi e ti
 | `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
 | `scripts/prova_agenti.py` | Le prove automatiche degli agenti |
+| `scripts/trova_sigla.py` | Programma di prova: dice quali sigle riconosce Yahoo Finance |
 | `scripts/confronta_borse.py` | Programma di prova: confronta i prezzi di Xetra, Francoforte, Stoccarda e Monaco |
 | `.github/workflows/pubblica-sito.yml` | Ogni 30 minuti nei giorni di Borsa: prezzi, allarmi, pubblicazione. Due volte al giorno: anche gli agenti |
 | `.github/workflows/prova-agenti.yml` | Le prove automatiche e la prova dal vivo delle fonti |
