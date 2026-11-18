@@ -388,8 +388,17 @@ def prova_dal_vivo():
         righe.append(f"| {ticker} / {usa} | {stato_t} | {t['rsi'] if t else '–'} | {t['dalMassimo'] if t else '–'} | {stato_f} "
                      f"| {f.get('pe')} | {f.get('margineNetto')} | {f.get('crescitaUtili')} | {f.get('debitoSuCapitale')} "
                      f"| {f.get('analistiPositivi')} su {f.get('analisti')} | {f.get('prossimaTrimestrale')} | {segnali} |")
+    # Il grafico della pagina usa 5 anni di candele giornaliere: Yahoo le dà?
+    try:
+        storia = tecnico.storia(yahoo.grafico("SAP.DE", "5y"))
+        candele = sum(1 for v in storia["apertura"] if v is not None)
+        stato_storia = f"{len(storia['giorni'])} giorni dal {storia['giorni'][0]}, {candele} con la candela"
+        storia_ok = len(storia["giorni"]) > 1000
+    except Exception as errore:
+        stato_storia, storia_ok = f"ERRORE {type(errore).__name__}: {errore}", False
     righe += ["", f"Prezzi storici (analisi tecnica): {prezzi_ok} titoli su {len(campione)}.",
-              f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}."]
+              f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}.",
+              f"Grafico a 5 anni (SAP.DE): {stato_storia}."]
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -397,7 +406,7 @@ def prova_dal_vivo():
         with open(riepilogo, "a", encoding="utf-8") as file:
             file.write(testo + "\n")
     # Tolleriamo un titolo mancante per fonte: un singolo intoppo non deve far scattare l'allarme
-    return prezzi_ok >= len(campione) - 1 and conti_ok >= len(campione) - 1
+    return prezzi_ok >= len(campione) - 1 and conti_ok >= len(campione) - 1 and storia_ok
 
 
 def main():

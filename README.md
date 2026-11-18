@@ -60,7 +60,9 @@ Scelte di progetto:
 L'aspetto è quello di una piattaforma: menu a icone (a sinistra sull'iPad, in basso sul telefono), striscia dei prezzi
 sempre visibile in alto con i miei titoli e gli indici di mercato (DAX, Euro Stoxx 50, S&P 500, euro/dollaro),
 riquadri compatti, numeri in carattere a larghezza fissa, tema chiaro o scuro.
-Il grafico del prezzo ha due modi: **candele** degli ultimi 3 mesi con i volumi, oppure **linea** dell'ultimo anno.
+Il grafico del prezzo di ogni titolo (pagina del titolo e pagina Oggi) è fatto con **Lightweight Charts**:
+si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni periodo fino a 5 anni
+(dettagli più sotto, in "Il grafico del prezzo").
 
 - **Oggi** (pagina iniziale), a riquadri come una piattaforma di trading: quattro numeri chiave (valore, guadagno,
   oggi, netto se vendessi tutto), grafico a candele di un mio titolo, tabella delle posizioni (prezzo, variazione,
@@ -70,6 +72,31 @@ Il grafico del prezzo ha due modi: **candele** degli ultimi 3 mesi con i volumi,
 - **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
   avvocato del diavolo, notizie. Per i miei titoli anche acquisti, rendimento, **scheda tesi** e **Se vendo oggi**.
+
+### Il grafico del prezzo
+
+Lo disegna [Lightweight Charts](https://github.com/tradingview/lightweight-charts) di TradingView, una libreria
+**gratuita e open source** (licenza Apache 2.0). È salvata nel repository (`librerie/`, con la sua licenza):
+la pagina non la scarica da altri siti. Il piccolo logo di TradingView nel grafico è il riconoscimento che la libreria chiede.
+
+- **Zoom e trascinamento**: due dita per ingrandire o rimpicciolire, un dito per andare avanti e indietro nel tempo.
+  Scorrendo in verticale si muove la pagina, non il grafico.
+- **Periodi** 1M, 3M, 6M, 1A, 2A, 5A e **Candele / Linea**: passando da candele a linea (e viceversa) resta lo stesso periodo.
+  Le candele ci sono per ogni periodo: sono i prezzi giornalieri di Yahoo degli ultimi 5 anni.
+- **Medie mobili** a 50 e 200 giorni: i pulsanti MM50 e MM200 le accendono e spengono (la scelta resta salvata).
+- **Pallini blu** nei giorni dei miei acquisti (letti dai dati salvati nel browser). Toccando quel giorno, la riga sopra il grafico
+  dice quante quote e a che prezzo. *Le vendite non ci sono: la dashboard per ora registra solo gli acquisti.*
+- **Confronta con…**: un secondo titolo come linea arancione, con la scala in percentuale. Le due linee partono da 0%
+  nel primo giorno visibile a sinistra (zoomando, la partenza cambia). Durante il confronto si nascondono medie, volumi,
+  supporti, resistenze e disegni.
+- **Disegni**: "Orizzontale" (un tocco) e "Tendenza" (due tocchi su due giorni diversi). Ogni linea è agganciata a un prezzo
+  e a dei giorni, per questo resta al suo posto con zoom e trascinamento. Sono salvate nel browser, per titolo,
+  e sono nel backup. Due tocchi troppo veloci (meno di mezzo secondo) contano come uno: meglio toccare con calma.
+- Le righe tratteggiate grigie sono i supporti e le resistenze dell'analista tecnico.
+
+Da dove vengono i dati: ogni giro degli agenti salva, per ogni titolo, il file `data/grafici/<sigla>.json`
+(apertura, massimo, minimo, chiusura e volume di ogni giorno degli ultimi 5 anni). La pagina scarica solo il file del titolo
+che apri. Se il file non c'è ancora, il grafico usa i dati di prima (un anno a linea, candele solo degli ultimi mesi).
 
 ### La scheda tesi e "Se vendo oggi"
 
@@ -208,7 +235,8 @@ Per ricontrollare le fonti: **Actions → Prova agenti → Run workflow**. La ta
 Il codice è pubblico, ma **quote, capitale investito, prezzi d'acquisto e tesi non sono nel codice**:
 ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser (`localStorage`).
 Chi apre il link vede una dashboard vuota e può usarla per sé.
-Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi e titoli tolti dalla watchlist.
+Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi, titoli tolti dalla watchlist
+e linee disegnate sui grafici. Un backup fatto prima delle linee si può ancora ripristinare: le linee già presenti restano.
 
 ## Com'è fatto
 
@@ -217,10 +245,11 @@ Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi e ti
 | `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni e Titolo |
 | `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina). I caratteri (IBM Plex Sans e Mono) sono caricati da Google Fonts |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
-| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra) |
+| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo |
+| `librerie/` | Lightweight Charts di TradingView (la libreria del grafico del prezzo) e la sua licenza |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
 | `data/watchlist.json` | Le grandi aziende che il cacciatore tiene d'occhio |
-| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI) |
+| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
 | `scripts/aggiorna_prezzi.py` | Scarica prezzi, storico e notizie e manda gli allarmi (ogni 30 minuti) |
 | `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
@@ -237,6 +266,7 @@ Il sito è pubblicato da **GitHub Actions** (non direttamente dal ramo `main`):
 il workflow scarica i prezzi, li mette nei file `data/` **del sito pubblicato** e pubblica.
 I prezzi quindi non vengono salvati nel repository e la cronologia contiene solo le modifiche al codice.
 Tra un giro e l'altro i dati restano nel sito stesso: a ogni giro vengono riscaricati, aggiornati e ripubblicati.
+I file dei grafici (uno per titolo) viaggiano da un giro all'altro in un unico pacchetto, `data/grafici.tar.gz`.
 
 ## Da dove vengono i prezzi
 
@@ -311,3 +341,4 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 11. ✅ Pagina "Oggi" e "Copia per l'analisi"
 13. ✅ Aspetto da piattaforma: menu a icone, striscia dei prezzi, grafico a candele, tabelle, tema chiaro e scuro
 12. ✅ Fondamentali da Finnhub (dopo aver scartato Yahoo e Alpha Vantage con prove dal vivo), agenti due volte al giorno
+14. ✅ Grafico del prezzo con Lightweight Charts: zoom, periodi fino a 5 anni, medie, pallini degli acquisti, confronto, disegni
