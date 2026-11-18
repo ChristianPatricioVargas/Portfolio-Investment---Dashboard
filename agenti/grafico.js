@@ -8,6 +8,7 @@
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
 //   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
 //   - confrontare due titoli in percentuale (menu "Confronta con…")
+//   - disegnare linee orizzontali e di tendenza, salvate sul dispositivo e nel backup
 //
 // I dati arrivano dagli agenti (scripts/agenti/tecnico.py): qui li disegniamo soltanto.
 // Il grafico del rendimento del portafoglio NON passa di qui: resta quello di app.js, a linea.
@@ -166,9 +167,12 @@ function creaGraficoPrezzo(contenitore) {
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: true },
   });
-  const stato = { grafico, contenitore, ticker: null, modo: null, serie: [], livelli: [], confronto: null };
+  const stato = { grafico, contenitore, ticker: null, modo: null, serie: [], livelli: [], confronto: null,
+    strumento: null, primoPunto: null, disegnate: [] };
   // Quando muovi il dito (o il mouse) sul grafico, la riga in alto mostra i numeri di quel giorno
   grafico.subscribeCrosshairMove((parametri) => scriviRigaGrafico(stato, parametri.time));
+  // Un tocco sul grafico serve a disegnare, se hai scelto uno strumento di disegno
+  grafico.subscribeClick((parametri) => toccoPerDisegnare(stato, parametri));
   return stato;
 }
 
@@ -179,6 +183,8 @@ function svuotaGrafico(stato) {
   stato.serieConfronto = null;
   stato.serie = [];
   stato.livelli = [];
+  stato.disegnate = [];
+  stato.firmaDisegni = null;
   stato.principale = stato.mm50 = stato.mm200 = stato.volumi = null;
 }
 
@@ -204,6 +210,7 @@ function disegnaOra(contenitore, ticker) {
   // Aggiorniamo solo i pallini, nel caso tu abbia aggiunto o cambiato un acquisto.
   if (stato.ticker === ticker && stato.modo === modoGrafico && stato.dati === dati) {
     mettiPallini(stato);
+    mostraDisegni(stato);
     return;
   }
 
@@ -219,8 +226,10 @@ function disegnaOra(contenitore, ticker) {
   stato.pallini = null;
   stato.firmaPallini = null;
   mettiPallini(stato);
+  mostraDisegni(stato);
   applicaConfronto(stato);
   riempiMenuConfronto(stato);
+  if (nuovoTitolo) scegliStrumento(stato, null);
 
   if (intervallo) stato.grafico.timeScale().setVisibleRange(intervallo);
   else mostraPeriodo(stato, periodoPrezzo);
@@ -402,6 +411,7 @@ function applicaConfronto(stato) {
   if (stato.mm200) stato.mm200.applyOptions({ visible: !attivo && medieAccese.mm200 });
   if (stato.volumi) stato.volumi.applyOptions({ visible: !attivo });
   for (const l of stato.livelli) l.applyOptions({ lineVisible: !attivo });
+  nascondiDisegni(stato, attivo);
   if (nota) {
     nota.hidden = !stato.confronto;
     nota.textContent = !stato.confronto ? ""
@@ -436,6 +446,197 @@ function righeConfronto(stato, chiave) {
   return [["", "dal " + dataBreve(primo)],
     [nomeBreve(stato.ticker), variazione(stato.dati), "confronto-principale"],
     [nomeBreve(stato.confronto), variazione(stato.datiConfronto), "confronto-secondo"]];
+}
+
+// ---------- I disegni: linee orizzontali e linee di tendenza ----------
+// Si disegnano con un tocco (orizzontale) o due tocchi (tendenza) dopo aver scelto lo strumento.
+// Ogni linea è "agganciata" a un prezzo (e, per la tendenza, a due giorni): per questo resta al suo
+// posto quando ingrandisci o ti sposti nel tempo.
+// Restano salvate SOLO su questo dispositivo (e nel backup), divise per titolo:
+//   { "SAP.DE": [ { tipo: "orizzontale", prezzo: 120.5 },
+//                 { tipo: "tendenza", da: { giorno: "2026-03-02", prezzo: 110 }, a: { giorno: "2026-09-01", prezzo: 130 } } ] }
+
+const CHIAVE_DISEGNI = "disegni-v1";
+const MASSIMO_DISEGNI = 30;          // per titolo: oltre, il grafico diventerebbe illeggibile
+let disegni = {};
+
+const giornoValido = (g) => typeof g === "string" && /^\d{4}-\d{2}-\d{2}$/.test(g);
+const prezzoValido = (p) => typeof p === "number" && Number.isFinite(p) && p > 0;
+
+// Tiene solo i disegni con una forma sensata (serve anche quando ripristini un backup)
+function pulisciDisegni(dati) {
+  const puliti = {};
+  if (!dati || typeof dati !== "object" || Array.isArray(dati)) return puliti;
+  for (const [ticker, lista] of Object.entries(dati)) {
+    if (!Array.isArray(lista)) continue;
+    const buoni = lista.filter((d) => d && (
+      (d.tipo === "orizzontale" && prezzoValido(d.prezzo)) ||
+      (d.tipo === "tendenza" && d.da && d.a && giornoValido(d.da.giorno) && giornoValido(d.a.giorno) &&
+        prezzoValido(d.da.prezzo) && prezzoValido(d.a.prezzo) && d.da.giorno !== d.a.giorno)))
+      .slice(0, MASSIMO_DISEGNI)
+      .map((d) => (d.tipo === "orizzontale" ? { tipo: d.tipo, prezzo: d.prezzo }
+        : { tipo: d.tipo, da: { giorno: d.da.giorno, prezzo: d.da.prezzo }, a: { giorno: d.a.giorno, prezzo: d.a.prezzo } }));
+    if (buoni.length) puliti[String(ticker)] = buoni;
+  }
+  return puliti;
+}
+
+function caricaDisegni() {
+  try { disegni = pulisciDisegni(JSON.parse(localStorage.getItem(CHIAVE_DISEGNI) || "{}")); } catch (errore) { disegni = {}; }
+}
+
+function salvaDisegni() {
+  try { localStorage.setItem(CHIAVE_DISEGNI, JSON.stringify(disegni)); } catch (errore) { /* memoria piena: pazienza */ }
+}
+
+// Disegna nel grafico le linee salvate per il titolo (solo se sono cambiate)
+function mostraDisegni(stato) {
+  const lista = disegni[stato.ticker] || [];
+  const firma = JSON.stringify(lista);
+  if (firma === stato.firmaDisegni) return;
+  stato.firmaDisegni = firma;
+  // Via le linee di prima
+  for (const d of stato.disegnate) {
+    if (d.riga) stato.principale.removePriceLine(d.riga);
+    if (d.serie) {
+      stato.grafico.removeSeries(d.serie);
+      stato.serie = stato.serie.filter((s) => s !== d.serie);
+    }
+  }
+  stato.disegnate = [];
+  const colore = coloriGrafico().accento;
+  for (const d of lista) {
+    if (d.tipo === "orizzontale") {
+      // Una riga a quel prezzo, lungo tutto il grafico, con il prezzo scritto sulla scala
+      stato.disegnate.push({ riga: stato.principale.createPriceLine({ price: d.prezzo, color: colore, lineWidth: 2,
+        lineStyle: LWC.LineStyle.Solid, axisLabelVisible: true, title: "" }) });
+    } else {
+      // Una linea tra due punti (giorno, prezzo): una piccola serie con due soli punti
+      const serie = stato.grafico.addSeries(LWC.LineSeries, { color: colore, lineWidth: 2, priceLineVisible: false,
+        lastValueVisible: false, crosshairMarkerVisible: false, pointMarkersVisible: true, pointMarkersRadius: 3,
+        autoscaleInfoProvider: () => null });     // non cambia la scala dei prezzi
+      const [primo, secondo] = [d.da, d.a].sort((x, y) => x.giorno.localeCompare(y.giorno));
+      serie.setData([{ time: primo.giorno, value: primo.prezzo }, { time: secondo.giorno, value: secondo.prezzo }]);
+      stato.serie.push(serie);
+      stato.disegnate.push({ serie });
+    }
+  }
+  nascondiDisegni(stato, Boolean(stato.datiConfronto));
+  aggiornaPulsantiDisegno(stato);
+}
+
+// Durante il confronto in percentuale i disegni (fatti in euro) si nascondono
+function nascondiDisegni(stato, nascosti) {
+  for (const d of stato.disegnate) {
+    if (d.riga) d.riga.applyOptions({ lineVisible: !nascosti, axisLabelVisible: !nascosti });
+    if (d.serie) d.serie.applyOptions({ visible: !nascosti });
+  }
+}
+
+// Sceglie lo strumento: "orizzontale", "tendenza" oppure null (nessuno)
+function scegliStrumento(stato, strumento) {
+  stato.strumento = stato.strumento === strumento ? null : strumento;     // toccarlo di nuovo lo spegne
+  stato.primoPunto = null;
+  if (stato.strumento && stato.datiConfronto) {
+    stato.strumento = null;
+    return scriviNotaDisegno(stato, "Per disegnare, togli prima il confronto.");
+  }
+  scriviNotaDisegno(stato, stato.strumento === "orizzontale" ? "Tocca il grafico all'altezza del prezzo che vuoi segnare."
+    : stato.strumento === "tendenza" ? "Tocca il primo punto della linea." : "");
+  aggiornaPulsantiDisegno(stato);
+}
+
+function scriviNotaDisegno(stato, testo) {
+  const nota = stato.contenitore.closest("section").querySelector(".nota-disegno");
+  if (!nota) return;
+  nota.textContent = testo;
+  nota.hidden = !testo;
+}
+
+function aggiornaPulsantiDisegno(stato) {
+  const barra = stato.contenitore.closest("section").querySelector(".disegni-prezzo");
+  if (!barra) return;
+  barra.querySelectorAll("button[data-strumento]").forEach((b) => {
+    b.classList.toggle("attivo", b.dataset.strumento === stato.strumento);
+    b.setAttribute("aria-pressed", b.dataset.strumento === stato.strumento ? "true" : "false");
+  });
+  const quanti = (disegni[stato.ticker] || []).length;
+  barra.querySelectorAll("button[data-togli]").forEach((b) => (b.hidden = quanti === 0));
+}
+
+// Un tocco sul grafico: se è attivo uno strumento, diventa un punto della linea
+function toccoPerDisegnare(stato, parametri) {
+  if (!stato.strumento || !parametri.point || !stato.principale) return;
+  const prezzo = stato.principale.coordinateToPrice(parametri.point.y);
+  if (!prezzoValido(prezzo)) return;
+  const arrotonda = (v) => Math.round(v * 10000) / 10000;
+  if (stato.strumento === "orizzontale") {
+    aggiungiDisegno(stato, { tipo: "orizzontale", prezzo: arrotonda(prezzo) });
+    return;
+  }
+  // Tendenza: servono due punti, ognuno su un giorno con un prezzo
+  const tempo = parametri.time;
+  if (!tempo) return scriviNotaDisegno(stato, "Tocca un punto dentro il grafico, dove ci sono i prezzi.");
+  const punto = { giorno: typeof tempo === "string" ? tempo : testoChiave(tempo), prezzo: arrotonda(prezzo) };
+  if (!stato.primoPunto) {
+    stato.primoPunto = punto;
+    return scriviNotaDisegno(stato, `Primo punto: ${testoGiorno(punto.giorno)}, ${numeroIt(punto.prezzo, cifrePrezzo(punto.prezzo))}. Ora tocca il secondo punto.`);
+  }
+  if (punto.giorno === stato.primoPunto.giorno) return scriviNotaDisegno(stato, "Il secondo punto deve essere in un altro giorno.");
+  aggiungiDisegno(stato, { tipo: "tendenza", da: stato.primoPunto, a: punto });
+}
+
+function aggiungiDisegno(stato, disegno) {
+  const lista = disegni[stato.ticker] || (disegni[stato.ticker] = []);
+  if (lista.length >= MASSIMO_DISEGNI) return scriviNotaDisegno(stato, `Al massimo ${MASSIMO_DISEGNI} linee per titolo: togline qualcuna.`);
+  lista.push(disegno);
+  salvaDisegni();
+  stato.strumento = null;
+  stato.primoPunto = null;
+  scriviNotaDisegno(stato, "");
+  aggiornaTuttiIDisegni();
+}
+
+// "Togli ultima" e "Togli tutte"
+function togliDisegni(stato, tutte) {
+  const lista = disegni[stato.ticker] || [];
+  if (!lista.length) return;
+  if (tutte && !confirm(`Togliere tutte le ${lista.length} linee disegnate su questo titolo?`)) return;
+  if (tutte) lista.length = 0;
+  else lista.pop();
+  if (!lista.length) delete disegni[stato.ticker];
+  salvaDisegni();
+  aggiornaTuttiIDisegni();
+}
+
+// Lo stesso titolo può essere in due grafici (Oggi e pagina del titolo): aggiorniamo entrambi
+function aggiornaTuttiIDisegni() {
+  for (const stato of Object.values(graficiPrezzo)) {
+    if (!stato.principale) continue;
+    mostraDisegni(stato);
+    aggiornaPulsantiDisegno(stato);
+  }
+}
+
+// Crea i pulsanti di disegno di un grafico
+function creaPulsantiDisegno(barra, idGrafico) {
+  const stato = () => graficiPrezzo[idGrafico];
+  const pulsanti = [
+    ["orizzontale", "― Orizzontale", "Disegna una linea orizzontale: un tocco sul grafico", () => scegliStrumento(stato(), "orizzontale")],
+    ["tendenza", "╱ Tendenza", "Disegna una linea di tendenza: tocca due punti", () => scegliStrumento(stato(), "tendenza")],
+    ["ultima", "Togli ultima", "Toglie l'ultima linea disegnata", () => togliDisegni(stato(), false)],
+    ["tutte", "Togli tutte", "Toglie tutte le linee di questo titolo", () => togliDisegni(stato(), true)],
+  ];
+  for (const [chiave, scritta, descrizione, azione] of pulsanti) {
+    const pulsante = document.createElement("button");
+    pulsante.type = "button";
+    pulsante.textContent = scritta;
+    pulsante.title = descrizione;
+    if (chiave === "orizzontale" || chiave === "tendenza") pulsante.dataset.strumento = chiave;
+    else { pulsante.dataset.togli = chiave; pulsante.hidden = true; }
+    pulsante.onclick = () => { if (stato()) azione(); };
+    barra.appendChild(pulsante);
+  }
 }
 
 // Da due liste (giorni e valori) ai punti che vuole la libreria; i valori vuoti restano "buchi"
@@ -575,6 +776,11 @@ function collegaGrafici() {
       pulsante.onclick = () => cambiaMedia(quale);
       contenitore.appendChild(pulsante);
     }
+  }
+  // I pulsanti per disegnare (uno per grafico: ognuno ha il suo strumento attivo)
+  caricaDisegni();
+  for (const barra of document.querySelectorAll(".disegni-prezzo")) {
+    creaPulsantiDisegno(barra, barra.closest("section").querySelector(".grafico-prezzo").id);
   }
   aggiornaPulsantiGrafico();
   if (!LWC) {

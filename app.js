@@ -569,10 +569,11 @@ function elimina() {
 
 // ---------- Backup ----------
 // Copia i tuoi dati come testo: puoi incollarlo in Note per tenerlo al sicuro.
-// Dentro ci sono TUTTI i dati personali: acquisti, tesi e titoli tolti dalla watchlist.
+// Dentro ci sono TUTTI i dati personali: acquisti, tesi, titoli tolti dalla watchlist
+// e linee disegnate sui grafici.
 
 function datiPersonali() {
-  return { versione: 3, posizioni, tesi, watchlist: watchlistLocale };
+  return { versione: 4, posizioni, tesi, watchlist: watchlistLocale, disegni };
 }
 
 async function copiaBackup() {
@@ -599,6 +600,11 @@ function ripristinaBackup() {
       salvaTesi();
       watchlistLocale = pulisciWatchlist(dati.watchlist);
       salvaWatchlist();
+      // Le linee disegnate (dalla versione 4 del backup): un backup più vecchio non le tocca
+      if (dati.disegni) {
+        disegni = pulisciDisegni(dati.disegni);
+        salvaDisegni();
+      }
     }
     disegna();
     mostraVista();
