@@ -86,11 +86,13 @@
               </div>
             </div>
             <p class="riga-grafico" id="oggi-riga-grafico"></p>
-            <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js): periodi 1M...5A, medie mobili -->
+            <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js): periodi 1M...5A, medie mobili, confronto -->
             <div class="strumenti-grafico">
               <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
               <div class="selettore medie-prezzo" role="group" aria-label="Medie mobili"></div>
+              <select class="confronto-prezzo" aria-label="Confronta con un altro titolo"></select>
             </div>
+            <p class="nota-confronto" hidden></p>
             <div class="area-grafico area-prezzo">
               <!-- I numeri del giorno toccato (li scrive agenti/grafico.js) -->
               <div class="riga-numeri" aria-live="polite"></div>
@@ -351,7 +353,9 @@
                   <button type="button" data-modo="linea">Linea</button>
                 </div>
                 <div class="selettore medie-prezzo" role="group" aria-label="Medie mobili"></div>
+                <select class="confronto-prezzo" aria-label="Confronta con un altro titolo"></select>
               </div>
+              <p class="nota-confronto" hidden></p>
               <div class="area-grafico area-prezzo" id="area-grafico-tecnico">
                 <div class="riga-numeri" aria-live="polite"></div>
                 <div id="grafico-tecnico" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>

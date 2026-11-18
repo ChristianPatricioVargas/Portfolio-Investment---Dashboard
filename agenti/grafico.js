@@ -7,6 +7,7 @@
 //   - trascinare avanti e indietro nel tempo con un dito
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
 //   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
+//   - confrontare due titoli in percentuale (menu "Confronta con…")
 //
 // I dati arrivano dagli agenti (scripts/agenti/tecnico.py): qui li disegniamo soltanto.
 // Il grafico del rendimento del portafoglio NON passa di qui: resta quello di app.js, a linea.
@@ -35,7 +36,7 @@ function coloriGrafico() {
   return {
     sfondo: v("--carta"), testo: v("--testo-tenue"), griglia: v("--bordo"), bordo: v("--bordo"),
     verde: v("--verde"), rosso: v("--rosso"), linea: v("--linea-valore"),
-    mm50: v("--linea-mm50"), mm200: v("--linea-mm200"), accento: v("--accento"),
+    mm50: v("--linea-mm50"), mm200: v("--linea-mm200"), accento: v("--accento"), confronto: v("--ambra"),
   };
 }
 
@@ -165,7 +166,7 @@ function creaGraficoPrezzo(contenitore) {
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: true },
   });
-  const stato = { grafico, contenitore, ticker: null, modo: null, serie: [], livelli: [] };
+  const stato = { grafico, contenitore, ticker: null, modo: null, serie: [], livelli: [], confronto: null };
   // Quando muovi il dito (o il mouse) sul grafico, la riga in alto mostra i numeri di quel giorno
   grafico.subscribeCrosshairMove((parametri) => scriviRigaGrafico(stato, parametri.time));
   return stato;
@@ -174,7 +175,10 @@ function creaGraficoPrezzo(contenitore) {
 // Toglie tutte le serie (prezzo, medie, volumi) per ridisegnarle
 function svuotaGrafico(stato) {
   for (const s of stato.serie) stato.grafico.removeSeries(s);
+  if (stato.serieConfronto) stato.grafico.removeSeries(stato.serieConfronto);
+  stato.serieConfronto = null;
   stato.serie = [];
+  stato.livelli = [];
   stato.principale = stato.mm50 = stato.mm200 = stato.volumi = null;
 }
 
@@ -204,6 +208,7 @@ function disegnaOra(contenitore, ticker) {
   }
 
   const nuovoTitolo = stato.ticker !== ticker;
+  if (nuovoTitolo || stato.confronto === ticker) stato.confronto = null;   // cambi titolo: il confronto riparte da zero
   // Il periodo che stai guardando: lo teniamo uguale anche passando da candele a linea
   const intervallo = nuovoTitolo ? null : stato.grafico.timeScale().getVisibleRange();
   svuotaGrafico(stato);
@@ -214,6 +219,8 @@ function disegnaOra(contenitore, ticker) {
   stato.pallini = null;
   stato.firmaPallini = null;
   mettiPallini(stato);
+  applicaConfronto(stato);
+  riempiMenuConfronto(stato);
 
   if (intervallo) stato.grafico.timeScale().setVisibleRange(intervallo);
   else mostraPeriodo(stato, periodoPrezzo);
@@ -272,7 +279,7 @@ function riempiGrafico(stato, t) {
   // 2. Le medie mobili a 50 e 200 giorni
   const media = (valori, colore, accesa) => {
     const s = grafico.addSeries(LWC.LineSeries, { color: colore, lineWidth: 1.5, priceLineVisible: false,
-      lastValueVisible: false, crosshairMarkerVisible: false, priceFormat: formato, visible: accesa });
+      lastValueVisible: false, crosshairMarkerVisible: false, priceFormat: formato, visible: accesa && !stato.confronto });
     s.setData(punti(dati.giorni, valori));
     stato.serie.push(s);
     return s;
@@ -293,8 +300,8 @@ function riempiGrafico(stato, t) {
   }
 
   // 4. Supporti e resistenze: righe tratteggiate che restano al loro prezzo
-  const livello = (prezzo, nome) => stato.principale.createPriceLine({ price: prezzo, color: c.testo, lineWidth: 1,
-    lineStyle: LWC.LineStyle.Dashed, axisLabelVisible: false, title: nome });
+  const livello = (prezzo, nome) => stato.livelli.push(stato.principale.createPriceLine({ price: prezzo, color: c.testo,
+    lineWidth: 1, lineStyle: LWC.LineStyle.Dashed, axisLabelVisible: false, title: nome }));
   for (const l of t.supporti || []) livello(l.prezzo, "Supporto");
   for (const l of t.resistenze || []) livello(l.prezzo, "Resistenza");
 }
@@ -335,6 +342,102 @@ function mettiPallini(stato) {
   else stato.pallini = LWC.createSeriesMarkers(stato.principale, segni);
 }
 
+// ---------- Il confronto tra due titoli, in percentuale ----------
+// Scegli un secondo titolo dal menu "Confronta con…": compare come linea arancione e la scala
+// a destra passa in percentuale. Entrambe le linee partono da 0% nel primo giorno che vedi
+// a sinistra: così si vede chi è andato meglio NEL PERIODO MOSTRATO (zoomando, la partenza cambia).
+// Durante il confronto medie mobili, volumi, supporti e resistenze si nascondono.
+
+// Riempie il menu con i titoli che hanno un grafico: prima i tuoi, poi la watchlist
+function riempiMenuConfronto(stato) {
+  const menu = stato.contenitore.closest("section").querySelector(".confronto-prezzo");
+  if (!menu) return;
+  const miei = new Set(posizioni.map((p) => p.ticker));
+  const nome = (t) => (analisi.titoli[t] || {}).nome || infoTitolo(t).nome || t;
+  const tutti = Object.keys(analisi.titoli).filter((t) => t !== stato.ticker && analisi.titoli[t].tecnica)
+    .sort((a, b) => nome(a).localeCompare(nome(b), "it"));
+  const opzione = (valore, testo) => {
+    const o = document.createElement("option");
+    o.value = valore;
+    o.textContent = testo;
+    return o;
+  };
+  const gruppo = (titolo, sigle) => {
+    const g = document.createElement("optgroup");
+    g.label = titolo;
+    g.append(...sigle.map((t) => opzione(t, `${nome(t)} (${t})`)));
+    return g;
+  };
+  menu.replaceChildren(opzione("", "Confronta con…"),
+    gruppo("I miei titoli", tutti.filter((t) => miei.has(t))),
+    gruppo("Watchlist", tutti.filter((t) => !miei.has(t))));
+  menu.value = stato.confronto || "";
+  menu.onchange = () => scegliConfronto(stato, menu.value || null);
+}
+
+function scegliConfronto(stato, ticker) {
+  stato.confronto = ticker;
+  if (!ticker) return applicaConfronto(stato);
+  caricaGrafico(ticker).then(() => { if (stato.confronto === ticker) applicaConfronto(stato); });
+}
+
+// Accende o spegne il confronto nel grafico
+function applicaConfronto(stato) {
+  const { grafico } = stato;
+  if (stato.serieConfronto) grafico.removeSeries(stato.serieConfronto);
+  stato.serieConfronto = null;
+  stato.datiConfronto = stato.confronto ? datiPrezzo(stato.confronto) : null;
+  const attivo = Boolean(stato.datiConfronto);
+  const nota = stato.contenitore.closest("section").querySelector(".nota-confronto");
+
+  if (attivo) {
+    stato.serieConfronto = grafico.addSeries(LWC.LineSeries, { color: coloriGrafico().confronto, lineWidth: 2,
+      priceLineVisible: false, crosshairMarkerVisible: true });
+    stato.serieConfronto.setData(punti(stato.datiConfronto.giorni, stato.datiConfronto.chiusura));
+  }
+  // La scala a destra: in percentuale durante il confronto, in prezzo altrimenti
+  grafico.priceScale("right").applyOptions({ mode: attivo ? LWC.PriceScaleMode.Percentage : LWC.PriceScaleMode.Normal });
+  // Medie, volumi e livelli in percentuale non avrebbero senso: li nascondiamo
+  if (stato.mm50) stato.mm50.applyOptions({ visible: !attivo && medieAccese.mm50 });
+  if (stato.mm200) stato.mm200.applyOptions({ visible: !attivo && medieAccese.mm200 });
+  if (stato.volumi) stato.volumi.applyOptions({ visible: !attivo });
+  for (const l of stato.livelli) l.applyOptions({ lineVisible: !attivo });
+  if (nota) {
+    nota.hidden = !stato.confronto;
+    nota.textContent = !stato.confronto ? ""
+      : attivo ? `Linea arancione: ${nomeBreve(stato.confronto)}. Le due linee partono da 0% nel primo giorno a sinistra.`
+      : `Il grafico di ${nomeBreve(stato.confronto)} non è ancora disponibile.`;
+  }
+  // Mentre tocchi o zoomi, la riga dei numeri ricalcola le percentuali dal primo giorno visibile
+  if (!stato.ascoltaZoom) {
+    stato.ascoltaZoom = true;
+    grafico.timeScale().subscribeVisibleLogicalRangeChange(() => { if (stato.datiConfronto) scriviRigaGrafico(stato, null); });
+  }
+  scriviRigaGrafico(stato, null);
+}
+
+function nomeBreve(ticker) {
+  return (analisi.titoli[ticker] || {}).nome || ticker;
+}
+
+// Le percentuali del confronto per un giorno: dal primo giorno visibile a quel giorno
+function righeConfronto(stato, chiave) {
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  const giorni = stato.dati.giorni;
+  // Il primo giorno visibile, anche se si vede solo in parte: è quello che usa la scala in percentuale
+  const primo = giorni[Math.min(giorni.length - 1, Math.max(0, Math.floor(intervallo ? intervallo.from : 0)))];
+  const variazione = (d) => {
+    const base = d.giorni.findIndex((g) => g >= primo);
+    let fine = -1;
+    for (let i = d.giorni.length - 1; i >= 0; i--) if (d.giorni[i] <= chiave) { fine = i; break; }
+    if (base < 0 || fine < base) return "–";
+    return testoVariazione(d.chiusura[fine] / d.chiusura[base] - 1);
+  };
+  return [["", "dal " + dataBreve(primo)],
+    [nomeBreve(stato.ticker), variazione(stato.dati), "confronto-principale"],
+    [nomeBreve(stato.confronto), variazione(stato.datiConfronto), "confronto-secondo"]];
+}
+
 // Da due liste (giorni e valori) ai punti che vuole la libreria; i valori vuoti restano "buchi"
 function punti(giorni, valori) {
   return giorni.map((g, i) => (valori[i] === null || valori[i] === undefined ? { time: g } : { time: g, value: valori[i] }));
@@ -352,6 +455,10 @@ function scriviRigaGrafico(stato, tempo) {
   if (i < 0) return;
   const p = (v) => (v === null || v === undefined ? "–" : numeroIt(v, cifrePrezzo(v)));
   const pezzi = [["", testoGiorno(chiave)]];
+  if (stato.datiConfronto) {
+    scriviRiga(riga, [...pezzi, ...righeConfronto(stato, chiave)]);
+    return;
+  }
   if (stato.modo === "candele" && d.apertura[i] !== null) {
     pezzi.push(["A", p(d.apertura[i])], ["Max", p(d.massimo[i])], ["Min", p(d.minimo[i])], ["C", p(d.chiusura[i])]);
   } else {
@@ -366,14 +473,19 @@ function scriviRigaGrafico(stato, tempo) {
     pezzi.push(["● Acquist" + (acquisto.quanti > 1 ? "i" : "o"),
       `${quote(acquisto.quote)} quote a ${euro(acquisto.investito / acquisto.quote)}`]);
   }
-  // Scriviamo i testi come testo semplice, per sicurezza
-  riga.replaceChildren(...pezzi.map(([etichetta, valore]) => {
+  scriviRiga(riga, pezzi);
+}
+
+// Scrive i pezzi [etichetta, valore, classe] nella riga: come testo semplice, per sicurezza
+function scriviRiga(riga, pezzi) {
+  riga.replaceChildren(...pezzi.map(([etichetta, valore, classe]) => {
     const pezzo = document.createElement("span");
     if (etichetta) {
       const e = document.createElement("i");
       e.textContent = etichetta + " ";
       if (etichetta.startsWith("MM")) e.className = etichetta.toLowerCase();   // il colore della sua linea
       if (etichetta.startsWith("●")) e.className = "acquisto";
+      if (classe) e.className = classe;
       pezzo.append(e);
     }
     pezzo.append(valore);
@@ -418,7 +530,7 @@ function cambiaMedia(quale) {
   medieAccese[quale] = !medieAccese[quale];
   try { localStorage.setItem("medie-prezzo", JSON.stringify(medieAccese)); } catch (errore) { /* non importa */ }
   for (const stato of Object.values(graficiPrezzo)) {
-    if (stato[quale]) stato[quale].applyOptions({ visible: medieAccese[quale] });
+    if (stato[quale]) stato[quale].applyOptions({ visible: medieAccese[quale] && !stato.datiConfronto });
     scriviRigaGrafico(stato, null);
   }
   aggiornaPulsantiGrafico();
