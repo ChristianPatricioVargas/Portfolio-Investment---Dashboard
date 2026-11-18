@@ -77,7 +77,8 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
 
 Lo disegna [Lightweight Charts](https://github.com/tradingview/lightweight-charts) di TradingView, una libreria
 **gratuita e open source** (licenza Apache 2.0). È salvata nel repository (`librerie/`, con la sua licenza):
-la pagina non la scarica da altri siti. Il piccolo logo di TradingView nel grafico è il riconoscimento che la libreria chiede.
+la pagina non la scarica da altri siti. La licenza chiede di citare TradingView con un link a tradingview.com:
+lo facciamo con una riga in fondo a ogni pagina (al posto del logo sul grafico, che è facoltativo).
 
 - **Zoom e trascinamento**: due dita per ingrandire o rimpicciolire, un dito per andare avanti e indietro nel tempo.
   Scorrendo in verticale si muove la pagina, non il grafico.

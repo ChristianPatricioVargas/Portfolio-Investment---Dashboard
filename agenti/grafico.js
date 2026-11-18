@@ -2,6 +2,7 @@
 //
 // Lo disegna Lightweight Charts di TradingView: una libreria gratuita e open source
 // (licenza Apache 2.0), salvata nella cartella librerie/ insieme alla sua licenza.
+// La licenza chiede di citare TradingView con un link: lo facciamo in fondo a ogni pagina.
 // Con questa libreria il grafico si può:
 //   - ingrandire e rimpicciolire con due dita, con i pulsanti + e − (o con la rotellina del mouse)
 //   - trascinare avanti e indietro nel tempo con un dito
@@ -52,7 +53,7 @@ function trasparente(colore, opacita) {
 // Le opzioni del grafico che dipendono dal tema
 function opzioniTema(c) {
   return {
-    layout: { background: { type: "solid", color: c.sfondo }, textColor: c.testo,
+    layout: { background: { type: "solid", color: c.sfondo }, textColor: c.testo, attributionLogo: false,
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--carattere-numeri").trim() || "monospace",
       fontSize: 11 },
     grid: { vertLines: { color: trasparente(c.griglia, 0.5) }, horzLines: { color: trasparente(c.griglia, 0.5) } },
@@ -153,6 +154,8 @@ function creaGraficoPrezzo(contenitore) {
   const c = coloriGrafico();
   const grafico = LWC.createChart(contenitore, {
     autoSize: true,                     // si adatta da solo alla larghezza (anche se giri l'iPad)
+    // Niente logo di TradingView sul grafico: la licenza chiede di citare TradingView con un link,
+    // e lo facciamo in fondo alla pagina (index.html, "riconoscimenti")
     ...opzioniTema(c),
     localization: {
       locale: "it-IT",

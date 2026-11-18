@@ -1055,6 +1055,8 @@ i.linea-candele { display: inline-block; width: 6px; height: 12px; margin-right:
 
 footer { margin-top: 20px; font-size: 12px; }
 .scelta-tema { margin-top: 16px; font-size: 12px; }
+.riconoscimenti { margin: 10px 0 0; font-size: 11px; color: var(--testo-tenue); }
+.riconoscimenti a { color: inherit; }
 .scelta-tema .selettore { background: var(--carta-2); }
 
 a.link { text-decoration: none; font-size: 12px; }
