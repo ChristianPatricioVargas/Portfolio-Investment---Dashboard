@@ -71,6 +71,15 @@ jobs:
               echo "Nessun $nome.json sul sito: si parte da zero"
             fi
           done
+          # I grafici dei titoli (un file per titolo, data/grafici/) viaggiano in un unico pacchetto
+          if curl -fsSL "$SITO/data/grafici.tar.gz?t=$(date +%s)" -o /tmp/grafici.tar.gz \
+             && tar -tzf /tmp/grafici.tar.gz > /dev/null 2>&1; then
+            mkdir -p data/grafici
+            tar -xzf /tmp/grafici.tar.gz -C data/grafici --no-same-owner --wildcards '*.json'
+            echo "Recuperati $(ls data/grafici | wc -l) grafici dal sito"
+          else
+            echo "Nessun grafici.tar.gz sul sito: li preparano gli agenti al prossimo giro"
+          fi
 
       - name: Scarica prezzi e notizie, controlla gli allarmi
         # Se Yahoo un giorno non risponde, pubblichiamo comunque il sito con gli ultimi dati
@@ -123,7 +132,18 @@ jobs:
           mkdir -p _site
           cp index.html style.css app.js _site/
           cp -r agenti _site/agenti
+          cp -r librerie _site/librerie   # la libreria dei grafici (Lightweight Charts)
           cp -r data _site/data
+          # I grafici dei titoli anche in un unico pacchetto: serve solo al prossimo giro per recuperarli
+          if ls data/grafici/*.json > /dev/null 2>&1; then
+            (cd data/grafici && tar -czf ../../_site/data/grafici.tar.gz *.json)
+          fi
+          # Aggiungi ai file di stile e di codice un "numero di versione" (il codice
+          # dell'ultima modifica): così, quando il sito cambia, il browser scarica
+          # i file nuovi invece di mostrare quelli vecchi che ha in memoria.
+          # Il numero cambia solo quando cambia il codice, non a ogni prezzo.
+          versione="${GITHUB_SHA::8}"
+          sed -i -E "s#(href=\"style\.css|src=\"(agenti/[a-z]+|app)\.js)\"#\1?v=${versione}\"#g" _site/index.html
 
       - name: Impacchetta il sito
         uses: actions/upload-pages-artifact@v3

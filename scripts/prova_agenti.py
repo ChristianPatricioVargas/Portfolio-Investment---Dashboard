@@ -132,6 +132,20 @@ def prova_tecnico_candele():
     assert tecnico.candele(grafico, ["2026-11-09", "2026-11-10"]) is None        # manca un giorno: niente candele
 
 
+def prova_tecnico_storia():
+    giorno = lambda g: int(__import__("datetime").datetime(2026, 11, g, 12, tzinfo=__import__("datetime").timezone.utc).timestamp())
+    grafico = {"meta": {"gmtoffset": 3600, "currency": "EUR"}, "timestamp": [giorno(10), giorno(11), giorno(12), giorno(13)],
+               "indicators": {"quote": [{"open": [10, None, 12, 13], "high": [11, 12.5, 13, 14], "low": [9.5, 10.8, 11.9, 12],
+                                          "close": [9.876543, 12, None, 13.456], "volume": [100, None, 300, 5]}]}}
+    s = tecnico.storia(grafico)
+    assert s["giorni"] == ["2026-11-10", "2026-11-11", "2026-11-13"]          # il 12 non ha chiusura: saltato
+    assert s["chiusura"] == [9.8765, 12.0, 13.46] and s["valuta"] == "EUR"     # sotto 10: 4 decimali, sopra: 2
+    assert s["apertura"] == [10.0, None, 13.0] and s["massimo"][1] is None     # l'11 manca l'apertura: candela piatta
+    assert s["volume"] == [100, 0, 5]
+    giorni, valori = tecnico.ultimi_anni(giorni_finti(900), list(range(900)))
+    assert giorni[0] == "2024-11-14" and len(giorni) == len(valori) == 730     # ultimi 2 anni di calendario
+
+
 def prova_tecnico_livelli():
     # Il prezzo rimbalza tre volte su 90 e viene respinto tre volte da 110
     onda = [100, 104, 108, 110, 108, 104, 100, 96, 92, 90, 92, 96] * 3 + [100, 101, 101, 101, 101, 101, 101]
@@ -327,7 +341,7 @@ def prova_ai_freni():
 
 
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
-         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_livelli,
+         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_storia, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
          prova_ai_spenta_senza_chiave, prova_ai_freni]
@@ -374,8 +388,17 @@ def prova_dal_vivo():
         righe.append(f"| {ticker} / {usa} | {stato_t} | {t['rsi'] if t else '–'} | {t['dalMassimo'] if t else '–'} | {stato_f} "
                      f"| {f.get('pe')} | {f.get('margineNetto')} | {f.get('crescitaUtili')} | {f.get('debitoSuCapitale')} "
                      f"| {f.get('analistiPositivi')} su {f.get('analisti')} | {f.get('prossimaTrimestrale')} | {segnali} |")
+    # Il grafico della pagina usa 5 anni di candele giornaliere: Yahoo le dà?
+    try:
+        storia = tecnico.storia(yahoo.grafico("SAP.DE", "5y"))
+        candele = sum(1 for v in storia["apertura"] if v is not None)
+        stato_storia = f"{len(storia['giorni'])} giorni dal {storia['giorni'][0]}, {candele} con la candela"
+        storia_ok = len(storia["giorni"]) > 1000
+    except Exception as errore:
+        stato_storia, storia_ok = f"ERRORE {type(errore).__name__}: {errore}", False
     righe += ["", f"Prezzi storici (analisi tecnica): {prezzi_ok} titoli su {len(campione)}.",
-              f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}."]
+              f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}.",
+              f"Grafico a 5 anni (SAP.DE): {stato_storia}."]
     testo = "\n".join(righe)
     print(testo)
     riepilogo = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -383,7 +406,7 @@ def prova_dal_vivo():
         with open(riepilogo, "a", encoding="utf-8") as file:
             file.write(testo + "\n")
     # Tolleriamo un titolo mancante per fonte: un singolo intoppo non deve far scattare l'allarme
-    return prezzi_ok >= len(campione) - 1 and conti_ok >= len(campione) - 1
+    return prezzi_ok >= len(campione) - 1 and conti_ok >= len(campione) - 1 and storia_ok
 
 
 def main():
