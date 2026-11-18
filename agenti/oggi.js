@@ -1,12 +1,12 @@
 // agenti/oggi.js = la pagina "OGGI": il riepilogo di tutta la squadra di agenti.
 // È la prima pagina che vedi. Mette insieme, senza calcoli nuovi, il lavoro degli altri:
-//   1. come va il portafoglio
-//   2. cosa è successo ai tuoi titoli (prezzi, notizie, campanelli, trimestrali vicine)
-//   3. lo stato delle tue tesi (vicino al target? condizioni di uscita verificate?)
-//   4. le migliori occasioni del cacciatore, con il loro rischio principale
+//   1. come va il portafoglio (e quanto incasseresti vendendo le azioni oggi)
+//   2. il mercato di oggi (indici e watchlist)
+//   3. il grafico e la tabella "Posizioni e tesi" (vicino al target? manca la tesi?)
+//   4. cosa è successo ai tuoi titoli (notizie, campanelli raggruppati per titolo, trimestrali vicine)
+//   5. le migliori occasioni del cacciatore
 // E prepara il testo di "Copia per l'analisi", da incollare in una chat con Claude.
 
-const OCCASIONI_IN_EVIDENZA = 3;     // quante occasioni mostrare nella pagina Oggi
 const OCCASIONI_NEL_TESTO = 5;       // quante metterne nel testo da copiare
 const GIORNI_AVVISO_TRIMESTRALE = 30;
 
@@ -35,27 +35,6 @@ function riepilogoPortafoglio() {
   return { investito, valore, gp: valore - investito, variazioneOggi, valoreIeri, completo };
 }
 
-// Lo stato della tesi di un titolo: { livello: "bene" | "attenzione" | "neutro", testo }
-function statoTesi(ticker) {
-  const t = tesi[ticker];
-  if (!t) return { livello: "neutro", testo: "Nessuna tesi scritta: apri il titolo e scrivi perché sei entrato e quando usciresti." };
-  const scattate = t.uscita.filter((u) => u.scattata);
-  if (scattate.length) {
-    return { livello: "attenzione", testo: `Condizione di uscita verificata: «${scattate.map((u) => u.testo).join("», «")}». Rileggi la tesi.` };
-  }
-  const a = avanzamentoTesi(ticker);
-  if (a && (a.raggiunto || a.vicino)) return { livello: "bene", testo: testoAvanzamento(a) };
-  // I campanelli gravi dell'avvocato potrebbero riguardare le tue condizioni di uscita: te li ricordiamo
-  const gravi = campanelliDi(ticker).filter((c) => c.livello === "alto");
-  if (gravi.length && t.uscita.length) {
-    return { livello: "attenzione", testo: `L'avvocato del diavolo segnala: ${gravi.map((c) => c.titolo.toLowerCase()).join(", ")}. Controlla se tocca una tua condizione di uscita.` };
-  }
-  if (a) return { livello: "neutro", testo: testoAvanzamento(a) };
-  return { livello: "neutro", testo: t.target ? "In attesa del prezzo." : "Tesi scritta, senza target." };
-}
-
-const SIMBOLI_STATO = { bene: "✓", attenzione: "⚠", neutro: "•" };
-
 // Una riga della pagina Oggi: titolo a sinistra, numero a destra, dettagli sotto. Toccandola si apre il titolo.
 function creaRigaOggi(ticker, destra, classeDestra, dettagli) {
   const riga = document.createElement("button");
@@ -76,7 +55,7 @@ function creaRigaOggi(ticker, destra, classeDestra, dettagli) {
   return riga;
 }
 
-// ---------- Piccoli mattoni per costruire tabelle e mini-grafici ----------
+// ---------- Piccoli mattoni per costruire le tabelle ----------
 
 // Crea un elemento con una classe e un testo (sempre testo semplice, per sicurezza)
 function crea(tipo, classe = "", testo = "") {
@@ -96,20 +75,6 @@ function intestaTabella(tabella, colonne) {
     riga.appendChild(cella);
   }
   return tabella.createTBody();
-}
-
-// Il mini-grafico dell'ultimo mese di un titolo (dai prezzi di chiusura salvati)
-function creaMiniGrafico(ticker) {
-  const valori = Object.values(storico[ticker] || {}).slice(-22);
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 72 24");
-  svg.setAttribute("class", "mini-grafico");
-  svg.setAttribute("aria-hidden", "true");
-  if (valori.length < 2) return svg;
-  const minimo = Math.min(...valori), massimo = Math.max(...valori);
-  const d = valori.map((v, i) => `${i ? "L" : "M"}${((i / (valori.length - 1)) * 72).toFixed(1)},${(22 - ((v - minimo) / (massimo - minimo || 1)) * 20).toFixed(1)}`).join(" ");
-  svg.innerHTML = `<path class="${valori[valori.length - 1] >= valori[0] ? "su" : "giu"}" d="${d}"/>`;
-  return svg;
 }
 
 // ▲ +0,82%  oppure  ▼ −1,14%: la freccia dice la direzione anche senza il colore
@@ -139,9 +104,34 @@ function disegnaStriscia() {
   if (controllatiIl) striscia.appendChild(crea("span", "ora-striscia", "aggiornato " + momento(controllatiIl)));
 }
 
-// ---------- Il grafico a candele della pagina Oggi ----------
+// ---------- Nomi brevi ----------
+
+// Il nome corto di un titolo, per gli spazi stretti (composizione, campanelli):
+// "Vanguard FTSE All-World (Acc)" → "FTSE All-World", "iShares MSCI World Small Cap (Acc)" → "MSCI World Small Cap".
+// Se in data/titoli.json c'è il campo "breve", vince quello.
+const EMITTENTI_ETF = /^(Vanguard|iShares|Xtrackers|Amundi|SPDR|Invesco|Lyxor|VanEck|WisdomTree|HSBC|UBS)\s+/i;
+function nomeCorto(ticker) {
+  const info = infoTitolo(ticker);
+  if (info.breve) return info.breve;
+  return String(info.nome || ticker).replace(/\s*\([^)]*\)\s*$/, "").replace(EMITTENTI_ETF, "") || ticker;
+}
+
+// ---------- Il grafico della pagina Oggi ----------
+// Mostra un titolo alla volta: lo scegli toccando la sua riga nella tabella "Posizioni e tesi".
 
 let tickerGraficoOggi = null;     // il titolo mostrato nel grafico della pagina Oggi
+
+// Sceglie il titolo del grafico (dalla tabella) e ridisegna grafico e righe evidenziate
+function scegliTitoloGrafico(ticker) {
+  tickerGraficoOggi = ticker;
+  disegnaGraficoOggi();
+  for (const riga of document.querySelectorAll("#tabella-posizioni tbody tr")) {
+    riga.classList.toggle("scelta", riga.dataset.ticker === ticker);
+  }
+  // Sul telefono il grafico è sopra, fuori dallo schermo: ci torniamo, così vedi subito il titolo scelto
+  const grafico = $("oggi-grafico");
+  if (grafico.getBoundingClientRect().top < 0) grafico.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 function disegnaGraficoOggi() {
   const sigle = posizioni.map((p) => p.ticker);
@@ -151,15 +141,6 @@ function disegnaGraficoOggi() {
   if (!sigle.includes(tickerGraficoOggi)) {
     tickerGraficoOggi = sigle.find((t) => infoTitolo(t).tipo !== "ETF") || sigle[0];
   }
-  const scelta = $("oggi-scelta-titolo");
-  scelta.innerHTML = "";
-  for (const ticker of sigle) {
-    const pulsante = crea("button", ticker === tickerGraficoOggi ? "attivo" : "", ticker.split(".")[0]);
-    pulsante.type = "button";
-    pulsante.title = infoTitolo(ticker).nome;
-    pulsante.onclick = () => { tickerGraficoOggi = ticker; disegnaGraficoOggi(); };
-    scelta.appendChild(pulsante);
-  }
   const t = (analisi.titoli[tickerGraficoOggi] || {}).tecnica;
   const p = prezzi[tickerGraficoOggi];
   const riga = $("oggi-riga-grafico");
@@ -168,11 +149,160 @@ function disegnaGraficoOggi() {
   if (p) riga.append(crea("span", "numero", euro(p.prezzo)));
   if (p && p.chiusuraIeri) riga.append(crea("span", "numero " + classeColore(p.prezzo / p.chiusuraIeri - 1), testoVariazione(p.prezzo / p.chiusuraIeri - 1)));
   if (t) riga.append(crea("span", "tenue", `RSI ${numeroIt(t.rsi ?? 0, 0)} · ${percUno(t.dalMassimo, true)} dal massimo dell'anno`));
-  $("oggi-grafico-vuoto").hidden = Boolean(t);
+  // Per aprire la pagina completa del titolo (tesi, conti, notizie, rischi)
+  const apri = crea("button", "link", "Apri il titolo ›");
+  apri.type = "button";
   const ticker = tickerGraficoOggi;
+  apri.onclick = () => vaiAlTitolo(ticker);
+  riga.append(apri);
+  $("oggi-grafico-vuoto").hidden = Boolean(t);
   caricaSerie().then(() => {
     if (ticker === tickerGraficoOggi && vistaAperta === "oggi") disegnaGraficoPrezzo($("grafico-oggi"), ticker);
   });
+}
+
+// ---------- La riga "Mercato oggi" ----------
+// S&P 500 ed Euro Stoxx 50 (da data/prezzi.json) e la tua watchlist: quanti titoli sono saliti
+// e quanti scesi all'ultima chiusura (dalle linee di data/serie.json, che si scaricano una volta sola).
+
+const INDICI_MERCATO = ["S&P 500", "Euro Stoxx 50"];
+
+function disegnaRigaMercato() {
+  const voci = $("voci-mercato");
+  voci.innerHTML = "";
+  const voce = (nome, valore, variazione, titolo) => {
+    const elemento = crea("span", "voce-mercato");
+    elemento.append(crea("span", "nome-striscia", nome));
+    if (valore) elemento.append(crea("span", "numero", valore));
+    if (variazione !== null) elemento.append(crea("span", "numero " + classeColore(variazione), testoVariazione(variazione)));
+    if (titolo) elemento.title = titolo;
+    voci.appendChild(elemento);
+  };
+  for (const nome of INDICI_MERCATO) {
+    const m = mercati.find((x) => x.nome === nome);
+    if (m) voce(nome, numeroIt(m.valore, m.cifre), m.ieri ? m.valore / m.ieri - 1 : null);
+  }
+  // La watchlist: la variazione dell'ultima chiusura rispetto a quella prima, titolo per titolo
+  const variazioni = [];
+  for (const [ticker, scheda] of Object.entries(analisi.titoli)) {
+    if (scheda.gruppo !== "watchlist" || nascosto(ticker)) continue;
+    const linea = ((serieTecniche || {})[ticker] || {}).prezzo || [];
+    const valori = linea.filter((v) => typeof v === "number" && v > 0);
+    if (valori.length >= 2) variazioni.push(valori[valori.length - 1] / valori[valori.length - 2] - 1);
+  }
+  if (variazioni.length) {
+    const salite = variazioni.filter((v) => v > 0).length;
+    const scese = variazioni.filter((v) => v < 0).length;
+    const media = variazioni.reduce((somma, v) => somma + v, 0) / variazioni.length;
+    voce("Watchlist", `▲${salite} ▼${scese}`, media,
+      `Ultima chiusura: ${salite} titoli saliti, ${scese} scesi su ${variazioni.length}. Variazione media ${percentuale(media)}.`);
+  } else if (serieTecniche === null) {
+    voce("Watchlist", "…", null);
+  }
+  $("oggi-mercato").hidden = voci.children.length === 0;
+}
+
+// ---------- La cella "Tesi" della tabella ----------
+
+// L'ultima colonna della tabella: dove sei rispetto al tuo target (o "Scrivi la tesi")
+function cellaTesi(ticker) {
+  const cella = crea("td", "cella-target");
+  if (infoTitolo(ticker).tipo === "ETF") {
+    cella.appendChild(crea("span", "tenue", "core · lungo termine"));
+    return cella;
+  }
+  const t = tesi[ticker];
+  if (!t) {
+    // Nessuna tesi: un pulsante che apre la pagina del titolo con il modulo della tesi già aperto
+    const scrivi = crea("button", "link scrivi-tesi", "✎ Scrivi la tesi");
+    scrivi.type = "button";
+    scrivi.onclick = (evento) => { evento.stopPropagation(); scriviTesi(ticker); };
+    cella.appendChild(scrivi);
+    return cella;
+  }
+  const scattata = t.uscita.some((u) => u.scattata);
+  if (scattata) cella.appendChild(crea("span", "avviso-tesi", "⚠ uscita verificata"));
+  const a = avanzamentoTesi(ticker);
+  if (!a) {
+    cella.appendChild(crea("span", "tenue", t.target ? "in attesa del prezzo" : "tesi senza target"));
+    return cella;
+  }
+  const quota = a.strada === null ? (a.raggiunto ? 1 : 0) : Math.max(0, Math.min(1, a.strada));
+  const barra = crea("span", "barra-mini" + (a.raggiunto || a.vicino ? " vicino" : ""));
+  barra.innerHTML = `<span style="width:${(quota * 100).toFixed(0)}%"></span>`;
+  barra.title = testoAvanzamento(a);
+  const testo = a.raggiunto ? "target raggiunto" : `${Math.round(quota * 100)}% · mancano ${percUno(a.mancante, true)}`;
+  cella.append(barra, crea("span", "tenue", testo), crea("span", "tenue target-cifra", "target " + euroTondo.format(a.target)));
+  return cella;
+}
+
+// Apre la pagina del titolo e, appena è pronta, il modulo per scrivere la tesi
+function scriviTesi(ticker) {
+  vaiAlTitolo(ticker);
+  setTimeout(() => {
+    if (tickerAperto !== ticker) return;
+    apriModuloTesi();
+    $("sezione-tesi").scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 150);
+}
+
+// ---------- I campanelli, raggruppati per titolo ----------
+// Per ogni titolo: "SAP · 3 segnali". Si vedono subito solo quelli di livello alto;
+// gli altri si aprono toccando "altri 2 da tenere d'occhio".
+
+function disegnaCampanelliOggi() {
+  const contenitore = $("elenco-oggi-campanelli");
+  contenitore.innerHTML = "";
+  const gruppi = posizioni.map((p) => {
+    // Senza ripetizioni: se due campanelli hanno lo stesso titolo, ne teniamo uno solo (il più grave viene prima)
+    const visti = new Set();
+    const lista = campanelliDi(p.ticker)
+      .slice().sort((a, b) => (a.livello !== "alto") - (b.livello !== "alto"))
+      .filter((c) => !visti.has(c.titolo) && visti.add(c.titolo));
+    return { ticker: p.ticker, lista, alti: lista.filter((c) => c.livello === "alto") };
+  }).filter((g) => g.lista.length)
+    // Prima i titoli con campanelli gravi, poi quelli con più campanelli
+    .sort((a, b) => b.alti.length - a.alti.length || b.lista.length - a.lista.length);
+
+  const rigaCampanello = (c) => {
+    const voce = crea("li", "campanello-breve");
+    voce.append(crea("span", "livello-breve " + c.livello, c.livello === "alto" ? "ALTO" : "MEDIO"));
+    const testo = crea("span");
+    testo.append(crea("b", "", c.titolo));
+    // Il testo solo se aggiunge qualcosa al titolo
+    if (c.testo && c.testo.toLowerCase() !== c.titolo.toLowerCase()) testo.append(crea("span", "tenue", " · " + c.testo));
+    voce.append(testo);
+    return voce;
+  };
+
+  for (const g of gruppi) {
+    const gruppo = crea("div", "gruppo-campanelli");
+    const testa = crea("button", "testa-gruppo");
+    testa.type = "button";
+    testa.onclick = () => vaiAlTitolo(g.ticker);
+    testa.append(crea("span", "livello-breve " + (g.alti.length ? "alto" : "medio"), g.alti.length ? "ALTO" : "MEDIO"),
+      crea("b", "", nomeCorto(g.ticker)),
+      crea("span", "tenue", `· ${g.lista.length} ${g.lista.length === 1 ? "segnale" : "segnali"}`),
+      crea("span", "freccia-gruppo", "›"));
+    gruppo.appendChild(testa);
+    if (g.alti.length) {
+      const elenco = crea("ul", "campanelli-brevi");
+      g.alti.forEach((c) => elenco.appendChild(rigaCampanello(c)));
+      gruppo.appendChild(elenco);
+    }
+    const altri = g.lista.filter((c) => c.livello !== "alto");
+    if (altri.length) {
+      // <details> = una parte che si apre e si chiude toccando il titoletto
+      const apribile = crea("details", "altri-campanelli");
+      apribile.append(crea("summary", "", `${altri.length} da tenere d'occhio`));
+      const elenco = crea("ul", "campanelli-brevi");
+      altri.forEach((c) => elenco.appendChild(rigaCampanello(c)));
+      apribile.appendChild(elenco);
+      gruppo.appendChild(apribile);
+    }
+    contenitore.appendChild(gruppo);
+  }
+  $("oggi-campanelli-vuoto").hidden = gruppi.length > 0;
 }
 
 // ---------- La pagina Oggi ----------
@@ -194,16 +324,60 @@ function disegnaOggi() {
     const oggiNoto = r.completo && r.valoreIeri > 0;
     numero("oggi-variazione", oggiNoto ? euro(r.variazioneOggi, true) : "–", oggiNoto ? r.variazioneOggi : 0);
     numero("oggi-variazione-perc", oggiNoto ? testoVariazione(r.variazioneOggi / r.valoreIeri) : "in attesa dei prezzi", oggiNoto ? r.variazioneOggi : 0);
-    // Se vendessi tutto: la somma del netto di ogni posizione (ognuna paga tasse e commissione per conto suo)
-    const netto = posizioni.reduce((somma, p) => somma + (prezzi[p.ticker] ? calcolaVendita(p, prezzi[p.ticker].prezzo).netto : 0), 0);
-    numero("oggi-netto", r.completo ? euro(netto) : "–");
+    // Se vendessi le AZIONI (gli ETF no: sono di lungo termine). Ogni vendita paga tasse e commissione per conto suo.
+    const azioni = posizioni.filter((p) => infoTitolo(p.ticker).tipo !== "ETF");
+    const conPrezzo = azioni.every((p) => prezzi[p.ticker]);
+    const vendite = azioni.filter((p) => prezzi[p.ticker]).map((p) => calcolaVendita(p, prezzi[p.ticker].prezzo));
+    const netto = vendite.reduce((somma, v) => somma + v.netto, 0);
+    const guadagnoNetto = vendite.reduce((somma, v) => somma + v.guadagnoNetto, 0);
+    if (azioni.length === 0) {
+      numero("oggi-netto", "–");
+      numero("oggi-netto-dettaglio", "nessuna azione in portafoglio");
+    } else if (!conPrezzo) {
+      numero("oggi-netto", "–");
+      numero("oggi-netto-dettaglio", "in attesa dei prezzi");
+    } else {
+      numero("oggi-netto", euro(netto));
+      numero("oggi-netto-dettaglio", `${euro(guadagnoNetto, true)} netti · tasse 26% e commissioni tolte`, guadagnoNetto);
+    }
     $("oggi-fonte").textContent = Object.keys(prezzi).length ? testoFonte(posizioni.map((p) => p.ticker)) : "";
   }
 
-  // ---- 2. Il grafico ----
+  // ---- 2. Il mercato di oggi (la watchlist arriva appena sono scaricate le linee dei grafici) ----
+  disegnaRigaMercato();
+  if (serieTecniche === null) caricaSerie().then(disegnaRigaMercato);
+
+  // ---- 3. Il grafico ----
   disegnaGraficoOggi();
 
-  // ---- 3. Le occasioni: una tabella con le 5 che spiccano ----
+  // ---- 4. La tabella "Posizioni e tesi": toccando una riga il grafico mostra quel titolo ----
+  const corpo = intestaTabella($("tabella-posizioni"), [["Titolo", ""], ["Prezzo", "destra"], ["Oggi", "destra"], ["Valore", "destra"],
+    ["Guad.", "destra"], ["Tesi · target", ""]]);
+  for (const posizione of posizioni) {
+    const ticker = posizione.ticker;
+    const info = infoTitolo(ticker);
+    const c = calcola(posizione);
+    const riga = corpo.insertRow();
+    riga.className = "si-tocca" + (ticker === tickerGraficoOggi ? " scelta" : "");
+    riga.dataset.ticker = ticker;
+    riga.onclick = () => scegliTitoloGrafico(ticker);
+    // Sotto il nome: il motivo della tesi (per gli ETF solo "ETF")
+    const nome = crea("td", "nome-cella");
+    nome.append(crea("b", "", info.nome));
+    const motivo = info.tipo === "ETF" ? "ETF" : tesi[ticker] && tesi[ticker].motivo ? tesi[ticker].motivo : "Azione · tesi non ancora scritta";
+    nome.append(crea("span", "motivo-tesi", motivo));
+    riga.append(nome,
+      crea("td", "destra numero", c ? numeroIt(c.prezzo, 2) : "–"),
+      crea("td", "destra numero " + (c && c.oggi !== null ? classeColore(c.oggi) : ""), c && c.oggi !== null ? percentuale(c.oggi) : "–"),
+      crea("td", "destra numero", c ? numeroIt(c.valore, 2) : "–"),
+      crea("td", "destra numero " + (c ? classeColore(c.gp) : ""), c ? percentuale(c.gpPerc) : "–"),
+      cellaTesi(ticker));
+  }
+
+  // ---- 5. I campanelli d'allarme, raggruppati per titolo ----
+  disegnaCampanelliOggi();
+
+  // ---- 6. Le occasioni: una tabella con le 5 che spiccano ----
   const migliori = occasioni(3).slice(0, QUANTE_SPICCANO);
   const corpoOccasioni = intestaTabella($("tabella-occasioni"), [["#", ""], ["Azienda", ""], ["Calo", "destra"], ["Segnali", "destra"], ["Direzione", "destra"]]);
   migliori.forEach((ticker, i) => {
@@ -226,60 +400,7 @@ function disegnaOggi() {
     ? "Oggi nessuna azienda della watchlist ha almeno 3 segnali su 4."
     : "Le occasioni arriveranno con il prossimo giro degli agenti.";
 
-  // ---- 4. La tabella delle posizioni ----
-  const corpo = intestaTabella($("tabella-posizioni"), [["Titolo", ""], ["Prezzo", "destra"], ["Oggi", "destra"], ["Valore", "destra"],
-    ["Guad.", "destra"], ["RSI", "destra"], ["1 mese", ""], ["Target", ""], ["Rischi", "destra"]]);
-  for (const posizione of posizioni) {
-    const ticker = posizione.ticker;
-    const info = infoTitolo(ticker);
-    const c = calcola(posizione);
-    const t = (analisi.titoli[ticker] || {}).tecnica;
-    const riga = corpo.insertRow();
-    riga.className = "si-tocca";
-    riga.onclick = () => vaiAlTitolo(ticker);
-    const nome = crea("td", "nome-cella");
-    nome.append(crea("b", "", info.nome), crea("span", "tenue", " " + info.tipo));
-    riga.append(nome,
-      crea("td", "destra numero", c ? numeroIt(c.prezzo, 2) : "–"),
-      crea("td", "destra numero " + (c && c.oggi !== null ? classeColore(c.oggi) : ""), c && c.oggi !== null ? percentuale(c.oggi) : "–"),
-      crea("td", "destra numero", c ? numeroIt(c.valore, 2) : "–"),
-      crea("td", "destra numero " + (c ? classeColore(c.gp) : ""), c ? percentuale(c.gpPerc) : "–"),
-      crea("td", "destra numero", t && t.rsi !== null ? numeroIt(t.rsi, 0) : "–"));
-    const mini = crea("td");
-    mini.appendChild(creaMiniGrafico(ticker));
-    // L'avanzamento verso il TUO target (quello della scheda tesi)
-    const cellaTarget = crea("td", "cella-target");
-    const a = avanzamentoTesi(ticker);
-    if (a) {
-      const quota = a.strada === null ? (a.raggiunto ? 1 : 0) : Math.max(0, Math.min(1, a.strada));
-      const barra = crea("span", "barra-mini");
-      barra.innerHTML = `<span style="width:${(quota * 100).toFixed(0)}%"></span>`;
-      cellaTarget.append(barra, crea("span", "tenue", `${Math.round(quota * 100)}% · ${euroTondo.format(a.target)}`));
-    } else {
-      cellaTarget.appendChild(crea("span", "tenue", info.tipo === "ETF" ? "lungo termine" : "nessun target"));
-    }
-    const quanti = campanelliDi(ticker).length;
-    riga.append(mini, cellaTarget, crea("td", "destra numero" + (campanelliDi(ticker).some((x) => x.livello === "alto") ? " negativo" : ""), quanti ? String(quanti) : "–"));
-  }
-
-  // ---- 5. I campanelli d'allarme dei tuoi titoli: prima i più gravi ----
-  const tutti = posizioni.flatMap((p) => campanelliDi(p.ticker).map((c) => ({ ...c, ticker: p.ticker })))
-    .sort((a, b) => (a.livello !== "alto") - (b.livello !== "alto"));
-  const elencoCampanelli = $("elenco-oggi-campanelli");
-  elencoCampanelli.innerHTML = "";
-  for (const c of tutti.slice(0, 7)) {
-    const voce = crea("li");
-    const apri = crea("button", "si-tocca");
-    apri.type = "button";
-    apri.onclick = () => vaiAlTitolo(c.ticker);
-    apri.append(crea("span", "livello-breve " + c.livello, c.livello === "alto" ? "ALTO" : "MEDIO"), crea("b", "", infoTitolo(c.ticker).nome), crea("span", "", " · " + c.titolo.toLowerCase()));
-    voce.appendChild(apri);
-    elencoCampanelli.appendChild(voce);
-  }
-  if (tutti.length > 7) elencoCampanelli.appendChild(crea("li", "tenue", `e altri ${tutti.length - 7}: apri i titoli per vederli`));
-  $("oggi-campanelli-vuoto").hidden = tutti.length > 0;
-
-  // ---- 6. Cosa è successo ai miei titoli: notizia principale e fatti del giorno ----
+  // ---- 7. Cosa è successo ai miei titoli: notizia principale e fatti del giorno ----
   const elencoTitoli = $("elenco-oggi-titoli");
   elencoTitoli.innerHTML = "";
   for (const posizione of posizioni) {
@@ -296,7 +417,7 @@ function disegnaOggi() {
       ]));
   }
 
-  // ---- 7. Composizione (grafico ad anello) e prossime trimestrali ----
+  // ---- 8. Composizione (grafico ad anello) e prossime trimestrali ----
   disegnaComposizione(r);
   const elencoTrimestrali = $("elenco-trimestrali");
   elencoTrimestrali.innerHTML = "";
@@ -307,23 +428,11 @@ function disegnaOggi() {
   for (const { ticker, f } of date) {
     const giorni = giorniA(f.prossimaTrimestrale);
     const riga = crea("div");
-    riga.append(crea("span", "", infoTitolo(ticker).nome),
+    riga.append(crea("span", "", nomeCorto(ticker)),
       crea("span", "numero " + (giorni <= 14 ? "attenzione" : "tenue"), `${dataBreve(f.prossimaTrimestrale).replace(/ \d{4}$/, "")} · ${giorni} g`));
     elencoTrimestrali.appendChild(riga);
   }
   if (date.length === 0) elencoTrimestrali.appendChild(crea("div", "tenue", "Nessuna data disponibile."));
-
-  // ---- 8. Le mie tesi (solo azioni: gli ETF sono di lungo termine) ----
-  const azioni = posizioni.filter((p) => infoTitolo(p.ticker).tipo !== "ETF");
-  $("oggi-tesi").hidden = azioni.length === 0;
-  const elencoTesi = $("elenco-oggi-tesi");
-  elencoTesi.innerHTML = "";
-  for (const posizione of azioni) {
-    const stato = statoTesi(posizione.ticker);
-    const a = avanzamentoTesi(posizione.ticker);
-    elencoTesi.appendChild(creaRigaOggi(posizione.ticker, a ? `target ${euro(a.target)}` : "", "",
-      [`${SIMBOLI_STATO[stato.livello]} ${stato.testo}`]));
-  }
 
   $("oggi-aggiornamento").textContent = analisi.aggiornato
     ? `Gli agenti hanno lavorato l'ultima volta ${momento(analisi.aggiornato)} (due volte al giorno: verso le 13 e la sera).` +
@@ -348,13 +457,13 @@ function disegnaComposizione(r) {
     disegno += `<circle class="fetta fetta-${(i % 6) + 1}" cx="60" cy="60" r="44" stroke-dasharray="${Math.max(quota * giro - 3, 1).toFixed(1)} ${giro.toFixed(1)}" stroke-dashoffset="${(-partenza * giro).toFixed(1)}" transform="rotate(-90 60 60)"/>`;
     partenza += quota;
     const voce = crea("div");
-    voce.append(crea("i", `fetta-${(i % 6) + 1}`), crea("span", "", infoTitolo(f.ticker).nome), crea("span", "numero", percUno(quota).replace(",0%", "%")));
+    voce.append(crea("i", `fetta-${(i % 6) + 1}`), crea("span", "", nomeCorto(f.ticker)), crea("span", "numero", percUno(quota).replace(",0%", "%")));
     legenda.appendChild(voce);
   });
   const inEtf = fette.filter((f) => infoTitolo(f.ticker).tipo === "ETF").reduce((somma, f) => somma + f.valore, 0) / r.valore;
   anello.innerHTML = disegno + `<text class="centro-anello" x="60" y="58" text-anchor="middle">${Math.round(inEtf * 100)}%</text>
     <text class="sotto-anello" x="60" y="73" text-anchor="middle">in ETF</text>`;
-  anello.setAttribute("aria-label", "Composizione del portafoglio: " + fette.map((f) => `${infoTitolo(f.ticker).nome} ${Math.round((f.valore / r.valore) * 100)}%`).join(", "));
+  anello.setAttribute("aria-label", "Composizione del portafoglio: " + fette.map((f) => `${nomeCorto(f.ticker)} ${Math.round((f.valore / r.valore) * 100)}%`).join(", "));
 }
 
 // ---------- "Copia per l'analisi" ----------

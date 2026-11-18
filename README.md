@@ -60,6 +60,13 @@ Scelte di progetto:
 L'aspetto è quello di una piattaforma: menu a icone (a sinistra sull'iPad, in basso sul telefono), striscia dei prezzi
 sempre visibile in alto con i miei titoli e gli indici di mercato (DAX, Euro Stoxx 50, S&P 500, euro/dollaro),
 riquadri compatti, numeri in carattere a larghezza fissa, tema chiaro o scuro.
+
+La pagina **Oggi**, dall'alto: i 4 numeri (valore, guadagno totale, oggi, "se vendo le azioni oggi" netto di tasse
+e commissioni, ETF esclusi), la riga "Mercato oggi" (S&P 500, Euro Stoxx 50 e quanti titoli della watchlist sono
+saliti o scesi all'ultima chiusura). A sinistra il grafico e la tabella **Posizioni e tesi**: tocchi una riga e il
+grafico mostra quel titolo; sotto ogni nome c'è il motivo della tesi e l'ultima colonna dice quanto manca al target
+(o "Scrivi la tesi"). A destra i campanelli raggruppati per titolo, le 5 occasioni, la composizione, le trimestrali
+e "Copia per l'analisi".
 Il grafico del prezzo di ogni titolo (pagina del titolo e pagina Oggi) è fatto con **Lightweight Charts**:
 si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni periodo fino a 5 anni
 (dettagli più sotto, in "Il grafico del prezzo").
