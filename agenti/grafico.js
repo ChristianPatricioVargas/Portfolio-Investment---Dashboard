@@ -6,6 +6,7 @@
 //   - ingrandire e rimpicciolire con due dita (o con la rotellina del mouse)
 //   - trascinare avanti e indietro nel tempo con un dito
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
+//   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
 //
 // I dati arrivano dagli agenti (scripts/agenti/tecnico.py): qui li disegniamo soltanto.
 // Il grafico del rendimento del portafoglio NON passa di qui: resta quello di app.js, a linea.
@@ -195,8 +196,12 @@ function disegnaOra(contenitore, ticker) {
 
   let stato = graficiPrezzo[contenitore.id];
   if (!stato) stato = graficiPrezzo[contenitore.id] = creaGraficoPrezzo(contenitore);
-  // Stesso titolo, stesso modo, stessi dati: il grafico è già giusto (così non perdi lo zoom)
-  if (stato.ticker === ticker && stato.modo === modoGrafico && stato.dati === dati) return;
+  // Stesso titolo, stesso modo, stessi dati: il grafico è già giusto (così non perdi lo zoom).
+  // Aggiorniamo solo i pallini, nel caso tu abbia aggiunto o cambiato un acquisto.
+  if (stato.ticker === ticker && stato.modo === modoGrafico && stato.dati === dati) {
+    mettiPallini(stato);
+    return;
+  }
 
   const nuovoTitolo = stato.ticker !== ticker;
   // Il periodo che stai guardando: lo teniamo uguale anche passando da candele a linea
@@ -206,6 +211,9 @@ function disegnaOra(contenitore, ticker) {
   stato.modo = modoGrafico;
   stato.dati = dati;
   riempiGrafico(stato, t);
+  stato.pallini = null;
+  stato.firmaPallini = null;
+  mettiPallini(stato);
 
   if (intervallo) stato.grafico.timeScale().setVisibleRange(intervallo);
   else mostraPeriodo(stato, periodoPrezzo);
@@ -291,6 +299,42 @@ function riempiGrafico(stato, t) {
   for (const l of t.resistenze || []) livello(l.prezzo, "Resistenza");
 }
 
+// ---------- I pallini dei tuoi acquisti ----------
+// Leggono gli acquisti salvati su questo dispositivo (gli stessi della pagina Portafoglio):
+// niente esce dal browser. La dashboard per ora registra solo gli acquisti, non le vendite:
+// quando registrerà anche le vendite, compariranno qui con un pallino rosso.
+
+// Gli acquisti di un titolo, raggruppati per giorno di Borsa del grafico:
+// { "2026-03-10": { quote, investito, quanti }, ... }
+function acquistiSulGrafico(ticker, giorni) {
+  const posizione = posizioni.find((p) => p.ticker === ticker);
+  const perGiorno = {};
+  if (!posizione || !giorni.length) return perGiorno;
+  for (const a of posizione.acquisti) {
+    if (!a.data || a.data < giorni[0]) continue;            // più vecchio del grafico: non si vede
+    // Comprato di sabato, di domenica o in un giorno di festa: il pallino va sul primo giorno di Borsa dopo
+    const giorno = giorni.find((g) => g >= a.data) || giorni[giorni.length - 1];
+    const voce = perGiorno[giorno] || (perGiorno[giorno] = { quote: 0, investito: 0, quanti: 0 });
+    voce.quote += a.quote;
+    voce.investito += a.investito;
+    voce.quanti += 1;
+  }
+  return perGiorno;
+}
+
+// Mette (o aggiorna) i pallini blu degli acquisti sotto il prezzo
+function mettiPallini(stato) {
+  stato.acquisti = acquistiSulGrafico(stato.ticker, stato.dati.giorni);
+  const firma = JSON.stringify(stato.acquisti);
+  if (firma === stato.firmaPallini) return;                  // niente di nuovo
+  stato.firmaPallini = firma;
+  const segni = Object.keys(stato.acquisti).sort().map((giorno) => ({
+    time: giorno, position: "belowBar", shape: "circle", color: coloriGrafico().accento, size: 1,
+  }));
+  if (stato.pallini) stato.pallini.setMarkers(segni);
+  else stato.pallini = LWC.createSeriesMarkers(stato.principale, segni);
+}
+
 // Da due liste (giorni e valori) ai punti che vuole la libreria; i valori vuoti restano "buchi"
 function punti(giorni, valori) {
   return giorni.map((g, i) => (valori[i] === null || valori[i] === undefined ? { time: g } : { time: g, value: valori[i] }));
@@ -316,6 +360,12 @@ function scriviRigaGrafico(stato, tempo) {
   if (i > 0 && d.chiusura[i - 1]) pezzi.push(["", testoVariazione(d.chiusura[i] / d.chiusura[i - 1] - 1)]);
   if (medieAccese.mm50 && d.mm50[i] !== null) pezzi.push(["MM50", p(d.mm50[i])]);
   if (medieAccese.mm200 && d.mm200[i] !== null) pezzi.push(["MM200", p(d.mm200[i])]);
+  // Il giorno di un tuo acquisto (pallino blu): quante quote e a che prezzo medio
+  const acquisto = stato.acquisti && stato.acquisti[chiave];
+  if (acquisto) {
+    pezzi.push(["● Acquist" + (acquisto.quanti > 1 ? "i" : "o"),
+      `${quote(acquisto.quote)} quote a ${euro(acquisto.investito / acquisto.quote)}`]);
+  }
   // Scriviamo i testi come testo semplice, per sicurezza
   riga.replaceChildren(...pezzi.map(([etichetta, valore]) => {
     const pezzo = document.createElement("span");
@@ -323,6 +373,7 @@ function scriviRigaGrafico(stato, tempo) {
       const e = document.createElement("i");
       e.textContent = etichetta + " ";
       if (etichetta.startsWith("MM")) e.className = etichetta.toLowerCase();   // il colore della sua linea
+      if (etichetta.startsWith("●")) e.className = "acquisto";
       pezzo.append(e);
     }
     pezzo.append(valore);
