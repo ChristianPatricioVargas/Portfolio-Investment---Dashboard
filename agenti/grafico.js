@@ -3,7 +3,7 @@
 // Lo disegna Lightweight Charts di TradingView: una libreria gratuita e open source
 // (licenza Apache 2.0), salvata nella cartella librerie/ insieme alla sua licenza.
 // Con questa libreria il grafico si può:
-//   - ingrandire e rimpicciolire con due dita (o con la rotellina del mouse)
+//   - ingrandire e rimpicciolire con due dita, con i pulsanti + e − (o con la rotellina del mouse)
 //   - trascinare avanti e indietro nel tempo con un dito
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
 //   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
@@ -165,7 +165,9 @@ function creaGraficoPrezzo(contenitore) {
     // Sul telefono lo scorrimento in verticale deve muovere la PAGINA, non il grafico:
     // il grafico si trascina in orizzontale e si ingrandisce con due dita
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-    handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: true },
+    // Lo zoom con due dita lo facciamo noi (collegaZoomDita): quello della libreria era lento
+    // allargando le dita in orizzontale
+    handleScale: { mouseWheel: true, pinch: false, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: true },
   });
   const stato = { grafico, contenitore, ticker: null, modo: null, serie: [], livelli: [], confronto: null,
     strumento: null, primoPunto: null, disegnate: [] };
@@ -173,7 +175,69 @@ function creaGraficoPrezzo(contenitore) {
   grafico.subscribeCrosshairMove((parametri) => scriviRigaGrafico(stato, parametri.time));
   // Un tocco sul grafico serve a disegnare, se hai scelto uno strumento di disegno
   grafico.subscribeClick((parametri) => toccoPerDisegnare(stato, parametri));
+  collegaZoomDita(stato);
   return stato;
+}
+
+// ---------- Lo zoom ----------
+// Con due dita il grafico "segue le dita", come una foto sull'iPhone: se allarghi le dita fino al
+// doppio della distanza vedi la metà dei giorni, centrati tra le dita. VELOCITA_ZOOM sopra 1 lo
+// rende ancora più rapido (1,5 = allargando del doppio vedi poco meno di un terzo dei giorni).
+const VELOCITA_ZOOM = 1.5;
+const PASSO_PULSANTI = 1.6;      // di quanto ingrandiscono i pulsanti + e −
+
+function collegaZoomDita(stato) {
+  const el = stato.contenitore;
+  const scala = () => stato.grafico.timeScale();
+  const distanza = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  let inizio = null;      // com'era il grafico quando hai appoggiato le due dita
+
+  // "capture: true" = sentiamo il tocco prima della libreria; i movimenti a due dita li teniamo per noi
+  el.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 2) return;
+    const intervallo = scala().getVisibleLogicalRange();
+    if (!intervallo) return;
+    const sinistra = el.getBoundingClientRect().left;
+    const centro = (e.touches[0].clientX + e.touches[1].clientX) / 2 - sinistra;
+    const larghezza = scala().width() || el.clientWidth;
+    inizio = { distanza: Math.max(20, distanza(e.touches)), intervallo,
+      // il giorno sotto il centro delle dita resta sotto le dita
+      ancora: scala().coordinateToLogical(Math.min(centro, larghezza)), frazione: Math.min(1, centro / larghezza) };
+    e.preventDefault();       // niente zoom di tutta la pagina
+  }, { capture: true, passive: false });
+
+  el.addEventListener("touchmove", (e) => {
+    if (!inizio || e.touches.length !== 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rapporto = inizio.distanza / Math.max(20, distanza(e.touches));     // < 1 = dita più lontane = zoom avanti
+    const ampiezza = (inizio.intervallo.to - inizio.intervallo.from) * rapporto ** VELOCITA_ZOOM;
+    impostaAmpiezza(stato, ampiezza, inizio.ancora, inizio.frazione);
+  }, { capture: true, passive: false });
+
+  const fine = (e) => { if (e.touches.length < 2) inizio = null; };
+  el.addEventListener("touchend", fine, { capture: true });
+  el.addEventListener("touchcancel", fine, { capture: true });
+  // Safari prova a ingrandire tutta la pagina: sul grafico no
+  el.addEventListener("gesturestart", (e) => e.preventDefault());
+}
+
+// Mostra "ampiezza" giorni, tenendo il giorno "ancora" nello stesso punto (frazione della larghezza)
+function impostaAmpiezza(stato, ampiezza, ancora, frazione) {
+  const n = stato.dati ? stato.dati.giorni.length : 0;
+  if (!n || ancora === null) return;
+  ampiezza = Math.max(5, Math.min(n + 1, ampiezza));         // almeno 5 giorni, al massimo tutti
+  let da = ancora - ampiezza * frazione;
+  da = Math.max(-0.5, Math.min(da, n - 0.5 - ampiezza));      // non oltre il primo e l'ultimo giorno
+  stato.grafico.timeScale().setVisibleLogicalRange({ from: da, to: da + ampiezza });
+}
+
+// I pulsanti + e −: ingrandiscono o rimpiccioliscono tenendo fermo il bordo destro
+function zoomPulsante(stato, avanti) {
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  if (!intervallo || !stato.dati) return;
+  const ampiezza = (intervallo.to - intervallo.from) * (avanti ? 1 / PASSO_PULSANTI : PASSO_PULSANTI);
+  impostaAmpiezza(stato, ampiezza, intervallo.to, 1);
 }
 
 // Toglie tutte le serie (prezzo, medie, volumi) per ridisegnarle
@@ -776,6 +840,11 @@ function collegaGrafici() {
       pulsante.onclick = () => cambiaMedia(quale);
       contenitore.appendChild(pulsante);
     }
+  }
+  // I pulsanti + e − sopra ogni grafico
+  for (const pulsante of document.querySelectorAll(".comandi-grafico [data-zoom]")) {
+    const id = pulsante.closest(".area-grafico").querySelector(".grafico-prezzo").id;
+    pulsante.onclick = () => { if (graficiPrezzo[id]) zoomPulsante(graficiPrezzo[id], pulsante.dataset.zoom === "piu"); };
   }
   // I pulsanti per disegnare (uno per grafico: ognuno ha il suo strumento attivo)
   caricaDisegni();

@@ -99,6 +99,11 @@
               <!-- I numeri del giorno toccato (li scrive agenti/grafico.js) -->
               <div class="riga-numeri" aria-live="polite"></div>
               <div id="grafico-oggi" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>
+              <!-- I pulsanti sopra il grafico, in basso a sinistra (li collega agenti/grafico.js) -->
+              <div class="comandi-grafico">
+                <button type="button" data-zoom="meno" aria-label="Rimpicciolisci">−</button>
+                <button type="button" data-zoom="piu" aria-label="Ingrandisci">+</button>
+              </div>
             </div>
             <p class="vuoto" id="oggi-grafico-vuoto" hidden>Il grafico arriverà con il prossimo giro degli agenti.</p>
           </section>
@@ -363,6 +368,11 @@
               <div class="area-grafico area-prezzo" id="area-grafico-tecnico">
                 <div class="riga-numeri" aria-live="polite"></div>
                 <div id="grafico-tecnico" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>
+                <!-- I pulsanti sopra il grafico, in basso a sinistra (li collega agenti/grafico.js) -->
+                <div class="comandi-grafico">
+                  <button type="button" data-zoom="meno" aria-label="Rimpicciolisci">−</button>
+                  <button type="button" data-zoom="piu" aria-label="Ingrandisci">+</button>
+                </div>
               </div>
               <p class="aiuto-grafico">Due dita per ingrandire, un dito per spostarti nel tempo. Tocca un giorno per vederne i numeri.</p>
               <dl class="numeri-agente" id="numeri-tecnico"></dl>

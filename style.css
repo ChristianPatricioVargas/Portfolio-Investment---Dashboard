@@ -1038,6 +1038,14 @@ input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); ba
 .disegni-prezzo { flex-wrap: wrap; }
 .disegni-prezzo button { white-space: nowrap; }
 .disegni-prezzo button[hidden] { display: none; }
+/* I pulsanti sopra il grafico (zoom, "Oggi"), in basso a sinistra sopra le date */
+.area-prezzo { position: relative; }
+.comandi-grafico { position: absolute; left: 6px; bottom: 34px; z-index: 3; display: flex; gap: 6px; }
+.comandi-grafico button {
+  min-width: 34px; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--bordo);
+  background: var(--carta); color: var(--testo); font: 600 16px var(--carattere); opacity: 0.92; cursor: pointer;
+}
+.comandi-grafico button:active { background: var(--carta-2); }
 .aiuto-grafico { margin: 6px 0 0; font-size: 11px; color: var(--testo-tenue); }
 /* Nella legenda: il simbolo delle candele */
 i.linea-candele { display: inline-block; width: 6px; height: 12px; margin-right: 6px; vertical-align: middle; border-radius: 1px; background: var(--verde); }
