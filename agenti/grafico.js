@@ -14,6 +14,10 @@
 const LWC = window.LightweightCharts;
 
 let modoGrafico = "candele";   // "candele" oppure "linea": vale per tutti i grafici del prezzo
+let periodoPrezzo = "3m";      // il periodo mostrato all'apertura (poi puoi zoomare come vuoi)
+
+// I pulsanti dei periodi: [chiave, scritta, mesi]
+const PERIODI_PREZZO = [["1m", "1M", 1], ["3m", "3M", 3], ["6m", "6M", 6], ["1a", "1A", 12], ["2a", "2A", 24], ["5a", "5A", 60]];
 
 // Ogni grafico disegnato, per id del contenitore: così non lo ricreiamo a ogni ridisegno
 // (ricrearlo farebbe perdere lo zoom che hai scelto con le dita)
@@ -53,13 +57,54 @@ function opzioniTema(c) {
 
 // ---------- I dati del grafico ----------
 // Restituisce, per un titolo, le liste giorno per giorno:
-//   giorni, chiusura (sempre), apertura/massimo/minimo/volume (null nei giorni senza candela),
+//   giorni, chiusura (sempre), apertura/massimo/minimo/volume (null se mancano),
 //   mm50 e mm200 (le medie mobili), valuta
-// Oggi arrivano da data/serie.json: un anno di chiusure e le candele degli ultimi mesi.
+// Da dove arrivano:
+//   1. data/grafici/<sigla>.json: le candele giornaliere degli ultimi 5 anni (le prepara
+//      l'analista tecnico). Si scarica solo quando apri quel titolo.
+//   2. se quel file non c'è ancora: data/serie.json (un anno a linea, candele solo degli ultimi mesi)
 
-const cacheDati = {};   // i dati già preparati, per titolo: rifarli a ogni tocco sarebbe lento
+const storie = {};        // i file dei grafici già scaricati, per titolo (null = non disponibile)
+const cacheDati = {};     // i dati già preparati, per titolo: rifarli a ogni tocco sarebbe lento
+
+// "SAP.DE" → "data/grafici/SAP.DE.json" (stessa regola di scripts/aggiorna_analisi.py)
+function indirizzoGrafico(ticker) {
+  return "data/grafici/" + encodeURIComponent(ticker.replace(/[^A-Za-z0-9.\-]/g, "_")) + ".json";
+}
+
+// Scarica il file del grafico di un titolo (una volta sola)
+function caricaGrafico(ticker) {
+  if (!(ticker in storie)) {
+    storie[ticker] = fetch(indirizzoGrafico(ticker), { cache: "no-cache" })
+      .then((risposta) => (risposta.ok ? risposta.json() : null))
+      .catch(() => null)
+      .then((dati) => (storie[ticker] = dati && Array.isArray(dati.giorni) && dati.giorni.length ? dati : null));
+  }
+  return Promise.resolve(storie[ticker]);
+}
+
+// La media degli ultimi N valori, giorno per giorno (null finché non ci sono N giorni)
+function mediaMobile(valori, giorni) {
+  const risultato = [];
+  let somma = 0;
+  for (let i = 0; i < valori.length; i++) {
+    somma += valori[i];
+    if (i >= giorni) somma -= valori[i - giorni];
+    risultato.push(i >= giorni - 1 ? Math.round((somma / giorni) * 10000) / 10000 : null);
+  }
+  return risultato;
+}
 
 function datiPrezzo(ticker) {
+  const storia = storie[ticker];
+  if (storia && !(storia instanceof Promise)) {
+    if (cacheDati[ticker] && cacheDati[ticker].fonte === storia) return cacheDati[ticker];
+    const dati = { fonte: storia, giorni: storia.giorni, chiusura: storia.chiusura, apertura: storia.apertura,
+      massimo: storia.massimo, minimo: storia.minimo, volume: storia.volume, valuta: storia.valuta || "",
+      mm50: mediaMobile(storia.chiusura, 50), mm200: mediaMobile(storia.chiusura, 200), completa: true };
+    return (cacheDati[ticker] = dati);
+  }
+  // Riserva: data/serie.json
   const serie = serieTecniche && serieTecniche[ticker];
   const t = (analisi.titoli[ticker] || {}).tecnica;
   if (!serie || !serie.giorni || !serie.giorni.length) return null;
@@ -79,8 +124,7 @@ function datiPrezzo(ticker) {
       dati.volume[i] = c.volume[k];
     }
   }
-  cacheDati[ticker] = dati;
-  return dati;
+  return (cacheDati[ticker] = dati);
 }
 
 // Quante cifre dopo la virgola: 2 per i prezzi normali, 0 sopra 1000, 3 sotto 10 euro
@@ -110,7 +154,7 @@ function creaGraficoPrezzo(contenitore) {
       timeFormatter: testoGiorno,
     },
     rightPriceScale: { borderColor: c.bordo, scaleMargins: { top: 0.08, bottom: 0.22 } },
-    timeScale: { borderColor: c.bordo, rightOffset: 2, minBarSpacing: 0.5 },
+    timeScale: { borderColor: c.bordo, rightOffset: 2, minBarSpacing: 0.1 },   // 0.1 = 5 anni entrano anche sul telefono
     crosshair: { mode: LWC.CrosshairMode.Normal },
     // Sul telefono lo scorrimento in verticale deve muovere la PAGINA, non il grafico:
     // il grafico si trascina in orizzontale e si ingrandisce con due dita
@@ -130,8 +174,16 @@ function svuotaGrafico(stato) {
   stato.principale = stato.mm50 = stato.mm200 = stato.volumi = null;
 }
 
-// Disegna (o aggiorna) il grafico del prezzo di un titolo dentro un contenitore <div>
+// Disegna (o aggiorna) il grafico del prezzo di un titolo dentro un contenitore <div>.
+// Prima scarica (se serve) il file del grafico del titolo, poi disegna.
 function disegnaGraficoPrezzo(contenitore, ticker) {
+  contenitore.dataset.ticker = ticker;
+  Promise.all([caricaSerie(), caricaGrafico(ticker)]).then(() => {
+    if (contenitore.dataset.ticker === ticker) disegnaOra(contenitore, ticker);   // nel frattempo hai cambiato titolo?
+  });
+}
+
+function disegnaOra(contenitore, ticker) {
   const area = contenitore.closest(".area-grafico");
   const t = (analisi.titoli[ticker] || {}).tecnica;
   const dati = t ? datiPrezzo(ticker) : null;
@@ -140,7 +192,7 @@ function disegnaGraficoPrezzo(contenitore, ticker) {
 
   let stato = graficiPrezzo[contenitore.id];
   if (!stato) stato = graficiPrezzo[contenitore.id] = creaGraficoPrezzo(contenitore);
-  // Stesso titolo e stesso modo: il grafico è già giusto (così non perdi lo zoom)
+  // Stesso titolo, stesso modo, stessi dati: il grafico è già giusto (così non perdi lo zoom)
   if (stato.ticker === ticker && stato.modo === modoGrafico && stato.dati === dati) return;
 
   const nuovoTitolo = stato.ticker !== ticker;
@@ -153,16 +205,26 @@ function disegnaGraficoPrezzo(contenitore, ticker) {
   riempiGrafico(stato, t);
 
   if (intervallo) stato.grafico.timeScale().setVisibleRange(intervallo);
-  else if (modoGrafico === "candele") mostraUltimiGiorni(stato, 90);   // le candele: gli ultimi mesi
-  else stato.grafico.timeScale().fitContent();                       // la linea: tutto l'anno
+  else mostraPeriodo(stato, periodoPrezzo);
   scriviRigaGrafico(stato, null);
-  document.querySelectorAll(".modo-grafico button").forEach((b) => b.classList.toggle("attivo", b.dataset.modo === modoGrafico));
+  aggiornaPulsantiGrafico();
 }
 
-// Mostra gli ultimi N giorni di Borsa
-function mostraUltimiGiorni(stato, giorni) {
-  const n = stato.dati.giorni.length;
-  stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - giorni) - 0.5, to: n - 0.5 + 2 });
+// Mostra gli ultimi mesi del periodo scelto (es. "3m" = ultimi 3 mesi)
+function mostraPeriodo(stato, chiave) {
+  const mesi = (PERIODI_PREZZO.find(([k]) => k === chiave) || PERIODI_PREZZO[1])[2];
+  const giorni = stato.dati.giorni;
+  const fine = leggiData(giorni[giorni.length - 1]);
+  const inizio = new Date(fine.getFullYear(), fine.getMonth() - mesi, fine.getDate());
+  const da = giorni.findIndex((g) => leggiData(g) >= inizio);
+  // Spazio a destra: un paio di giorni vuoti dopo l'ultimo prezzo
+  stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 + 2 });
+}
+
+// Accende il pulsante giusto (modo e periodo) in tutti i grafici
+function aggiornaPulsantiGrafico() {
+  document.querySelectorAll(".modo-grafico button").forEach((b) => b.classList.toggle("attivo", b.dataset.modo === modoGrafico));
+  document.querySelectorAll(".periodi-prezzo button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodoPrezzo));
 }
 
 // Mette nel grafico le serie: prezzo (candele o linea), medie mobili, volumi, supporti e resistenze
@@ -178,8 +240,14 @@ function riempiGrafico(stato, t) {
       upColor: c.verde, downColor: c.rosso, borderVisible: false, wickUpColor: c.verde, wickDownColor: c.rosso,
       priceFormat: formato,
     });
-    stato.principale.setData(dati.giorni.map((g, i) => (dati.apertura[i] === null ? { time: g } :
-      { time: g, open: dati.apertura[i], high: dati.massimo[i], low: dati.minimo[i], close: dati.chiusura[i] })));
+    // Con il file completo, ogni giorno ha la sua candela; se Yahoo ha dato solo la chiusura
+    // la candela è "piatta" (apertura = massimo = minimo = chiusura)
+    stato.principale.setData(dati.giorni.map((g, i) => {
+      const chiude = dati.chiusura[i];
+      if (dati.apertura[i] === null && !dati.completa) return { time: g };      // riserva: solo gli ultimi mesi
+      if (dati.apertura[i] === null) return { time: g, open: chiude, high: chiude, low: chiude, close: chiude };
+      return { time: g, open: dati.apertura[i], high: dati.massimo[i], low: dati.minimo[i], close: chiude };
+    }));
   } else {
     stato.principale = grafico.addSeries(LWC.LineSeries, { color: c.linea, lineWidth: 2, priceFormat: formato });
     stato.principale.setData(punti(dati.giorni, dati.chiusura));
@@ -202,7 +270,7 @@ function riempiGrafico(stato, t) {
     stato.volumi = grafico.addSeries(LWC.HistogramSeries, { priceScaleId: "volumi", priceFormat: { type: "volume" },
       priceLineVisible: false, lastValueVisible: false });
     grafico.priceScale("volumi").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-    stato.volumi.setData(dati.giorni.map((g, i) => (dati.volume[i] === null ? { time: g } : {
+    stato.volumi.setData(dati.giorni.map((g, i) => (!dati.volume[i] ? { time: g } : {
       time: g, value: dati.volume[i],
       color: trasparente(dati.chiusura[i] >= (dati.apertura[i] ?? dati.chiusura[i]) ? c.verde : c.rosso, 0.35),
     })));
@@ -279,14 +347,39 @@ function scegliModoGrafico(modo) {
   else if (typeof disegnaGraficoOggi === "function") disegnaGraficoOggi();
 }
 
+// I pulsanti 1M, 3M, 6M, 1A, 2A, 5A: mostrano quel periodo in tutti i grafici del prezzo
+function scegliPeriodoPrezzo(chiave) {
+  periodoPrezzo = chiave;
+  try { localStorage.setItem("periodo-prezzo", chiave); } catch (errore) { /* non importa */ }
+  for (const stato of Object.values(graficiPrezzo)) if (stato.dati) mostraPeriodo(stato, chiave);
+  aggiornaPulsantiGrafico();
+}
+
 function disegnaGraficoTecnico() {
   disegnaGraficoPrezzo($("grafico-tecnico"), tickerAperto);
 }
 
 // Collega i pulsanti dei grafici del prezzo (lo chiama app.js all'avvio)
 function collegaGrafici() {
-  try { if (localStorage.getItem("modo-grafico") === "linea") modoGrafico = "linea"; } catch (errore) { /* non importa */ }
+  try {
+    if (localStorage.getItem("modo-grafico") === "linea") modoGrafico = "linea";
+    const salvato = localStorage.getItem("periodo-prezzo");
+    if (PERIODI_PREZZO.some(([k]) => k === salvato)) periodoPrezzo = salvato;
+  } catch (errore) { /* non importa */ }
   document.querySelectorAll(".modo-grafico button").forEach((b) => (b.onclick = () => scegliModoGrafico(b.dataset.modo)));
+  // I pulsanti dei periodi, uguali in ogni grafico del prezzo
+  for (const contenitore of document.querySelectorAll(".periodi-prezzo")) {
+    for (const [chiave, scritta, mesi] of PERIODI_PREZZO) {
+      const pulsante = document.createElement("button");
+      pulsante.type = "button";
+      pulsante.textContent = scritta;
+      pulsante.title = mesi < 12 ? `Ultim${mesi === 1 ? "o mese" : "i " + mesi + " mesi"}` : `Ultim${mesi === 12 ? "o anno" : "i " + mesi / 12 + " anni"}`;
+      pulsante.dataset.periodo = chiave;
+      pulsante.onclick = () => scegliPeriodoPrezzo(chiave);
+      contenitore.appendChild(pulsante);
+    }
+  }
+  aggiornaPulsantiGrafico();
   if (!LWC) {
     // Se la libreria non si è caricata, lo diciamo invece di lasciare un buco
     document.querySelectorAll(".grafico-prezzo").forEach((el) => (el.textContent = "Il grafico non si è caricato: riprova più tardi."));

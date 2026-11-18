@@ -9,7 +9,8 @@ Cosa fa, passo per passo:
   1. legge i titoli del portafoglio (data/titoli.json) e la watchlist (data/watchlist.json)
   2. per ogni azione chiede a Finnhub i conti dell'azienda e li passa all'analista fondamentale
      (serve il segreto FINNHUB_API_KEY; senza, i fondamentali restano vuoti)
-  3. per ogni titolo scarica due anni di prezzi e li passa all'analista tecnico
+  3. per ogni titolo scarica cinque anni di prezzi: gli ultimi due li passa all'analista tecnico,
+     tutti finiscono nel file del grafico del titolo (data/grafici/<sigla>.json)
   4. il cacciatore controlla i suoi criteri e prepara la classifica delle occasioni;
      per i titoli in classifica scarica anche le notizie
   5. l'avvocato del diavolo cerca i campanelli d'allarme di ogni titolo
@@ -27,6 +28,7 @@ Opzioni:
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -39,6 +41,10 @@ FILE_ANALISI = CARTELLA_DATI / "analisi.json"
 FILE_WATCHLIST = CARTELLA_DATI / "watchlist.json"   # le grandi aziende che il cacciatore tiene d'occhio
 FILE_AI = CARTELLA_DATI / "ai.json"          # le analisi scritte dall'AI e il contatore della spesa
 FILE_SERIE = CARTELLA_DATI / "serie.json"     # le linee del grafico tecnico (prezzo e medie mobili)
+# Un file per titolo con le candele giornaliere degli ultimi 5 anni, per il grafico della pagina.
+# Uno per titolo (e non uno solo) perché la pagina scarica solo quello del titolo che apri.
+CARTELLA_GRAFICI = CARTELLA_DATI / "grafici"
+ANNI_GRAFICO = "5y"   # quanti anni di prezzi chiediamo a Yahoo
 ORE_VALIDITA = 30   # dopo quante ore l'analisi è considerata "vecchia"
 GIORNI_DATI_VALIDI = 7      # fondamentali più vecchi di così non entrano in classifica
 NOTIZIE_PER_OCCASIONI = 12  # per quanti titoli della classifica scarichiamo le notizie
@@ -56,7 +62,16 @@ def ancora_fresca(analisi):
     # (es. la chiave è appena stata creata), conviene rifarla subito
     if os.environ.get("FINNHUB_API_KEY") and not any(s.get("fondamentali") for s in (analisi.get("titoli") or {}).values()):
         return False
+    # Se mancano i file dei grafici (es. la prima volta dopo averli introdotti), conviene rifarla subito
+    if not any(CARTELLA_GRAFICI.glob("*.json")):
+        return False
     return datetime.now(timezone.utc) - fatta < timedelta(hours=ORE_VALIDITA)
+
+
+def nome_file_grafico(ticker):
+    """La sigla diventa il nome del file: "SAP.DE" → "SAP.DE.json". Caratteri strani → "_"
+    (la pagina fa lo stesso calcolo in agenti/grafico.js)."""
+    return re.sub(r"[^A-Za-z0-9.\-]", "_", ticker) + ".json"
 
 
 def elenco_titoli():
@@ -153,9 +168,16 @@ def analizza_titolo(yahoo, finnhub, voce, scheda, serie, oggi):
             print(f"ERRORE fondamentali {ticker}: {errore} (tengo quelli di prima, se ci sono)")
 
     # --- Analista tecnico (azioni ed ETF): servono due anni di prezzi per la media a 200 giorni ---
+    # Chiediamo a Yahoo 5 anni (una richiesta sola, come prima): tutti servono al grafico della pagina,
+    # gli ultimi 2 all'analisi tecnica (che così dà gli stessi numeri di sempre).
     try:
-        grafico = yahoo.grafico(ticker, "2y")
-        giorni, valori = tecnico.chiusure(grafico)
+        grafico = yahoo.grafico(ticker, ANNI_GRAFICO)
+        storia = tecnico.storia(grafico)
+        if storia:
+            CARTELLA_GRAFICI.mkdir(exist_ok=True)
+            (CARTELLA_GRAFICI / nome_file_grafico(ticker)).write_text(
+                json.dumps(storia, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+        giorni, valori = tecnico.ultimi_anni(*tecnico.chiusure(grafico))
         nuova, linee = tecnico.analizza(giorni, valori, grafico["meta"].get("currency") or "")
         if nuova is None:
             raise ValueError("storia dei prezzi troppo breve")
@@ -244,6 +266,11 @@ def main():
     compatto = lambda dati: json.dumps(dati, ensure_ascii=False, separators=(",", ":")) + "\n"
     FILE_ANALISI.write_text(compatto(risultato), encoding="utf-8")
     FILE_SERIE.write_text(compatto(serie), encoding="utf-8")
+    # I file dei grafici di titoli tolti da watchlist e portafoglio non servono più
+    da_tenere = {nome_file_grafico(v["ticker"]) for v in elenco}
+    for file in CARTELLA_GRAFICI.glob("*.json"):
+        if file.name not in da_tenere:
+            file.unlink()
     print(f"Analisi salvata: {len(schede)} titoli, {len(errori)} errori.")
     if errori:
         # "::warning::" fa comparire un avviso giallo nella pagina di GitHub Actions

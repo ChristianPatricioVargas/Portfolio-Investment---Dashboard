@@ -132,6 +132,20 @@ def prova_tecnico_candele():
     assert tecnico.candele(grafico, ["2026-11-09", "2026-11-10"]) is None        # manca un giorno: niente candele
 
 
+def prova_tecnico_storia():
+    giorno = lambda g: int(__import__("datetime").datetime(2026, 11, g, 12, tzinfo=__import__("datetime").timezone.utc).timestamp())
+    grafico = {"meta": {"gmtoffset": 3600, "currency": "EUR"}, "timestamp": [giorno(10), giorno(11), giorno(12), giorno(13)],
+               "indicators": {"quote": [{"open": [10, None, 12, 13], "high": [11, 12.5, 13, 14], "low": [9.5, 10.8, 11.9, 12],
+                                          "close": [9.876543, 12, None, 13.456], "volume": [100, None, 300, 5]}]}}
+    s = tecnico.storia(grafico)
+    assert s["giorni"] == ["2026-11-10", "2026-11-11", "2026-11-13"]          # il 12 non ha chiusura: saltato
+    assert s["chiusura"] == [9.8765, 12.0, 13.46] and s["valuta"] == "EUR"     # sotto 10: 4 decimali, sopra: 2
+    assert s["apertura"] == [10.0, None, 13.0] and s["massimo"][1] is None     # l'11 manca l'apertura: candela piatta
+    assert s["volume"] == [100, 0, 5]
+    giorni, valori = tecnico.ultimi_anni(giorni_finti(900), list(range(900)))
+    assert giorni[0] == "2024-11-14" and len(giorni) == len(valori) == 730     # ultimi 2 anni di calendario
+
+
 def prova_tecnico_livelli():
     # Il prezzo rimbalza tre volte su 90 e viene respinto tre volte da 110
     onda = [100, 104, 108, 110, 108, 104, 100, 96, 92, 90, 92, 96] * 3 + [100, 101, 101, 101, 101, 101, 101]
@@ -327,7 +341,7 @@ def prova_ai_freni():
 
 
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
-         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_livelli,
+         prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_storia, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
          prova_ai_spenta_senza_chiave, prova_ai_freni]

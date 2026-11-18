@@ -59,6 +59,45 @@ def candele(grafico, giorni):
             "chiusura": list(colonne[3]), "volume": list(colonne[4])}
 
 
+def storia(grafico):
+    """Tutta la storia giornaliera di un titolo, per il grafico della pagina (candele per ogni periodo).
+    Per ogni giorno: apertura, massimo, minimo, chiusura e volume, in liste parallele.
+    Nei giorni in cui Yahoo dà solo la chiusura (capita con qualche ETF) gli altri valori sono None:
+    la pagina disegna quel giorno come una candela "piatta".
+    Restituisce None se non c'è nessun prezzo."""
+    fuso = timedelta(seconds=grafico["meta"].get("gmtoffset", 0))
+    dati = grafico["indicators"]["quote"][0]
+    colonna = lambda campo, i: (dati.get(campo) or [])[i] if i < len(dati.get(campo) or []) else None
+    # I prezzi bassi (sotto 10) con 4 decimali, gli altri con 2: il file resta leggero
+    tondo = lambda v: None if v is None else round(float(v), 4 if abs(v) < 10 else 2)
+    per_giorno = {}
+    for i, istante in enumerate(grafico.get("timestamp") or []):
+        chiusura = colonna("close", i)
+        if chiusura is None:        # giorno senza scambi
+            continue
+        giorno = (datetime.fromtimestamp(istante, timezone.utc) + fuso).strftime("%Y-%m-%d")
+        candela = [colonna(campo, i) for campo in ("open", "high", "low")]
+        if any(v is None for v in candela):
+            candela = [None, None, None]
+        per_giorno[giorno] = [tondo(v) for v in candela] + [tondo(chiusura), int(colonna("volume", i) or 0)]
+    if not per_giorno:
+        return None
+    giorni = sorted(per_giorno)
+    colonne = list(zip(*(per_giorno[g] for g in giorni)))
+    return {"valuta": grafico["meta"].get("currency") or "", "giorni": giorni,
+            "apertura": list(colonne[0]), "massimo": list(colonne[1]), "minimo": list(colonne[2]),
+            "chiusura": list(colonne[3]), "volume": list(colonne[4])}
+
+
+def ultimi_anni(giorni, valori, anni=2):
+    """Taglia le liste agli ultimi N anni di calendario (l'analisi tecnica ne usa 2)."""
+    if not giorni:
+        return giorni, valori
+    limite = (datetime.strptime(giorni[-1], "%Y-%m-%d") - timedelta(days=365 * anni)).strftime("%Y-%m-%d")
+    inizio = next(i for i, g in enumerate(giorni) if g > limite)
+    return giorni[inizio:], valori[inizio:]
+
+
 def media_mobile(valori, giorni):
     """Per ogni giorno, la media degli ultimi N prezzi (None finché non ci sono N giorni)."""
     risultato, somma = [], 0.0

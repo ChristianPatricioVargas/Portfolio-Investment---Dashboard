@@ -81,11 +81,13 @@
             <div class="intestazione-riquadro">
               <div class="scelta-titolo" id="oggi-scelta-titolo" role="group" aria-label="Titolo del grafico"></div>
               <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
-                <button type="button" data-modo="candele">Candele 3M</button>
-                <button type="button" data-modo="linea">Linea 1A</button>
+                <button type="button" data-modo="candele">Candele</button>
+                <button type="button" data-modo="linea">Linea</button>
               </div>
             </div>
             <p class="riga-grafico" id="oggi-riga-grafico"></p>
+            <!-- I periodi del grafico (li crea agenti/grafico.js): 1M, 3M, 6M, 1A, 2A, 5A -->
+            <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
             <div class="area-grafico area-prezzo">
               <!-- I numeri del giorno toccato (li scrive agenti/grafico.js) -->
               <div class="riga-numeri" aria-live="polite"></div>
@@ -339,9 +341,10 @@
             <div id="corpo-tecnico" hidden>
               <p class="frase-agente" id="frase-tecnico"></p>
               <div class="intestazione-riquadro">
+                <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
                 <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
-                  <button type="button" data-modo="candele">Candele 3M</button>
-                  <button type="button" data-modo="linea">Linea 1A</button>
+                  <button type="button" data-modo="candele">Candele</button>
+                  <button type="button" data-modo="linea">Linea</button>
                 </div>
               </div>
               <div class="area-grafico area-prezzo" id="area-grafico-tecnico">
