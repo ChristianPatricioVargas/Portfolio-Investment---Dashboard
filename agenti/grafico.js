@@ -23,8 +23,15 @@ let periodoPrezzo = "3m";      // il periodo mostrato all'apertura (poi puoi zoo
 // Le medie mobili accese (si accendono e spengono con un tocco; la scelta resta salvata)
 let medieAccese = { mm50: true, mm200: true };
 
-// I pulsanti dei periodi: [chiave, scritta, mesi]
-const PERIODI_PREZZO = [["1m", "1M", 1], ["3m", "3M", 3], ["6m", "6M", 6], ["1a", "1A", 12], ["2a", "2A", 24], ["5a", "5A", 60]];
+// I pulsanti dei periodi: [chiave, scritta, mesi, giorni, descrizione]
+const PERIODI_PREZZO = [
+  ["2s", "2S", 0, 14, "Ultime 2 settimane"],
+  ["1m", "1M", 1, 0, "Ultimo mese"],
+  ["3m", "3M", 3, 0, "Ultimi 3 mesi"],
+  ["6m", "6M", 6, 0, "Ultimi 6 mesi"],
+  ["1a", "1A", 12, 0, "Ultimo anno"],
+  ["5a", "5A", 60, 0, "Ultimi 5 anni"],
+];
 
 // Ogni grafico disegnato, per id del contenitore: così non lo ricreiamo a ogni ridisegno
 // (ricrearlo farebbe perdere lo zoom che hai scelto con le dita)
@@ -330,10 +337,10 @@ function disegnaOra(contenitore, ticker) {
 
 // Mostra gli ultimi mesi del periodo scelto (es. "3m" = ultimi 3 mesi)
 function mostraPeriodo(stato, chiave) {
-  const mesi = (PERIODI_PREZZO.find(([k]) => k === chiave) || PERIODI_PREZZO[1])[2];
+  const [, , mesi, quantiGiorni] = PERIODI_PREZZO.find(([k]) => k === chiave) || PERIODI_PREZZO[2];
   const giorni = stato.dati.giorni;
   const fine = leggiData(giorni[giorni.length - 1]);
-  const inizio = new Date(fine.getFullYear(), fine.getMonth() - mesi, fine.getDate());
+  const inizio = new Date(fine.getFullYear(), fine.getMonth() - mesi, fine.getDate() - quantiGiorni);
   const da = giorni.findIndex((g) => leggiData(g) >= inizio);
   stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 });
 }
@@ -822,7 +829,7 @@ function scegliModoGrafico(modo) {
   else if (typeof disegnaGraficoOggi === "function") disegnaGraficoOggi();
 }
 
-// I pulsanti 1M, 3M, 6M, 1A, 2A, 5A: mostrano quel periodo in tutti i grafici del prezzo
+// I pulsanti 2S, 1M, 3M, 6M, 1A, 5A: mostrano quel periodo in tutti i grafici del prezzo
 function scegliPeriodoPrezzo(chiave) {
   periodoPrezzo = chiave;
   try { localStorage.setItem("periodo-prezzo", chiave); } catch (errore) { /* non importa */ }
@@ -857,11 +864,11 @@ function collegaGrafici() {
   document.querySelectorAll(".modo-grafico button").forEach((b) => (b.onclick = () => scegliModoGrafico(b.dataset.modo)));
   // I pulsanti dei periodi, uguali in ogni grafico del prezzo
   for (const contenitore of document.querySelectorAll(".periodi-prezzo")) {
-    for (const [chiave, scritta, mesi] of PERIODI_PREZZO) {
+    for (const [chiave, scritta, , , descrizione] of PERIODI_PREZZO) {
       const pulsante = document.createElement("button");
       pulsante.type = "button";
       pulsante.textContent = scritta;
-      pulsante.title = mesi < 12 ? `Ultim${mesi === 1 ? "o mese" : "i " + mesi + " mesi"}` : `Ultim${mesi === 12 ? "o anno" : "i " + mesi / 12 + " anni"}`;
+      pulsante.title = descrizione;
       pulsante.dataset.periodo = chiave;
       pulsante.onclick = () => scegliPeriodoPrezzo(chiave);
       contenitore.appendChild(pulsante);
