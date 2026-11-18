@@ -160,7 +160,10 @@ function creaGraficoPrezzo(contenitore) {
       timeFormatter: testoGiorno,
     },
     rightPriceScale: { borderColor: c.bordo, scaleMargins: { top: 0.08, bottom: 0.22 } },
-    timeScale: { borderColor: c.bordo, rightOffset: 2, minBarSpacing: 0.1 },   // 0.1 = 5 anni entrano anche sul telefono
+    // minBarSpacing 0.1 = 5 anni entrano anche sul telefono.
+    // fixLeftEdge / fixRightEdge = il grafico si ferma al primo e all'ultimo giorno di prezzi:
+    // trascinando non si finisce più nel vuoto (prima o dopo i dati)
+    timeScale: { borderColor: c.bordo, rightOffset: 0, minBarSpacing: 0.1, fixLeftEdge: true, fixRightEdge: true },
     crosshair: { mode: LWC.CrosshairMode.Normal },
     // Sul telefono lo scorrimento in verticale deve muovere la PAGINA, non il grafico:
     // il grafico si trascina in orizzontale e si ingrandisce con due dita
@@ -176,7 +179,25 @@ function creaGraficoPrezzo(contenitore) {
   // Un tocco sul grafico serve a disegnare, se hai scelto uno strumento di disegno
   grafico.subscribeClick((parametri) => toccoPerDisegnare(stato, parametri));
   collegaZoomDita(stato);
+  // Se ti sposti indietro nel tempo compare il pulsante "Oggi ›"
+  grafico.timeScale().subscribeVisibleLogicalRangeChange(() => aggiornaPulsanteOggi(stato));
   return stato;
+}
+
+// ---------- Il pulsante "Oggi ›": torna all'ultimo prezzo, con lo stesso zoom ----------
+
+function aggiornaPulsanteOggi(stato) {
+  const pulsante = stato.contenitore.closest(".area-grafico").querySelector("[data-presente]");
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  if (!pulsante || !intervallo || !stato.dati) return;
+  // Si vede solo se l'ultimo giorno è fuori dallo schermo (a destra)
+  pulsante.hidden = intervallo.to >= stato.dati.giorni.length - 1.5;
+}
+
+function tornaAOggi(stato) {
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  if (!intervallo || !stato.dati) return;
+  impostaAmpiezza(stato, intervallo.to - intervallo.from, stato.dati.giorni.length - 0.5, 1);
 }
 
 // ---------- Lo zoom ----------
@@ -308,8 +329,7 @@ function mostraPeriodo(stato, chiave) {
   const fine = leggiData(giorni[giorni.length - 1]);
   const inizio = new Date(fine.getFullYear(), fine.getMonth() - mesi, fine.getDate());
   const da = giorni.findIndex((g) => leggiData(g) >= inizio);
-  // Spazio a destra: un paio di giorni vuoti dopo l'ultimo prezzo
-  stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 + 2 });
+  stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 });
 }
 
 // Accende il pulsante giusto (modo, periodo, medie) in tutti i grafici
@@ -841,7 +861,11 @@ function collegaGrafici() {
       contenitore.appendChild(pulsante);
     }
   }
-  // I pulsanti + e − sopra ogni grafico
+  // I pulsanti "Oggi ›", + e − sopra ogni grafico
+  for (const pulsante of document.querySelectorAll(".comandi-grafico [data-presente]")) {
+    const id = pulsante.closest(".area-grafico").querySelector(".grafico-prezzo").id;
+    pulsante.onclick = () => { if (graficiPrezzo[id]) tornaAOggi(graficiPrezzo[id]); };
+  }
   for (const pulsante of document.querySelectorAll(".comandi-grafico [data-zoom]")) {
     const id = pulsante.closest(".area-grafico").querySelector(".grafico-prezzo").id;
     pulsante.onclick = () => { if (graficiPrezzo[id]) zoomPulsante(graficiPrezzo[id], pulsante.dataset.zoom === "piu"); };

@@ -1046,6 +1046,8 @@ input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); ba
   background: var(--carta); color: var(--testo); font: 600 16px var(--carattere); opacity: 0.92; cursor: pointer;
 }
 .comandi-grafico button:active { background: var(--carta-2); }
+.comandi-grafico button[hidden] { display: none; }
+.comandi-grafico button[data-presente] { font-size: 13px; color: var(--accento); }
 .aiuto-grafico { margin: 6px 0 0; font-size: 11px; color: var(--testo-tenue); }
 /* Nella legenda: il simbolo delle candele */
 i.linea-candele { display: inline-block; width: 6px; height: 12px; margin-right: 6px; vertical-align: middle; border-radius: 1px; background: var(--verde); }
