@@ -395,6 +395,8 @@ body.dettaglio main { max-width: 1100px; }
   /* se è più alta dello schermo (acquisti + tesi) scorre per conto suo */
   .colonna-destra { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
 }
+/* Con la striscia dei prezzi fissa in alto, la colonna destra si ferma sotto la striscia */
+.navigazione ~ main .colonna-destra { top: calc(var(--sotto-striscia) + 16px); max-height: calc(100vh - var(--sotto-striscia) - 32px); }
 .colonna-sinistra, .colonna-destra { min-width: 0; }
 .colonna-destra .intestazione-sezione { margin-top: 0; }
 
@@ -745,7 +747,22 @@ code { background: var(--carta-2); border-radius: 5px; padding: 1px 5px; font-si
    quelle sopra e quindi le aggiornano.
    ===================================================================================== */
 
-body { font-family: var(--carattere); font-size: 14px; line-height: 1.45; padding-bottom: 72px; }
+/* L'altezza della striscia dei prezzi in alto (la usano striscia, menu e pagina) */
+:root {
+  /* lo spazio occupato da orario e batteria del dispositivo (0 nel browser normale) */
+  --barra-di-stato: env(safe-area-inset-top, 0px);
+  --altezza-striscia: 37px;
+  --sotto-striscia: calc(var(--altezza-striscia) + var(--barra-di-stato));
+}
+/* Aperta dalla schermata Home, su alcuni iPad il sistema dice "0" anche se l'orario è lì sopra:
+   in quel caso lasciamo comunque 24 pixel liberi, così la striscia non finisce sotto l'orario */
+@media (display-mode: standalone) {
+  :root { --barra-di-stato: max(env(safe-area-inset-top, 0px), 24px); }
+}
+
+body { font-family: var(--carattere); font-size: 14px; line-height: 1.45; padding-bottom: 72px;
+  /* la pagina comincia sotto la striscia dei prezzi, che è fissa in alto */
+  padding-top: var(--sotto-striscia); }
 
 /* I numeri: carattere a larghezza fissa, così restano allineati in colonna */
 .totale, .numero, .cifre, .chip, .numeri-titolo dd, .numeri-agente dd, .righe-conto dd, .numeri-acquisto,
@@ -796,14 +813,15 @@ body.dettaglio main { max-width: 1320px; }
 @media (min-width: 900px) {
   body { padding-left: 76px; padding-bottom: 0; }
   .navigazione {
-    top: 0;
+    /* il menu laterale comincia SOTTO la striscia dei prezzi (che va da un bordo all'altro) */
+    top: var(--sotto-striscia);
     right: auto;
     width: 76px;
     flex-direction: column;
     justify-content: flex-start;
     align-items: center;
     gap: 6px;
-    padding: 14px 0;
+    padding: 20px 0 14px;
     border-top: none;
     border-right: 1px solid var(--bordo);
   }
@@ -814,14 +832,19 @@ body.dettaglio main { max-width: 1320px; }
 /* ---------- La striscia dei prezzi in alto ---------- */
 
 .striscia {
-  position: sticky;
+  /* fissa in alto, da un bordo all'altro dello schermo: passa SOPRA anche al menu laterale */
+  position: fixed;
   top: 0;
-  z-index: 10;
+  left: 0;
+  right: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 20px;
-  min-height: 36px;
-  padding: env(safe-area-inset-top) 16px 0;
+  box-sizing: border-box;
+  height: var(--sotto-striscia);
+  /* sopra: lo spazio per orario e batteria; ai lati: lo spazio per la "tacca" del telefono girato */
+  padding: var(--barra-di-stato) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
   background: var(--sfondo);
   border-bottom: 1px solid var(--bordo);
   font-size: 12px;
@@ -830,7 +853,6 @@ body.dettaglio main { max-width: 1320px; }
   scrollbar-width: none;
 }
 .striscia::-webkit-scrollbar { display: none; }
-.striscia:empty { display: none; }
 .voce-striscia { display: inline-flex; gap: 6px; align-items: baseline; padding: 9px 0; background: none; border: none; color: var(--testo); font: inherit; }
 button.voce-striscia { cursor: pointer; }
 .nome-striscia { color: var(--testo-tenue); }
