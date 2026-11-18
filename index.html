@@ -70,22 +70,30 @@
         <div class="numero-chiave"><span class="etichetta">Valore</span><b id="oggi-valore">–</b><small id="oggi-investito"></small></div>
         <div class="numero-chiave"><span class="etichetta">Guadagno totale</span><b id="oggi-gp">–</b><small id="oggi-gp-perc"></small></div>
         <div class="numero-chiave"><span class="etichetta">Oggi</span><b id="oggi-variazione">–</b><small id="oggi-variazione-perc"></small></div>
-        <div class="numero-chiave"><span class="etichetta">Se vendo tutto oggi</span><b id="oggi-netto">–</b><small>netto di tasse (26%) e commissioni</small></div>
+        <!-- Solo le azioni: gli ETF sono di lungo termine e non si vendono -->
+        <div class="numero-chiave"><span class="etichetta">Se vendo le azioni oggi</span><b id="oggi-netto">–</b><small id="oggi-netto-dettaglio">netto di tasse (26%) e commissioni</small></div>
       </div>
+
+      <!-- 2. Il mercato di oggi in una riga: indici e watchlist. Toccandola vai alla pagina del mercato
+           (per ora la pagina Occasioni: la pagina Mercato arriverà più avanti) -->
+      <a class="riga-mercato" id="oggi-mercato" href="#occasioni">
+        <span class="etichetta">Mercato oggi</span>
+        <span class="voci-mercato" id="voci-mercato"></span>
+        <span class="freccia-mercato" aria-hidden="true">›</span>
+      </a>
 
       <!-- Due colonne affiancate sull'iPad (una sotto l'altra sul telefono) -->
       <div class="griglia-oggi">
         <div class="colonna-oggi">
-          <!-- 2. Il grafico a candele di un tuo titolo (scegli quale con i pulsanti) -->
+          <!-- 3. Il grafico del titolo scelto: tocca una riga della tabella qui sotto per cambiarlo -->
           <section class="riquadro" id="oggi-grafico">
             <div class="intestazione-riquadro">
-              <div class="scelta-titolo" id="oggi-scelta-titolo" role="group" aria-label="Titolo del grafico"></div>
+              <p class="riga-grafico" id="oggi-riga-grafico"></p>
               <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
                 <button type="button" data-modo="candele">Candele</button>
                 <button type="button" data-modo="linea">Linea</button>
               </div>
             </div>
-            <p class="riga-grafico" id="oggi-riga-grafico"></p>
             <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js): periodi 2S...5A, medie mobili, confronto, disegni -->
             <div class="strumenti-grafico">
               <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
@@ -110,28 +118,32 @@
             </div>
             <p class="vuoto" id="oggi-grafico-vuoto" hidden>Il grafico arriverà con il prossimo giro degli agenti.</p>
           </section>
-          <!-- 4. La tabella delle posizioni -->
+          <!-- 4. La tabella delle posizioni, con la tesi di ogni azione -->
           <section class="riquadro" id="oggi-titoli">
             <div class="intestazione-riquadro">
-              <h2>Posizioni</h2>
+              <h2>Posizioni e tesi</h2>
               <a class="link" href="#portafoglio">Portafoglio</a>
             </div>
-            <div class="scorri"><table class="tabella" id="tabella-posizioni"></table></div>
+            <p class="suggerimento">Tocca una riga per vederla nel grafico qui sopra.</p>
+            <div class="scorri"><table class="tabella tabella-posizioni" id="tabella-posizioni"></table></div>
             <p class="fonte-prezzi" id="oggi-fonte"></p>
           </section>
-          <!-- 6. Notizie e fatti del giorno, titolo per titolo -->
+          <!-- 5. Notizie e fatti del giorno, titolo per titolo -->
           <section class="riquadro" id="oggi-notizie">
             <h2>Cosa è successo ai miei titoli</h2>
             <div id="elenco-oggi-titoli"></div>
           </section>
-          <!-- 8. Lo stato delle mie tesi -->
-          <section class="riquadro" id="oggi-tesi">
-            <h2>Le mie tesi</h2>
-            <div id="elenco-oggi-tesi"></div>
-          </section>
         </div>
         <div class="colonna-oggi">
-          <!-- 3. Le occasioni del cacciatore -->
+          <!-- Spazio riservato in cima alla colonna destra: qui arriverà l'anello della disciplina (blocco 3) -->
+          <div id="oggi-disciplina" hidden></div>
+          <!-- 6. I campanelli d'allarme dei tuoi titoli, raggruppati per titolo -->
+          <section class="riquadro" id="oggi-campanelli">
+            <h2>Campanelli d'allarme</h2>
+            <div class="gruppi-campanelli" id="elenco-oggi-campanelli"></div>
+            <p class="vuoto" id="oggi-campanelli-vuoto" hidden>Nessun campanello sui tuoi titoli con le regole attuali.</p>
+          </section>
+          <!-- 7. Le occasioni del cacciatore -->
           <section class="riquadro" id="oggi-occasioni">
             <div class="intestazione-riquadro">
               <h2>Occasioni · le 5 che spiccano</h2>
@@ -140,13 +152,7 @@
             <div class="scorri"><table class="tabella" id="tabella-occasioni"></table></div>
             <p class="vuoto" id="oggi-occasioni-vuoto" hidden></p>
           </section>
-          <!-- 5. I campanelli d'allarme dei tuoi titoli -->
-          <section class="riquadro" id="oggi-campanelli">
-            <h2>Campanelli d'allarme</h2>
-            <ul class="campanelli-brevi" id="elenco-oggi-campanelli"></ul>
-            <p class="vuoto" id="oggi-campanelli-vuoto" hidden>Nessun campanello sui tuoi titoli con le regole attuali.</p>
-          </section>
-          <!-- 7. Composizione del portafoglio e prossime trimestrali -->
+          <!-- 8. Composizione del portafoglio e prossime trimestrali -->
           <section class="riquadro" id="oggi-composizione">
             <h2>Composizione</h2>
             <div class="composizione">
