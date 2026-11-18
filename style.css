@@ -1031,6 +1031,9 @@ input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); ba
   font: inherit; font-size: 12px; color: var(--testo); background: var(--carta-2); border: 1px solid var(--bordo);
   border-radius: 6px; padding: 5px 8px; max-width: 100%;
 }
+.etichetta-confronto { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--testo-tenue); max-width: 100%; }
+.etichetta-confronto select { min-width: 0; flex: 1; }
+.modo-grafico button:disabled { opacity: 0.4; cursor: not-allowed; }
 .nota-confronto { margin: 6px 0 0; font-size: 12px; color: var(--ambra); }
 .riga-numeri i.confronto-principale { color: var(--linea-valore); }
 .riga-numeri i.confronto-secondo { color: var(--ambra); }

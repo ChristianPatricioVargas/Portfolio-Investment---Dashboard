@@ -8,7 +8,7 @@
 //   - trascinare avanti e indietro nel tempo con un dito
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
 //   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
-//   - confrontare due titoli in percentuale (menu "Confronta con…")
+//   - confrontare due titoli in percentuale (menu "Confronta con:")
 //   - disegnare linee orizzontali e di tendenza, salvate sul dispositivo e nel backup
 //
 // I dati arrivano dagli agenti (scripts/agenti/tecnico.py): qui li disegniamo soltanto.
@@ -296,19 +296,22 @@ function disegnaOra(contenitore, ticker) {
   if (!stato) stato = graficiPrezzo[contenitore.id] = creaGraficoPrezzo(contenitore);
   // Stesso titolo, stesso modo, stessi dati: il grafico è già giusto (così non perdi lo zoom).
   // Aggiorniamo solo i pallini, nel caso tu abbia aggiunto o cambiato un acquisto.
-  if (stato.ticker === ticker && stato.modo === modoGrafico && stato.dati === dati) {
+  const nuovoTitolo = stato.ticker !== ticker;
+  if (nuovoTitolo || stato.confronto === ticker) stato.confronto = null;   // cambi titolo: il confronto riparte da zero
+  // Durante il confronto si vedono solo linee (due serie di candele sarebbero confuse)
+  const modo = stato.confronto ? "linea" : modoGrafico;
+  if (!nuovoTitolo && stato.modo === modo && stato.dati === dati) {
     mettiPallini(stato);
     mostraDisegni(stato);
+    aggiornaPulsantiGrafico();
     return;
   }
 
-  const nuovoTitolo = stato.ticker !== ticker;
-  if (nuovoTitolo || stato.confronto === ticker) stato.confronto = null;   // cambi titolo: il confronto riparte da zero
   // Il periodo che stai guardando: lo teniamo uguale anche passando da candele a linea
   const intervallo = nuovoTitolo ? null : stato.grafico.timeScale().getVisibleRange();
   svuotaGrafico(stato);
   stato.ticker = ticker;
-  stato.modo = modoGrafico;
+  stato.modo = modo;
   stato.dati = dati;
   riempiGrafico(stato, t);
   stato.pallini = null;
@@ -341,7 +344,17 @@ function aggiornaPulsantiGrafico() {
     b.classList.toggle("attivo", medieAccese[b.dataset.media]);
     b.setAttribute("aria-pressed", medieAccese[b.dataset.media] ? "true" : "false");
   });
-  document.querySelectorAll(".modo-grafico button").forEach((b) => b.classList.toggle("attivo", b.dataset.modo === modoGrafico));
+  // Candele/Linea: ogni grafico mostra il SUO modo (durante il confronto: Linea, con Candele spento)
+  document.querySelectorAll(".modo-grafico").forEach((gruppo) => {
+    const id = gruppo.closest("section").querySelector(".grafico-prezzo").id;
+    const stato = graficiPrezzo[id];
+    const inConfronto = Boolean(stato && stato.confronto);
+    gruppo.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("attivo", b.dataset.modo === (inConfronto ? "linea" : modoGrafico));
+      b.disabled = inConfronto && b.dataset.modo === "candele";
+      b.title = b.disabled ? "Durante il confronto si vedono solo linee" : "";
+    });
+  });
   document.querySelectorAll(".periodi-prezzo button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodoPrezzo));
 }
 
@@ -350,7 +363,7 @@ function riempiGrafico(stato, t) {
   const { grafico, dati } = stato;
   const c = coloriGrafico();
   const formato = { type: "price", precision: cifrePrezzo(t.prezzo), minMove: 1 / 10 ** cifrePrezzo(t.prezzo) };
-  const conCandele = modoGrafico === "candele" && dati.apertura.some((v) => v !== null);
+  const conCandele = stato.modo === "candele" && dati.apertura.some((v) => v !== null);
 
   // 1. Il prezzo
   if (conCandele) {
@@ -439,7 +452,8 @@ function mettiPallini(stato) {
 }
 
 // ---------- Il confronto tra due titoli, in percentuale ----------
-// Scegli un secondo titolo dal menu "Confronta con…": compare come linea arancione e la scala
+// Scegli un secondo titolo dal menu "Confronta con:" ("nessuna" = niente confronto): compare come
+// linea arancione, anche il titolo principale diventa una linea (niente candele) e la scala
 // a destra passa in percentuale. Entrambe le linee partono da 0% nel primo giorno che vedi
 // a sinistra: così si vede chi è andato meglio NEL PERIODO MOSTRATO (zoomando, la partenza cambia).
 // Durante il confronto medie mobili, volumi, supporti e resistenze si nascondono.
@@ -464,7 +478,7 @@ function riempiMenuConfronto(stato) {
     g.append(...sigle.map((t) => opzione(t, `${nome(t)} (${t})`)));
     return g;
   };
-  menu.replaceChildren(opzione("", "Confronta con…"),
+  menu.replaceChildren(opzione("", "nessuna"),
     gruppo("I miei titoli", tutti.filter((t) => miei.has(t))),
     gruppo("Watchlist", tutti.filter((t) => !miei.has(t))));
   menu.value = stato.confronto || "";
@@ -473,8 +487,10 @@ function riempiMenuConfronto(stato) {
 
 function scegliConfronto(stato, ticker) {
   stato.confronto = ticker;
-  if (!ticker) return applicaConfronto(stato);
-  caricaGrafico(ticker).then(() => { if (stato.confronto === ticker) applicaConfronto(stato); });
+  // Si ridisegna tutto: il prezzo passa da candele a linea (o torna a candele), lo zoom resta
+  const ridisegna = () => { if (stato.confronto === ticker) disegnaOra(stato.contenitore, stato.ticker); };
+  if (!ticker) return ridisegna();
+  caricaGrafico(ticker).then(ridisegna);
 }
 
 // Accende o spegne il confronto nel grafico
@@ -502,7 +518,8 @@ function applicaConfronto(stato) {
   if (nota) {
     nota.hidden = !stato.confronto;
     nota.textContent = !stato.confronto ? ""
-      : attivo ? `Linea arancione: ${nomeBreve(stato.confronto)}. Le due linee partono da 0% nel primo giorno a sinistra.`
+      : attivo ? `Linea arancione: ${nomeBreve(stato.confronto)}. Durante il confronto si vedono solo linee, ` +
+        "che partono da 0% nel primo giorno a sinistra."
       : `Il grafico di ${nomeBreve(stato.confronto)} non è ancora disponibile.`;
   }
   // Mentre tocchi o zoomi, la riga dei numeri ricalcola le percentuali dal primo giorno visibile
