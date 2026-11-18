@@ -123,6 +123,7 @@ jobs:
           mkdir -p _site
           cp index.html style.css app.js _site/
           cp -r agenti _site/agenti
+          cp -r librerie _site/librerie   # la libreria dei grafici (Lightweight Charts)
           cp -r data _site/data
           # Aggiungi ai file di stile e di codice un "numero di versione" (il codice
           # dell'ultima modifica): così, quando il sito cambia, il browser scarica

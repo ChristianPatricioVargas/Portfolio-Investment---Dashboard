@@ -564,18 +564,7 @@ textarea:focus { outline: none; border-color: var(--accento); }
 /* La frase che riassume il lavoro di un agente */
 .frase-agente { margin: 0 0 12px; font-size: 1rem; line-height: 1.45; }
 
-#grafico-tecnico { display: block; width: 100%; overflow: visible; }
-#grafico-tecnico path { fill: none; stroke-linejoin: round; }
-#grafico-tecnico path.linea-prezzo { stroke: var(--linea-valore); stroke-width: 2; }
-#grafico-tecnico path.linea-mm50 { stroke: var(--linea-mm50); stroke-width: 1.5; }
-#grafico-tecnico path.linea-mm200 { stroke: var(--linea-mm200); stroke-width: 1.5; }
-#grafico-tecnico .griglia { stroke: var(--carta-2); stroke-width: 1; }
-#grafico-tecnico .asse { fill: var(--testo-tenue); font-size: 11px; font-variant-numeric: tabular-nums; }
-#grafico-tecnico .mirino { stroke: var(--testo-tenue); stroke-width: 1; }
-#grafico-tecnico .punto { fill: var(--linea-valore); stroke: var(--carta); stroke-width: 2; }
 /* Supporti e resistenze: righe grigie tratteggiate, con il nome scritto sopra */
-#grafico-tecnico .livello { stroke: var(--testo-tenue); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.7; }
-#grafico-tecnico .etichetta-livello { font-size: 10px; }
 
 /* Le lineette colorate nella legenda e nel fumetto del grafico tecnico */
 i.linea-prezzo, i.linea-mm50, i.linea-mm200 { display: inline-block; width: 16px; margin-right: 6px; vertical-align: middle; }
@@ -1019,23 +1008,21 @@ input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); ba
 
 /* ---------- Il grafico del prezzo: candele, volumi, medie ---------- */
 
-.grafico-prezzo { display: block; width: 100%; overflow: visible; }
-.grafico-prezzo path { fill: none; stroke-linejoin: round; }
-.grafico-prezzo path.linea-prezzo { stroke: var(--linea-valore); stroke-width: 2; }
-.grafico-prezzo path.linea-mm50 { stroke: var(--linea-mm50); stroke-width: 1.5; }
-.grafico-prezzo path.linea-mm200 { stroke: var(--linea-mm200); stroke-width: 1.5; }
-.grafico-prezzo .griglia { stroke: var(--bordo); stroke-width: 1; }
-.grafico-prezzo .asse { fill: var(--testo-tenue); font-size: 10px; }
-.grafico-prezzo .mirino { stroke: var(--testo-tenue); stroke-width: 1; }
-.grafico-prezzo .punto { fill: var(--linea-valore); stroke: var(--carta); stroke-width: 2; }
-.grafico-prezzo .livello { stroke: var(--testo-tenue); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.7; }
-.grafico-prezzo .stoppino { stroke-width: 1; }
-.grafico-prezzo .su { fill: var(--verde); stroke: var(--verde); }
-.grafico-prezzo .giu { fill: var(--rosso); stroke: var(--rosso); }
-.grafico-prezzo .corpo, .grafico-prezzo .volume { stroke: none; }
-.grafico-prezzo .volume { opacity: 0.4; }
-.grafico-prezzo .ultimo-prezzo { fill: var(--accento-forte); }
-.grafico-prezzo .ultimo-prezzo-testo { fill: #ffffff; font: 600 10px var(--carattere-numeri); }
+/* Il contenitore del grafico: Lightweight Charts lo riempie da solo (agenti/grafico.js) */
+.grafico-prezzo { display: block; width: 100%; height: 300px; }
+/* Il grafico del prezzo si tocca con le dita (zoom, trascinamento): la pagina non deve "rubare" il gesto */
+.area-prezzo { touch-action: manipulation; margin-top: 8px; }
+@media (min-width: 900px) { .grafico-prezzo { height: 340px; } }
+/* I numeri del giorno toccato, sopra il grafico */
+.riga-numeri {
+  display: flex; flex-wrap: wrap; gap: 2px 10px; min-height: 30px; align-content: flex-start; margin-bottom: 4px;
+  font: 500 11px var(--carattere-numeri); color: var(--testo);
+}
+.riga-numeri span { white-space: nowrap; }
+.riga-numeri i { font-style: normal; color: var(--testo-tenue); }
+.riga-numeri i.mm50 { color: var(--linea-mm50); }
+.riga-numeri i.mm200 { color: var(--linea-mm200); }
+.aiuto-grafico { margin: 6px 0 0; font-size: 11px; color: var(--testo-tenue); }
 /* Nella legenda: il simbolo delle candele */
 i.linea-candele { display: inline-block; width: 6px; height: 12px; margin-right: 6px; vertical-align: middle; border-radius: 1px; background: var(--verde); }
 .legenda { font-size: 12px; flex-wrap: wrap; gap: 4px 14px; }

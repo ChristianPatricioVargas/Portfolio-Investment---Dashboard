@@ -1032,6 +1032,8 @@ function applicaTema(tema) {
   // Il tema che si vede davvero: quello scelto, oppure quello del dispositivo
   const chiaro = tema === "chiaro" || (tema === "auto" && window.matchMedia("(prefers-color-scheme: light)").matches);
   document.querySelector('meta[name="theme-color"]').content = COLORI_BARRA[chiaro ? "chiaro" : "scuro"];
+  // I grafici del prezzo prendono i colori del tema nuovo (agenti/grafico.js)
+  if (typeof aggiornaTemaGrafici === "function") aggiornaTemaGrafici();
 }
 
 // ---------- Avvio ----------

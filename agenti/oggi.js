@@ -484,6 +484,5 @@ async function copiaPerAnalisi() {
 
 // Collega i pulsanti della pagina Oggi (lo chiama app.js all'avvio)
 function collegaOggi() {
-  collegaGraficoPrezzo($("grafico-oggi"));
   $("copia-analisi").onclick = copiaPerAnalisi;
 }

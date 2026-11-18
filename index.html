@@ -86,10 +86,10 @@
               </div>
             </div>
             <p class="riga-grafico" id="oggi-riga-grafico"></p>
-            <div class="legenda"></div>
-            <div class="area-grafico">
-              <svg id="grafico-oggi" class="grafico-prezzo" role="img"></svg>
-              <div class="fumetto" hidden></div>
+            <div class="area-grafico area-prezzo">
+              <!-- I numeri del giorno toccato (li scrive agenti/grafico.js) -->
+              <div class="riga-numeri" aria-live="polite"></div>
+              <div id="grafico-oggi" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>
             </div>
             <p class="vuoto" id="oggi-grafico-vuoto" hidden>Il grafico arriverà con il prossimo giro degli agenti.</p>
           </section>
@@ -339,16 +339,16 @@
             <div id="corpo-tecnico" hidden>
               <p class="frase-agente" id="frase-tecnico"></p>
               <div class="intestazione-riquadro">
-                <div class="legenda" id="legenda-tecnico"></div>
                 <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
                   <button type="button" data-modo="candele">Candele 3M</button>
                   <button type="button" data-modo="linea">Linea 1A</button>
                 </div>
               </div>
-              <div class="area-grafico" id="area-grafico-tecnico">
-                <svg id="grafico-tecnico" class="grafico-prezzo" role="img"></svg>
-                <div class="fumetto" hidden></div>
+              <div class="area-grafico area-prezzo" id="area-grafico-tecnico">
+                <div class="riga-numeri" aria-live="polite"></div>
+                <div id="grafico-tecnico" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>
               </div>
+              <p class="aiuto-grafico">Due dita per ingrandire, un dito per spostarti nel tempo. Tocca un giorno per vederne i numeri.</p>
               <dl class="numeri-agente" id="numeri-tecnico"></dl>
               <p class="fonte-notizie" id="fonte-tecnico"></p>
             </div>
@@ -504,9 +504,13 @@
     </form>
   </dialog>
 
+  <!-- Lightweight Charts di TradingView: la libreria gratuita (licenza Apache 2.0) che disegna
+       il grafico del prezzo. È salvata qui, nella cartella librerie/: non dipende da altri siti. -->
+  <script src="librerie/lightweight-charts-5.2.1.js"></script>
   <!-- Gli "agenti": ogni file aggiunge alla pagina le funzioni di un agente -->
   <script src="agenti/fondamentale.js"></script>
   <script src="agenti/tecnico.js"></script>
+  <script src="agenti/grafico.js"></script>
   <script src="agenti/cacciatore.js"></script>
   <script src="agenti/avvocato.js"></script>
   <script src="agenti/oggi.js"></script>
