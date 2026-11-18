@@ -2,12 +2,13 @@
 //
 // Lo disegna Lightweight Charts di TradingView: una libreria gratuita e open source
 // (licenza Apache 2.0), salvata nella cartella librerie/ insieme alla sua licenza.
+// La licenza chiede di citare TradingView con un link: lo facciamo in fondo a ogni pagina.
 // Con questa libreria il grafico si può:
-//   - ingrandire e rimpicciolire con due dita (o con la rotellina del mouse)
+//   - ingrandire e rimpicciolire con due dita, con i pulsanti + e − (o con la rotellina del mouse)
 //   - trascinare avanti e indietro nel tempo con un dito
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
 //   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
-//   - confrontare due titoli in percentuale (menu "Confronta con…")
+//   - confrontare due titoli in percentuale (menu "Confronta con:")
 //   - disegnare linee orizzontali e di tendenza, salvate sul dispositivo e nel backup
 //
 // I dati arrivano dagli agenti (scripts/agenti/tecnico.py): qui li disegniamo soltanto.
@@ -22,8 +23,15 @@ let periodoPrezzo = "3m";      // il periodo mostrato all'apertura (poi puoi zoo
 // Le medie mobili accese (si accendono e spengono con un tocco; la scelta resta salvata)
 let medieAccese = { mm50: true, mm200: true };
 
-// I pulsanti dei periodi: [chiave, scritta, mesi]
-const PERIODI_PREZZO = [["1m", "1M", 1], ["3m", "3M", 3], ["6m", "6M", 6], ["1a", "1A", 12], ["2a", "2A", 24], ["5a", "5A", 60]];
+// I pulsanti dei periodi: [chiave, scritta, mesi, giorni, descrizione]
+const PERIODI_PREZZO = [
+  ["2s", "2S", 0, 14, "Ultime 2 settimane"],
+  ["1m", "1M", 1, 0, "Ultimo mese"],
+  ["3m", "3M", 3, 0, "Ultimi 3 mesi"],
+  ["6m", "6M", 6, 0, "Ultimi 6 mesi"],
+  ["1a", "1A", 12, 0, "Ultimo anno"],
+  ["5a", "5A", 60, 0, "Ultimi 5 anni"],
+];
 
 // Ogni grafico disegnato, per id del contenitore: così non lo ricreiamo a ogni ridisegno
 // (ricrearlo farebbe perdere lo zoom che hai scelto con le dita)
@@ -52,7 +60,7 @@ function trasparente(colore, opacita) {
 // Le opzioni del grafico che dipendono dal tema
 function opzioniTema(c) {
   return {
-    layout: { background: { type: "solid", color: c.sfondo }, textColor: c.testo,
+    layout: { background: { type: "solid", color: c.sfondo }, textColor: c.testo, attributionLogo: false,
       fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--carattere-numeri").trim() || "monospace",
       fontSize: 11 },
     grid: { vertLines: { color: trasparente(c.griglia, 0.5) }, horzLines: { color: trasparente(c.griglia, 0.5) } },
@@ -153,6 +161,8 @@ function creaGraficoPrezzo(contenitore) {
   const c = coloriGrafico();
   const grafico = LWC.createChart(contenitore, {
     autoSize: true,                     // si adatta da solo alla larghezza (anche se giri l'iPad)
+    // Niente logo di TradingView sul grafico: la licenza chiede di citare TradingView con un link,
+    // e lo facciamo in fondo alla pagina (index.html, "riconoscimenti")
     ...opzioniTema(c),
     localization: {
       locale: "it-IT",
@@ -160,12 +170,17 @@ function creaGraficoPrezzo(contenitore) {
       timeFormatter: testoGiorno,
     },
     rightPriceScale: { borderColor: c.bordo, scaleMargins: { top: 0.08, bottom: 0.22 } },
-    timeScale: { borderColor: c.bordo, rightOffset: 2, minBarSpacing: 0.1 },   // 0.1 = 5 anni entrano anche sul telefono
+    // minBarSpacing 0.1 = 5 anni entrano anche sul telefono.
+    // fixLeftEdge / fixRightEdge = il grafico si ferma al primo e all'ultimo giorno di prezzi:
+    // trascinando non si finisce più nel vuoto (prima o dopo i dati)
+    timeScale: { borderColor: c.bordo, rightOffset: 0, minBarSpacing: 0.1, fixLeftEdge: true, fixRightEdge: true },
     crosshair: { mode: LWC.CrosshairMode.Normal },
     // Sul telefono lo scorrimento in verticale deve muovere la PAGINA, non il grafico:
     // il grafico si trascina in orizzontale e si ingrandisce con due dita
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-    handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: true },
+    // Lo zoom con due dita lo facciamo noi (collegaZoomDita): quello della libreria era lento
+    // allargando le dita in orizzontale
+    handleScale: { mouseWheel: true, pinch: false, axisPressedMouseMove: { time: true, price: true }, axisDoubleClickReset: true },
   });
   const stato = { grafico, contenitore, ticker: null, modo: null, serie: [], livelli: [], confronto: null,
     strumento: null, primoPunto: null, disegnate: [] };
@@ -173,7 +188,87 @@ function creaGraficoPrezzo(contenitore) {
   grafico.subscribeCrosshairMove((parametri) => scriviRigaGrafico(stato, parametri.time));
   // Un tocco sul grafico serve a disegnare, se hai scelto uno strumento di disegno
   grafico.subscribeClick((parametri) => toccoPerDisegnare(stato, parametri));
+  collegaZoomDita(stato);
+  // Se ti sposti indietro nel tempo compare il pulsante "Oggi ›"
+  grafico.timeScale().subscribeVisibleLogicalRangeChange(() => aggiornaPulsanteOggi(stato));
   return stato;
+}
+
+// ---------- Il pulsante "Oggi ›": torna all'ultimo prezzo, con lo stesso zoom ----------
+
+function aggiornaPulsanteOggi(stato) {
+  const pulsante = stato.contenitore.closest(".area-grafico").querySelector("[data-presente]");
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  if (!pulsante || !intervallo || !stato.dati) return;
+  // Si vede solo se l'ultimo giorno è fuori dallo schermo (a destra)
+  pulsante.hidden = intervallo.to >= stato.dati.giorni.length - 1.5;
+}
+
+function tornaAOggi(stato) {
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  if (!intervallo || !stato.dati) return;
+  impostaAmpiezza(stato, intervallo.to - intervallo.from, stato.dati.giorni.length - 0.5, 1);
+}
+
+// ---------- Lo zoom ----------
+// Con due dita il grafico "segue le dita", come una foto sull'iPhone: se allarghi le dita fino al
+// doppio della distanza vedi la metà dei giorni, centrati tra le dita. VELOCITA_ZOOM sopra 1 lo
+// rende ancora più rapido (1,5 = allargando del doppio vedi poco meno di un terzo dei giorni).
+const VELOCITA_ZOOM = 1.5;
+const PASSO_PULSANTI = 1.6;      // di quanto ingrandiscono i pulsanti + e −
+
+function collegaZoomDita(stato) {
+  const el = stato.contenitore;
+  const scala = () => stato.grafico.timeScale();
+  const distanza = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  let inizio = null;      // com'era il grafico quando hai appoggiato le due dita
+
+  // "capture: true" = sentiamo il tocco prima della libreria; i movimenti a due dita li teniamo per noi
+  el.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 2) return;
+    const intervallo = scala().getVisibleLogicalRange();
+    if (!intervallo) return;
+    const sinistra = el.getBoundingClientRect().left;
+    const centro = (e.touches[0].clientX + e.touches[1].clientX) / 2 - sinistra;
+    const larghezza = scala().width() || el.clientWidth;
+    inizio = { distanza: Math.max(20, distanza(e.touches)), intervallo,
+      // il giorno sotto il centro delle dita resta sotto le dita
+      ancora: scala().coordinateToLogical(Math.min(centro, larghezza)), frazione: Math.min(1, centro / larghezza) };
+    e.preventDefault();       // niente zoom di tutta la pagina
+  }, { capture: true, passive: false });
+
+  el.addEventListener("touchmove", (e) => {
+    if (!inizio || e.touches.length !== 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rapporto = inizio.distanza / Math.max(20, distanza(e.touches));     // < 1 = dita più lontane = zoom avanti
+    const ampiezza = (inizio.intervallo.to - inizio.intervallo.from) * rapporto ** VELOCITA_ZOOM;
+    impostaAmpiezza(stato, ampiezza, inizio.ancora, inizio.frazione);
+  }, { capture: true, passive: false });
+
+  const fine = (e) => { if (e.touches.length < 2) inizio = null; };
+  el.addEventListener("touchend", fine, { capture: true });
+  el.addEventListener("touchcancel", fine, { capture: true });
+  // Safari prova a ingrandire tutta la pagina: sul grafico no
+  el.addEventListener("gesturestart", (e) => e.preventDefault());
+}
+
+// Mostra "ampiezza" giorni, tenendo il giorno "ancora" nello stesso punto (frazione della larghezza)
+function impostaAmpiezza(stato, ampiezza, ancora, frazione) {
+  const n = stato.dati ? stato.dati.giorni.length : 0;
+  if (!n || ancora === null) return;
+  ampiezza = Math.max(5, Math.min(n + 1, ampiezza));         // almeno 5 giorni, al massimo tutti
+  let da = ancora - ampiezza * frazione;
+  da = Math.max(-0.5, Math.min(da, n - 0.5 - ampiezza));      // non oltre il primo e l'ultimo giorno
+  stato.grafico.timeScale().setVisibleLogicalRange({ from: da, to: da + ampiezza });
+}
+
+// I pulsanti + e −: ingrandiscono o rimpiccioliscono tenendo fermo il bordo destro
+function zoomPulsante(stato, avanti) {
+  const intervallo = stato.grafico.timeScale().getVisibleLogicalRange();
+  if (!intervallo || !stato.dati) return;
+  const ampiezza = (intervallo.to - intervallo.from) * (avanti ? 1 / PASSO_PULSANTI : PASSO_PULSANTI);
+  impostaAmpiezza(stato, ampiezza, intervallo.to, 1);
 }
 
 // Toglie tutte le serie (prezzo, medie, volumi) per ridisegnarle
@@ -208,19 +303,22 @@ function disegnaOra(contenitore, ticker) {
   if (!stato) stato = graficiPrezzo[contenitore.id] = creaGraficoPrezzo(contenitore);
   // Stesso titolo, stesso modo, stessi dati: il grafico è già giusto (così non perdi lo zoom).
   // Aggiorniamo solo i pallini, nel caso tu abbia aggiunto o cambiato un acquisto.
-  if (stato.ticker === ticker && stato.modo === modoGrafico && stato.dati === dati) {
+  const nuovoTitolo = stato.ticker !== ticker;
+  if (nuovoTitolo || stato.confronto === ticker) stato.confronto = null;   // cambi titolo: il confronto riparte da zero
+  // Durante il confronto si vedono solo linee (due serie di candele sarebbero confuse)
+  const modo = stato.confronto ? "linea" : modoGrafico;
+  if (!nuovoTitolo && stato.modo === modo && stato.dati === dati) {
     mettiPallini(stato);
     mostraDisegni(stato);
+    aggiornaPulsantiGrafico();
     return;
   }
 
-  const nuovoTitolo = stato.ticker !== ticker;
-  if (nuovoTitolo || stato.confronto === ticker) stato.confronto = null;   // cambi titolo: il confronto riparte da zero
   // Il periodo che stai guardando: lo teniamo uguale anche passando da candele a linea
   const intervallo = nuovoTitolo ? null : stato.grafico.timeScale().getVisibleRange();
   svuotaGrafico(stato);
   stato.ticker = ticker;
-  stato.modo = modoGrafico;
+  stato.modo = modo;
   stato.dati = dati;
   riempiGrafico(stato, t);
   stato.pallini = null;
@@ -239,13 +337,12 @@ function disegnaOra(contenitore, ticker) {
 
 // Mostra gli ultimi mesi del periodo scelto (es. "3m" = ultimi 3 mesi)
 function mostraPeriodo(stato, chiave) {
-  const mesi = (PERIODI_PREZZO.find(([k]) => k === chiave) || PERIODI_PREZZO[1])[2];
+  const [, , mesi, quantiGiorni] = PERIODI_PREZZO.find(([k]) => k === chiave) || PERIODI_PREZZO[2];
   const giorni = stato.dati.giorni;
   const fine = leggiData(giorni[giorni.length - 1]);
-  const inizio = new Date(fine.getFullYear(), fine.getMonth() - mesi, fine.getDate());
+  const inizio = new Date(fine.getFullYear(), fine.getMonth() - mesi, fine.getDate() - quantiGiorni);
   const da = giorni.findIndex((g) => leggiData(g) >= inizio);
-  // Spazio a destra: un paio di giorni vuoti dopo l'ultimo prezzo
-  stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 + 2 });
+  stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 });
 }
 
 // Accende il pulsante giusto (modo, periodo, medie) in tutti i grafici
@@ -254,7 +351,17 @@ function aggiornaPulsantiGrafico() {
     b.classList.toggle("attivo", medieAccese[b.dataset.media]);
     b.setAttribute("aria-pressed", medieAccese[b.dataset.media] ? "true" : "false");
   });
-  document.querySelectorAll(".modo-grafico button").forEach((b) => b.classList.toggle("attivo", b.dataset.modo === modoGrafico));
+  // Candele/Linea: ogni grafico mostra il SUO modo (durante il confronto: Linea, con Candele spento)
+  document.querySelectorAll(".modo-grafico").forEach((gruppo) => {
+    const id = gruppo.closest("section").querySelector(".grafico-prezzo").id;
+    const stato = graficiPrezzo[id];
+    const inConfronto = Boolean(stato && stato.confronto);
+    gruppo.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("attivo", b.dataset.modo === (inConfronto ? "linea" : modoGrafico));
+      b.disabled = inConfronto && b.dataset.modo === "candele";
+      b.title = b.disabled ? "Durante il confronto si vedono solo linee" : "";
+    });
+  });
   document.querySelectorAll(".periodi-prezzo button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodoPrezzo));
 }
 
@@ -263,7 +370,7 @@ function riempiGrafico(stato, t) {
   const { grafico, dati } = stato;
   const c = coloriGrafico();
   const formato = { type: "price", precision: cifrePrezzo(t.prezzo), minMove: 1 / 10 ** cifrePrezzo(t.prezzo) };
-  const conCandele = modoGrafico === "candele" && dati.apertura.some((v) => v !== null);
+  const conCandele = stato.modo === "candele" && dati.apertura.some((v) => v !== null);
 
   // 1. Il prezzo
   if (conCandele) {
@@ -352,7 +459,8 @@ function mettiPallini(stato) {
 }
 
 // ---------- Il confronto tra due titoli, in percentuale ----------
-// Scegli un secondo titolo dal menu "Confronta con…": compare come linea arancione e la scala
+// Scegli un secondo titolo dal menu "Confronta con:" ("nessuna" = niente confronto): compare come
+// linea arancione, anche il titolo principale diventa una linea (niente candele) e la scala
 // a destra passa in percentuale. Entrambe le linee partono da 0% nel primo giorno che vedi
 // a sinistra: così si vede chi è andato meglio NEL PERIODO MOSTRATO (zoomando, la partenza cambia).
 // Durante il confronto medie mobili, volumi, supporti e resistenze si nascondono.
@@ -377,7 +485,7 @@ function riempiMenuConfronto(stato) {
     g.append(...sigle.map((t) => opzione(t, `${nome(t)} (${t})`)));
     return g;
   };
-  menu.replaceChildren(opzione("", "Confronta con…"),
+  menu.replaceChildren(opzione("", "nessuna"),
     gruppo("I miei titoli", tutti.filter((t) => miei.has(t))),
     gruppo("Watchlist", tutti.filter((t) => !miei.has(t))));
   menu.value = stato.confronto || "";
@@ -386,8 +494,10 @@ function riempiMenuConfronto(stato) {
 
 function scegliConfronto(stato, ticker) {
   stato.confronto = ticker;
-  if (!ticker) return applicaConfronto(stato);
-  caricaGrafico(ticker).then(() => { if (stato.confronto === ticker) applicaConfronto(stato); });
+  // Si ridisegna tutto: il prezzo passa da candele a linea (o torna a candele), lo zoom resta
+  const ridisegna = () => { if (stato.confronto === ticker) disegnaOra(stato.contenitore, stato.ticker); };
+  if (!ticker) return ridisegna();
+  caricaGrafico(ticker).then(ridisegna);
 }
 
 // Accende o spegne il confronto nel grafico
@@ -415,7 +525,8 @@ function applicaConfronto(stato) {
   if (nota) {
     nota.hidden = !stato.confronto;
     nota.textContent = !stato.confronto ? ""
-      : attivo ? `Linea arancione: ${nomeBreve(stato.confronto)}. Le due linee partono da 0% nel primo giorno a sinistra.`
+      : attivo ? `Linea arancione: ${nomeBreve(stato.confronto)}. Durante il confronto si vedono solo linee, ` +
+        "che partono da 0% nel primo giorno a sinistra."
       : `Il grafico di ${nomeBreve(stato.confronto)} non è ancora disponibile.`;
   }
   // Mentre tocchi o zoomi, la riga dei numeri ricalcola le percentuali dal primo giorno visibile
@@ -718,7 +829,7 @@ function scegliModoGrafico(modo) {
   else if (typeof disegnaGraficoOggi === "function") disegnaGraficoOggi();
 }
 
-// I pulsanti 1M, 3M, 6M, 1A, 2A, 5A: mostrano quel periodo in tutti i grafici del prezzo
+// I pulsanti 2S, 1M, 3M, 6M, 1A, 5A: mostrano quel periodo in tutti i grafici del prezzo
 function scegliPeriodoPrezzo(chiave) {
   periodoPrezzo = chiave;
   try { localStorage.setItem("periodo-prezzo", chiave); } catch (errore) { /* non importa */ }
@@ -753,11 +864,11 @@ function collegaGrafici() {
   document.querySelectorAll(".modo-grafico button").forEach((b) => (b.onclick = () => scegliModoGrafico(b.dataset.modo)));
   // I pulsanti dei periodi, uguali in ogni grafico del prezzo
   for (const contenitore of document.querySelectorAll(".periodi-prezzo")) {
-    for (const [chiave, scritta, mesi] of PERIODI_PREZZO) {
+    for (const [chiave, scritta, , , descrizione] of PERIODI_PREZZO) {
       const pulsante = document.createElement("button");
       pulsante.type = "button";
       pulsante.textContent = scritta;
-      pulsante.title = mesi < 12 ? `Ultim${mesi === 1 ? "o mese" : "i " + mesi + " mesi"}` : `Ultim${mesi === 12 ? "o anno" : "i " + mesi / 12 + " anni"}`;
+      pulsante.title = descrizione;
       pulsante.dataset.periodo = chiave;
       pulsante.onclick = () => scegliPeriodoPrezzo(chiave);
       contenitore.appendChild(pulsante);
@@ -776,6 +887,15 @@ function collegaGrafici() {
       pulsante.onclick = () => cambiaMedia(quale);
       contenitore.appendChild(pulsante);
     }
+  }
+  // I pulsanti "Oggi ›", + e − sopra ogni grafico
+  for (const pulsante of document.querySelectorAll(".comandi-grafico [data-presente]")) {
+    const id = pulsante.closest(".area-grafico").querySelector(".grafico-prezzo").id;
+    pulsante.onclick = () => { if (graficiPrezzo[id]) tornaAOggi(graficiPrezzo[id]); };
+  }
+  for (const pulsante of document.querySelectorAll(".comandi-grafico [data-zoom]")) {
+    const id = pulsante.closest(".area-grafico").querySelector(".grafico-prezzo").id;
+    pulsante.onclick = () => { if (graficiPrezzo[id]) zoomPulsante(graficiPrezzo[id], pulsante.dataset.zoom === "piu"); };
   }
   // I pulsanti per disegnare (uno per grafico: ognuno ha il suo strumento attivo)
   caricaDisegni();

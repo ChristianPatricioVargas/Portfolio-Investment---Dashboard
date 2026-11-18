@@ -86,11 +86,13 @@
               </div>
             </div>
             <p class="riga-grafico" id="oggi-riga-grafico"></p>
-            <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js): periodi 1M...5A, medie mobili, confronto, disegni -->
+            <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js): periodi 2S...5A, medie mobili, confronto, disegni -->
             <div class="strumenti-grafico">
               <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
               <div class="selettore medie-prezzo" role="group" aria-label="Medie mobili"></div>
-              <select class="confronto-prezzo" aria-label="Confronta con un altro titolo"></select>
+              <label class="etichetta-confronto">Confronta con:
+                <select class="confronto-prezzo"></select>
+              </label>
               <div class="selettore disegni-prezzo" role="group" aria-label="Disegni sul grafico"></div>
             </div>
             <p class="nota-confronto" hidden></p>
@@ -99,6 +101,12 @@
               <!-- I numeri del giorno toccato (li scrive agenti/grafico.js) -->
               <div class="riga-numeri" aria-live="polite"></div>
               <div id="grafico-oggi" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>
+              <!-- I pulsanti sopra il grafico, in basso a sinistra (li collega agenti/grafico.js) -->
+              <div class="comandi-grafico">
+                <button type="button" data-zoom="meno" aria-label="Rimpicciolisci">−</button>
+                <button type="button" data-zoom="piu" aria-label="Ingrandisci">+</button>
+                <button type="button" data-presente hidden aria-label="Torna a oggi">Oggi ›</button>
+              </div>
             </div>
             <p class="vuoto" id="oggi-grafico-vuoto" hidden>Il grafico arriverà con il prossimo giro degli agenti.</p>
           </section>
@@ -355,7 +363,9 @@
                   <button type="button" data-modo="linea">Linea</button>
                 </div>
                 <div class="selettore medie-prezzo" role="group" aria-label="Medie mobili"></div>
-                <select class="confronto-prezzo" aria-label="Confronta con un altro titolo"></select>
+                <label class="etichetta-confronto">Confronta con:
+                  <select class="confronto-prezzo"></select>
+                </label>
                 <div class="selettore disegni-prezzo" role="group" aria-label="Disegni sul grafico"></div>
               </div>
               <p class="nota-confronto" hidden></p>
@@ -363,6 +373,12 @@
               <div class="area-grafico area-prezzo" id="area-grafico-tecnico">
                 <div class="riga-numeri" aria-live="polite"></div>
                 <div id="grafico-tecnico" class="grafico-prezzo" role="img" aria-label="Grafico del prezzo"></div>
+                <!-- I pulsanti sopra il grafico, in basso a sinistra (li collega agenti/grafico.js) -->
+                <div class="comandi-grafico">
+                  <button type="button" data-zoom="meno" aria-label="Rimpicciolisci">−</button>
+                  <button type="button" data-zoom="piu" aria-label="Ingrandisci">+</button>
+                  <button type="button" data-presente hidden aria-label="Torna a oggi">Oggi ›</button>
+                </div>
               </div>
               <p class="aiuto-grafico">Due dita per ingrandire, un dito per spostarti nel tempo. Tocca un giorno per vederne i numeri.</p>
               <dl class="numeri-agente" id="numeri-tecnico"></dl>
@@ -487,6 +503,9 @@
         <button type="button" data-tema="scuro">Scuro</button>
       </div>
     </div>
+    <!-- Il riconoscimento che chiede la licenza della libreria dei grafici (al posto del logo sul grafico) -->
+    <p class="riconoscimenti">Grafici: TradingView Lightweight Charts™ · Copyright © 2026 TradingView, Inc. ·
+      <a href="https://www.tradingview.com/" target="_blank" rel="noopener">tradingview.com</a></p>
   </main>
 
   <!-- Il modulo per aggiungere o modificare UN acquisto.

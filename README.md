@@ -77,18 +77,23 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
 
 Lo disegna [Lightweight Charts](https://github.com/tradingview/lightweight-charts) di TradingView, una libreria
 **gratuita e open source** (licenza Apache 2.0). È salvata nel repository (`librerie/`, con la sua licenza):
-la pagina non la scarica da altri siti. Il piccolo logo di TradingView nel grafico è il riconoscimento che la libreria chiede.
+la pagina non la scarica da altri siti. La licenza chiede di citare TradingView con un link a tradingview.com:
+lo facciamo con una riga in fondo a ogni pagina (al posto del logo sul grafico, che è facoltativo).
 
-- **Zoom e trascinamento**: due dita per ingrandire o rimpicciolire, un dito per andare avanti e indietro nel tempo.
-  Scorrendo in verticale si muove la pagina, non il grafico.
-- **Periodi** 1M, 3M, 6M, 1A, 2A, 5A e **Candele / Linea**: passando da candele a linea (e viceversa) resta lo stesso periodo.
+- **Zoom e trascinamento**: due dita per ingrandire o rimpicciolire (il grafico segue le dita, anche allargandole
+  in orizzontale), oppure i pulsanti **+** e **−** in basso a sinistra; un dito per andare avanti e indietro nel tempo.
+  Il grafico si ferma al primo e all'ultimo giorno di prezzi. Scorrendo in verticale si muove la pagina, non il grafico.
+  La rapidità dello zoom con le dita si regola con `VELOCITA_ZOOM` in cima alla parte "Lo zoom" di `agenti/grafico.js`.
+- **Oggi ›**: compare quando ti sposti indietro nel tempo e riporta all'ultimo prezzo, con lo stesso zoom.
+- **Periodi** 2S, 1M, 3M, 6M, 1A, 5A e **Candele / Linea**: passando da candele a linea (e viceversa) resta lo stesso periodo.
   Le candele ci sono per ogni periodo: sono i prezzi giornalieri di Yahoo degli ultimi 5 anni.
 - **Medie mobili** a 50 e 200 giorni: i pulsanti MM50 e MM200 le accendono e spengono (la scelta resta salvata).
 - **Pallini blu** nei giorni dei miei acquisti (letti dai dati salvati nel browser). Toccando quel giorno, la riga sopra il grafico
   dice quante quote e a che prezzo. *Le vendite non ci sono: la dashboard per ora registra solo gli acquisti.*
-- **Confronta con…**: un secondo titolo come linea arancione, con la scala in percentuale. Le due linee partono da 0%
-  nel primo giorno visibile a sinistra (zoomando, la partenza cambia). Durante il confronto si nascondono medie, volumi,
-  supporti, resistenze e disegni.
+- **Confronta con:** "nessuna" (niente confronto) oppure un secondo titolo, che compare come linea arancione con la scala
+  in percentuale. Durante il confronto anche il titolo principale è una linea (due serie di candele sarebbero confuse):
+  il pulsante Candele resta spento finché non scegli "nessuna". Le due linee partono da 0% nel primo giorno visibile
+  a sinistra (zoomando, la partenza cambia). Si nascondono anche medie, volumi, supporti, resistenze e disegni.
 - **Disegni**: "Orizzontale" (un tocco) e "Tendenza" (due tocchi su due giorni diversi). Ogni linea è agganciata a un prezzo
   e a dei giorni, per questo resta al suo posto con zoom e trascinamento. Sono salvate nel browser, per titolo,
   e sono nel backup. Due tocchi troppo veloci (meno di mezzo secondo) contano come uno: meglio toccare con calma.
@@ -342,3 +347,5 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 13. ✅ Aspetto da piattaforma: menu a icone, striscia dei prezzi, grafico a candele, tabelle, tema chiaro e scuro
 12. ✅ Fondamentali da Finnhub (dopo aver scartato Yahoo e Alpha Vantage con prove dal vivo), agenti due volte al giorno
 14. ✅ Grafico del prezzo con Lightweight Charts: zoom, periodi fino a 5 anni, medie, pallini degli acquisti, confronto, disegni
+15. ✅ Grafico più comodo: zoom con le dita più rapido, pulsanti + − e "Oggi ›", bordi fissi, confronto solo a linee, periodo di 2 settimane
+16. ⏳ Più strumenti di analisi sul grafico (altri disegni e indicatori), da fare più avanti
