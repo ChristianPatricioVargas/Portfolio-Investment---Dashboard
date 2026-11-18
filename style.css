@@ -1022,6 +1022,10 @@ input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); ba
 .riga-numeri i { font-style: normal; color: var(--testo-tenue); }
 .riga-numeri i.mm50 { color: var(--linea-mm50); }
 .riga-numeri i.mm200 { color: var(--linea-mm200); }
+/* La fila degli strumenti del grafico: periodi, candele/linea, medie (va a capo sul telefono) */
+.strumenti-grafico { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 8px; }
+.medie-prezzo button i { display: inline-block; width: 10px; margin-right: 5px; vertical-align: middle; }
+.medie-prezzo button:not(.attivo) i { opacity: 0.35; }
 .aiuto-grafico { margin: 6px 0 0; font-size: 11px; color: var(--testo-tenue); }
 /* Nella legenda: il simbolo delle candele */
 i.linea-candele { display: inline-block; width: 6px; height: 12px; margin-right: 6px; vertical-align: middle; border-radius: 1px; background: var(--verde); }

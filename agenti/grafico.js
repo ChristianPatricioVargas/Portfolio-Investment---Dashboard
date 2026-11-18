@@ -16,6 +16,9 @@ const LWC = window.LightweightCharts;
 let modoGrafico = "candele";   // "candele" oppure "linea": vale per tutti i grafici del prezzo
 let periodoPrezzo = "3m";      // il periodo mostrato all'apertura (poi puoi zoomare come vuoi)
 
+// Le medie mobili accese (si accendono e spengono con un tocco; la scelta resta salvata)
+let medieAccese = { mm50: true, mm200: true };
+
 // I pulsanti dei periodi: [chiave, scritta, mesi]
 const PERIODI_PREZZO = [["1m", "1M", 1], ["3m", "3M", 3], ["6m", "6M", 6], ["1a", "1A", 12], ["2a", "2A", 24], ["5a", "5A", 60]];
 
@@ -221,8 +224,12 @@ function mostraPeriodo(stato, chiave) {
   stato.grafico.timeScale().setVisibleLogicalRange({ from: Math.max(0, da) - 0.5, to: giorni.length - 0.5 + 2 });
 }
 
-// Accende il pulsante giusto (modo e periodo) in tutti i grafici
+// Accende il pulsante giusto (modo, periodo, medie) in tutti i grafici
 function aggiornaPulsantiGrafico() {
+  document.querySelectorAll(".medie-prezzo button").forEach((b) => {
+    b.classList.toggle("attivo", medieAccese[b.dataset.media]);
+    b.setAttribute("aria-pressed", medieAccese[b.dataset.media] ? "true" : "false");
+  });
   document.querySelectorAll(".modo-grafico button").forEach((b) => b.classList.toggle("attivo", b.dataset.modo === modoGrafico));
   document.querySelectorAll(".periodi-prezzo button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodoPrezzo));
 }
@@ -255,15 +262,15 @@ function riempiGrafico(stato, t) {
   stato.serie.push(stato.principale);
 
   // 2. Le medie mobili a 50 e 200 giorni
-  const media = (valori, colore) => {
+  const media = (valori, colore, accesa) => {
     const s = grafico.addSeries(LWC.LineSeries, { color: colore, lineWidth: 1.5, priceLineVisible: false,
-      lastValueVisible: false, crosshairMarkerVisible: false, priceFormat: formato });
+      lastValueVisible: false, crosshairMarkerVisible: false, priceFormat: formato, visible: accesa });
     s.setData(punti(dati.giorni, valori));
     stato.serie.push(s);
     return s;
   };
-  stato.mm50 = media(dati.mm50, c.mm50);
-  stato.mm200 = media(dati.mm200, c.mm200);
+  stato.mm50 = media(dati.mm50, c.mm50, medieAccese.mm50);
+  stato.mm200 = media(dati.mm200, c.mm200, medieAccese.mm200);
 
   // 3. I volumi: barre in basso, sulla loro scala (non si vede, serve solo a tenerle piccole)
   if (dati.volume.some((v) => v)) {
@@ -307,8 +314,8 @@ function scriviRigaGrafico(stato, tempo) {
     pezzi.push(["Prezzo", p(d.chiusura[i])]);
   }
   if (i > 0 && d.chiusura[i - 1]) pezzi.push(["", testoVariazione(d.chiusura[i] / d.chiusura[i - 1] - 1)]);
-  if (d.mm50[i] !== null) pezzi.push(["MM50", p(d.mm50[i])]);
-  if (d.mm200[i] !== null) pezzi.push(["MM200", p(d.mm200[i])]);
+  if (medieAccese.mm50 && d.mm50[i] !== null) pezzi.push(["MM50", p(d.mm50[i])]);
+  if (medieAccese.mm200 && d.mm200[i] !== null) pezzi.push(["MM200", p(d.mm200[i])]);
   // Scriviamo i testi come testo semplice, per sicurezza
   riga.replaceChildren(...pezzi.map(([etichetta, valore]) => {
     const pezzo = document.createElement("span");
@@ -355,6 +362,17 @@ function scegliPeriodoPrezzo(chiave) {
   aggiornaPulsantiGrafico();
 }
 
+// Accende o spegne una media mobile ("mm50" o "mm200") in tutti i grafici del prezzo
+function cambiaMedia(quale) {
+  medieAccese[quale] = !medieAccese[quale];
+  try { localStorage.setItem("medie-prezzo", JSON.stringify(medieAccese)); } catch (errore) { /* non importa */ }
+  for (const stato of Object.values(graficiPrezzo)) {
+    if (stato[quale]) stato[quale].applyOptions({ visible: medieAccese[quale] });
+    scriviRigaGrafico(stato, null);
+  }
+  aggiornaPulsantiGrafico();
+}
+
 function disegnaGraficoTecnico() {
   disegnaGraficoPrezzo($("grafico-tecnico"), tickerAperto);
 }
@@ -365,6 +383,8 @@ function collegaGrafici() {
     if (localStorage.getItem("modo-grafico") === "linea") modoGrafico = "linea";
     const salvato = localStorage.getItem("periodo-prezzo");
     if (PERIODI_PREZZO.some(([k]) => k === salvato)) periodoPrezzo = salvato;
+    const medie = JSON.parse(localStorage.getItem("medie-prezzo") || "null");
+    if (medie) medieAccese = { mm50: medie.mm50 !== false, mm200: medie.mm200 !== false };
   } catch (errore) { /* non importa */ }
   document.querySelectorAll(".modo-grafico button").forEach((b) => (b.onclick = () => scegliModoGrafico(b.dataset.modo)));
   // I pulsanti dei periodi, uguali in ogni grafico del prezzo
@@ -376,6 +396,20 @@ function collegaGrafici() {
       pulsante.title = mesi < 12 ? `Ultim${mesi === 1 ? "o mese" : "i " + mesi + " mesi"}` : `Ultim${mesi === 12 ? "o anno" : "i " + mesi / 12 + " anni"}`;
       pulsante.dataset.periodo = chiave;
       pulsante.onclick = () => scegliPeriodoPrezzo(chiave);
+      contenitore.appendChild(pulsante);
+    }
+  }
+  // I pulsanti delle medie mobili: un tocco accende, un altro spegne
+  for (const contenitore of document.querySelectorAll(".medie-prezzo")) {
+    for (const [quale, scritta, descrizione] of [["mm50", "MM50", "Media mobile a 50 giorni"], ["mm200", "MM200", "Media mobile a 200 giorni"]]) {
+      const pulsante = document.createElement("button");
+      pulsante.type = "button";
+      pulsante.dataset.media = quale;
+      pulsante.title = descrizione + ": tocca per accenderla o spegnerla";
+      const segno = document.createElement("i");
+      segno.className = "linea-" + quale;          // la lineetta del suo colore
+      pulsante.append(segno, scritta);
+      pulsante.onclick = () => cambiaMedia(quale);
       contenitore.appendChild(pulsante);
     }
   }

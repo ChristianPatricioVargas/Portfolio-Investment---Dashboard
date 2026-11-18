@@ -86,8 +86,11 @@
               </div>
             </div>
             <p class="riga-grafico" id="oggi-riga-grafico"></p>
-            <!-- I periodi del grafico (li crea agenti/grafico.js): 1M, 3M, 6M, 1A, 2A, 5A -->
-            <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
+            <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js): periodi 1M...5A, medie mobili -->
+            <div class="strumenti-grafico">
+              <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
+              <div class="selettore medie-prezzo" role="group" aria-label="Medie mobili"></div>
+            </div>
             <div class="area-grafico area-prezzo">
               <!-- I numeri del giorno toccato (li scrive agenti/grafico.js) -->
               <div class="riga-numeri" aria-live="polite"></div>
@@ -340,12 +343,14 @@
             <p class="vuoto" id="attesa-tecnico">L'analisi tecnica arriverà con il prossimo giro degli agenti.</p>
             <div id="corpo-tecnico" hidden>
               <p class="frase-agente" id="frase-tecnico"></p>
-              <div class="intestazione-riquadro">
+              <!-- Gli strumenti del grafico (i pulsanti li crea agenti/grafico.js) -->
+              <div class="strumenti-grafico">
                 <div class="selettore periodi-prezzo" role="group" aria-label="Periodo del grafico"></div>
                 <div class="selettore modo-grafico" role="group" aria-label="Tipo di grafico">
                   <button type="button" data-modo="candele">Candele</button>
                   <button type="button" data-modo="linea">Linea</button>
                 </div>
+                <div class="selettore medie-prezzo" role="group" aria-label="Medie mobili"></div>
               </div>
               <div class="area-grafico area-prezzo" id="area-grafico-tecnico">
                 <div class="riga-numeri" aria-live="polite"></div>
