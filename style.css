@@ -792,8 +792,16 @@ body.dettaglio main { max-width: 1320px; }
   overflow: visible;
 }
 .navigazione .logo { display: none; }
-.navigazione .logo rect { fill: var(--accento); }
-.navigazione .logo path { fill: none; stroke: var(--sfondo); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+/* Il logo: le tre candele dell'icona. Il fondo prende il colore dei pulsanti del tema (scuro o chiaro),
+   le candele il verde e il rosso della dashboard, la linea sotto il blu */
+.navigazione .logo svg { display: block; }
+.navigazione .logo .fondo-logo { fill: var(--carta-2); }
+.navigazione .logo rect.sale { fill: var(--verde); }
+.navigazione .logo rect.scende { fill: var(--rosso); }
+.navigazione .logo line { stroke-width: 9; }
+.navigazione .logo line.sale { stroke: var(--verde); }
+.navigazione .logo line.scende { stroke: var(--rosso); }
+.navigazione .logo .base-logo { fill: none; stroke: var(--accento); stroke-width: 10; stroke-linecap: round; }
 .navigazione a {
   display: flex;
   flex-direction: column;
