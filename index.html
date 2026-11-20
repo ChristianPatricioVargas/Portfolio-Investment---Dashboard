@@ -39,7 +39,14 @@
   <!-- Il menu: una colonna di icone a sinistra sull'iPad, una barra in basso sul telefono -->
   <nav class="navigazione" id="navigazione" aria-label="Pagine">
     <span class="logo" aria-hidden="true">
-      <svg width="30" height="30" viewBox="0 0 30 30"><rect width="30" height="30" rx="7"></rect><path d="M7 20 L12 14 L17 17 L23 9"></path></svg>
+      <!-- Lo stesso disegno dell'icona della schermata Home (tre candele), con i colori del tema chiaro o scuro -->
+      <svg width="32" height="32" viewBox="0 0 180 180">
+        <rect class="fondo-logo" width="180" height="180" rx="40"></rect>
+        <line class="sale" x1="52" y1="62" x2="52" y2="128"></line><rect class="sale" x="38" y="78" width="28" height="36" rx="4"></rect>
+        <line class="scende" x1="90" y1="56" x2="90" y2="118"></line><rect class="scende" x="76" y="66" width="28" height="34" rx="4"></rect>
+        <line class="sale" x1="128" y1="34" x2="128" y2="104"></line><rect class="sale" x="114" y="44" width="28" height="46" rx="4"></rect>
+        <path class="base-logo" d="M30 146 L150 146"></path>
+      </svg>
     </span>
     <a href="#oggi" data-vista="oggi">
       <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="2.5" width="6" height="6" rx="1"></rect><rect x="11.5" y="2.5" width="6" height="6" rx="1"></rect><rect x="2.5" y="11.5" width="6" height="6" rx="1"></rect><rect x="11.5" y="11.5" width="6" height="6" rx="1"></rect></svg>
