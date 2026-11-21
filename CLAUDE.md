@@ -51,3 +51,11 @@ The `anthropic` package is needed to import `avvocato_ai` in tests (`pip install
 - `confronta-borse.yml`: manual price comparison across German exchanges.
 
 Work is merged via PRs from `claude/...` branches into `main`.
+
+## Lavoro in locale (portatile Windows con WSL)
+
+- **Prima di iniziare**: fai sempre `git pull`, così parti dall'ultima versione ed eviti conflitti.
+- **Mai su `main`**: lavora sempre su un ramo `claude/...`; `main` riceve le modifiche solo tramite PR.
+- **Vedere la pagina in locale**: servono i file `data/*.json`, ma sono ignorati da git, quindi non li trovi dopo un `git pull`. Scaricali dal sito pubblicato oppure generali con gli script (`aggiorna_prezzi.py`, `aggiorna_analisi.py`) *prima* di lanciare `python3 -m http.server`; senza, la pagina resta vuota.
+- **Prima di aprire una PR**: esegui `python3 scripts/prova_agenti.py` e controlla che tutti i test passino.
+- **Funzioni grosse**: usa `/feature-dev`, che guida passo passo dall'analisi del codice esistente al progetto della modifica.
