@@ -1,6 +1,6 @@
 // agenti/oggi.js = la pagina "OGGI": il riepilogo di tutta la squadra di agenti.
 // È la prima pagina che vedi. Mette insieme, senza calcoli nuovi, il lavoro degli altri:
-//   1. come va il portafoglio (e quanto incasseresti vendendo le azioni oggi)
+//   1. come va il portafoglio (e quanto incasseresti vendendo tutto oggi)
 //   2. il mercato di oggi (indici e watchlist)
 //   3. il grafico e la tabella "Posizioni e tesi" (vicino al target? manca la tesi?)
 //   4. cosa è successo ai tuoi titoli (notizie, campanelli raggruppati per titolo, trimestrali vicine)
@@ -324,16 +324,13 @@ function disegnaOggi() {
     const oggiNoto = r.completo && r.valoreIeri > 0;
     numero("oggi-variazione", oggiNoto ? euro(r.variazioneOggi, true) : "–", oggiNoto ? r.variazioneOggi : 0);
     numero("oggi-variazione-perc", oggiNoto ? testoVariazione(r.variazioneOggi / r.valoreIeri) : "in attesa dei prezzi", oggiNoto ? r.variazioneOggi : 0);
-    // Se vendessi le AZIONI (gli ETF no: sono di lungo termine). Ogni vendita paga tasse e commissione per conto suo.
-    const azioni = posizioni.filter((p) => infoTitolo(p.ticker).tipo !== "ETF");
-    const conPrezzo = azioni.every((p) => prezzi[p.ticker]);
-    const vendite = azioni.filter((p) => prezzi[p.ticker]).map((p) => calcolaVendita(p, prezzi[p.ticker].prezzo));
+    // Se vendessi TUTTO oggi (azioni ed ETF), così il numero si confronta subito con "investito".
+    // Ogni vendita paga tasse e commissione per conto suo.
+    const conPrezzo = posizioni.every((p) => prezzi[p.ticker]);
+    const vendite = posizioni.filter((p) => prezzi[p.ticker]).map((p) => calcolaVendita(p, prezzi[p.ticker].prezzo));
     const netto = vendite.reduce((somma, v) => somma + v.netto, 0);
     const guadagnoNetto = vendite.reduce((somma, v) => somma + v.guadagnoNetto, 0);
-    if (azioni.length === 0) {
-      numero("oggi-netto", "–");
-      numero("oggi-netto-dettaglio", "nessuna azione in portafoglio");
-    } else if (!conPrezzo) {
+    if (!conPrezzo) {
       numero("oggi-netto", "–");
       numero("oggi-netto-dettaglio", "in attesa dei prezzi");
     } else {
