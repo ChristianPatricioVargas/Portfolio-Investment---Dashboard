@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.pubblicazione.outputs.page_url }}
+      url: ${{ steps.pubblicazione.outputs.page_url || steps.pubblicazione2.outputs.page_url }}
     steps:
       - name: Scarica il codice del repository
         uses: actions/checkout@v5
@@ -152,6 +152,18 @@ jobs:
         with:
           path: _site
 
+      # A volte GitHub non "vede" ancora il pacchetto appena caricato e la pubblicazione fallisce
+      # ("No artifacts named github-pages"). Non è un errore nostro: aspettiamo e riproviamo.
       - name: Pubblica il sito
         id: pubblicazione
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Se non è riuscita, aspetta un minuto
+        if: steps.pubblicazione.outcome == 'failure'
+        run: sleep 60
+
+      - name: Pubblica il sito (secondo tentativo)
+        id: pubblicazione2
+        if: steps.pubblicazione.outcome == 'failure'
         uses: actions/deploy-pages@v4
