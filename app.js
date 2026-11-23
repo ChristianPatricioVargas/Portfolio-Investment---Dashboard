@@ -130,6 +130,9 @@ function pulisciVendite(lista) {
       const vendita = { data: String(v.data), quote: Number(v.quote), incassato: Number(v.incassato), motivo: String(v.motivo || "") };
       if (Number(v.target) > 0) vendita.target = Number(v.target);
       if (typeof v.primaDelTarget === "boolean") vendita.primaDelTarget = v.primaDelTarget;
+      // Il voto sulla tesi e l'errore principale (vedi agenti/disciplina.js)
+      if (VOTI[v.voto]) vendita.voto = v.voto;
+      if (ERRORI[v.errore]) vendita.errore = v.errore;
       return vendita;
     });
 }
@@ -390,11 +393,12 @@ function disegna() {
 //   .../  oppure #oggi    la pagina Oggi: il riepilogo (è la pagina iniziale)
 //   .../#portafoglio      la panoramica del portafoglio
 //   .../#occasioni        la classifica del cacciatore
+//   .../#disciplina       la pagina Disciplina: diario, punteggio, revisione mensile
 //   .../#titolo=SAP.DE    la pagina di un titolo (tuo, oppure della watchlist)
 // Così il gesto "indietro" dell'iPad funziona come in un'app.
 
 let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = nessuno)
-let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni" o "titolo"
+let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni", "disciplina" o "titolo"
 let arrivatoDaDentro = false;     // true = sei arrivato al titolo toccandolo in un'altra pagina
 
 function vaiAlTitolo(ticker) {
@@ -413,6 +417,7 @@ function disegnaVista() {
   if (vistaAperta === "titolo") disegnaTitolo();
   else if (vistaAperta === "occasioni") disegnaOccasioni();
   else if (vistaAperta === "oggi") disegnaOggi();
+  else if (vistaAperta === "disciplina") disegnaDisciplina();
   else disegnaGrafico();
 }
 
@@ -426,7 +431,7 @@ function mostraVista() {
     titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
   if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
-  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni"].includes(indirizzo) ? indirizzo : "oggi";
+  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni", "disciplina"].includes(indirizzo) ? indirizzo : "oggi";
 
   chiudiModulo();
   $("modulo-tesi").hidden = true;
@@ -434,6 +439,7 @@ function mostraVista() {
   $("vista-oggi").hidden = vistaAperta !== "oggi";
   $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
   $("vista-occasioni").hidden = vistaAperta !== "occasioni";
+  $("vista-disciplina").hidden = vistaAperta !== "disciplina";
   $("vista-titolo").hidden = vistaAperta !== "titolo";
   if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
   document.querySelectorAll("#navigazione a").forEach((a) => a.classList.toggle("attivo", a.dataset.vista === vistaAperta));
@@ -756,6 +762,10 @@ function apriVendita(indice = null) {
   $("campo-incassato").value = v ? String(v.incassato).replace(".", ",") : "";
   $("campo-motivo-vendita").value = v ? v.motivo : "";
   $("elimina-vendita").hidden = !v;
+  // Il voto sulla tesi (vedi agenti/disciplina.js): il menu dell'errore compare solo con "In parte" o "No"
+  creaSceltaVoto($("scelta-voto"), v ? v.voto : "", (voto) => { $("riga-errore-vendita").hidden = !serveErrore(voto); });
+  riempiErrori($("campo-errore-vendita"), v ? v.errore : "");
+  $("riga-errore-vendita").hidden = !serveErrore(v ? v.voto : "");
 
   // Quante quote puoi vendere: quelle che hai, più quelle di questa vendita se la stai modificando
   const t = totali(posizione);
@@ -835,6 +845,9 @@ function quandoSalviVendita(evento) {
   if (!motivo) return erroreVendita("Scrivi perché vendi, anche solo poche parole: rileggerlo in futuro ti aiuterà.");
 
   const vendita = { data, quote: numQuote, incassato, motivo };
+  const voto = votoScelto($("scelta-voto"));
+  if (voto) vendita.voto = voto;
+  if (serveErrore(voto) && $("campo-errore-vendita").value) vendita.errore = $("campo-errore-vendita").value;
   // Ricordiamo il target di quel momento: un'uscita prima del target, con un motivo, NON è un errore
   const prima = venditaInModifica === null ? null : posizione.vendite[venditaInModifica];
   const target = prima && prima.target ? prima.target : tesi[tickerAperto] && tesi[tickerAperto].target;
@@ -854,7 +867,7 @@ function quandoSalviVendita(evento) {
     chiudiPosizione(posizione);
     chiudiModulo();
     disegna();
-    tornaAllaPanoramica();
+    location.hash = "disciplina";   // il titolo ora è nel diario delle operazioni
     return;
   }
   posizione.vendite = nuove;
@@ -1493,6 +1506,7 @@ async function avvia() {
   collegaTecnico();
   collegaCacciatore();
   collegaOggi();
+  collegaDisciplina();
   // Il selettore del tema; se cambi le impostazioni del dispositivo, "Automatico" si adegua subito
   document.querySelectorAll(".scelta-tema button").forEach((b) => (b.onclick = () => applicaTema(b.dataset.tema)));
   window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => applicaTema(temaScelto()));

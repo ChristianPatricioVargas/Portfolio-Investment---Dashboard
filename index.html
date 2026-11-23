@@ -60,6 +60,11 @@
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="3.5"></circle><circle cx="10" cy="10" r="0.6"></circle></svg>
       <span>Occasioni</span>
     </a>
+    <a href="#disciplina" data-vista="disciplina">
+      <!-- Un segno di spunta dentro un cerchio: "ho seguito le mie regole" -->
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><path d="M6.5 10.2 l2.4 2.4 l4.6 -5"></path></svg>
+      <span>Disciplina</span>
+    </a>
   </nav>
 
   <!-- La striscia dei prezzi in alto: i tuoi titoli e gli indici di mercato (la riempie agenti/oggi.js) -->
@@ -322,6 +327,50 @@
       </div>
     </div>
 
+    <!-- ===== VISTA "Disciplina": quanto seguo le MIE regole (la riempie agenti/disciplina.js) =====
+         Tutto ciò che c'è qui è personale: resta su questo dispositivo ed è incluso nel backup. -->
+    <div id="vista-disciplina" hidden>
+      <header class="testata-pagina">
+        <h1 class="titolo-pagina">Disciplina</h1>
+        <span class="etichetta-alta">le mie regole, non il guadagno</span>
+      </header>
+
+      <div class="griglia-oggi">
+        <div class="colonna-oggi">
+          <!-- Il diario: ogni acquisto e ogni vendita, con data, prezzo e motivo -->
+          <section class="riquadro" id="disciplina-diario">
+            <h2>Diario delle operazioni</h2>
+            <p class="suggerimento">Le più recenti in alto. Per ogni vendita puoi dare (o cambiare) il voto sulla tesi.</p>
+            <div id="elenco-diario"></div>
+            <button type="button" class="link" id="altre-operazioni" hidden>Mostra tutte</button>
+            <p class="vuoto" id="diario-vuoto" hidden>Nessuna operazione ancora: gli acquisti si inseriscono nella pagina Portafoglio,
+              le vendite nella pagina di un titolo.</p>
+          </section>
+        </div>
+        <div class="colonna-oggi">
+          <!-- Le statistiche sulle vendite e gli errori più frequenti -->
+          <section class="riquadro" id="disciplina-statistiche">
+            <h2>Le mie tesi alla prova</h2>
+            <dl class="numeri-agente" id="numeri-diario"></dl>
+            <h3>Errori più frequenti</h3>
+            <div class="errori-frequenti" id="errori-frequenti"></div>
+            <p class="vuoto" id="errori-vuoto" hidden></p>
+          </section>
+          <!-- I titoli venduti del tutto -->
+          <section class="riquadro" id="disciplina-chiuse" hidden>
+            <h2>Titoli venduti del tutto</h2>
+            <div id="elenco-chiuse"></div>
+          </section>
+        </div>
+      </div>
+
+      <footer>
+        <p>Diario, voti e revisioni restano solo su questo dispositivo e sono inclusi nel backup (pagina Portafoglio).</p>
+        <p>Questa pagina misura quanto segui le tue regole, non quanto guadagni: <strong>non è consulenza finanziaria</strong>.
+          Un'uscita con un motivo, anche prima del target, non è un errore.</p>
+      </footer>
+    </div>
+
     <!-- ===== VISTA 2: la pagina di un singolo titolo ===== -->
     <div id="vista-titolo" hidden>
       <button type="button" class="link indietro" id="indietro">‹ Indietro</button>
@@ -502,13 +551,22 @@
                 <input id="campo-incassato" type="text" inputmode="decimal" placeholder="es. 249,00" required>
               </label>
               <label>
-                Perché vendo (una riga) <span class="obbligatorio">obbligatorio</span>
+                <span>Perché vendo (una riga) <span class="obbligatorio">obbligatorio</span></span>
                 <input id="campo-motivo-vendita" type="text" maxlength="200" placeholder="es. È scattata una mia condizione di uscita">
               </label>
               <!-- Le tue condizioni di uscita: toccandone una diventa il motivo -->
               <div class="scelte-motivo" id="scelte-motivo" hidden></div>
               <p class="nota-vendita" id="nota-vendita" hidden></p>
               <p class="suggerimento" id="anteprima-vendita" hidden></p>
+              <!-- Il voto sulla tesi: serve al diario (pagina Disciplina). "Non so ancora" si può cambiare dopo. -->
+              <fieldset class="voto-tesi">
+                <legend>La tesi era giusta?</legend>
+                <div class="scelta-voto" id="scelta-voto"></div>
+              </fieldset>
+              <label id="riga-errore-vendita" hidden>
+                Cosa non ha funzionato? (facoltativo)
+                <select id="campo-errore-vendita"></select>
+              </label>
               <p class="errore" id="errore-vendita" hidden></p>
               <div class="pulsanti-modulo">
                 <button type="button" class="pulsante secondario" id="annulla-vendita">Annulla</button>
@@ -529,7 +587,7 @@
             <form id="modulo-tesi" hidden>
               <p class="suggerimento">Bastano poche parole. Solo la prima riga è obbligatoria.</p>
               <label>
-                Perché compro <span class="obbligatorio">obbligatorio</span>
+                <span>Perché compro <span class="obbligatorio">obbligatorio</span></span>
                 <textarea id="campo-motivo" rows="2" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
               </label>
               <label>
@@ -622,6 +680,7 @@
   <script src="agenti/cacciatore.js"></script>
   <script src="agenti/avvocato.js"></script>
   <script src="agenti/oggi.js"></script>
+  <script src="agenti/disciplina.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

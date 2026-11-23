@@ -1213,3 +1213,62 @@ a.link { text-decoration: none; font-size: 12px; }
 }
 .nota-vendita { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--carta-2); font-size: 13px; }
 .riga-numeri i.vendita { color: var(--rosso); }
+
+/* ---------- Il voto sulla tesi (modulo della vendita e diario) ---------- */
+.voto-tesi { margin: 0; padding: 0; border: none; min-width: 0; }
+.voto-tesi legend { padding: 0; margin-bottom: 6px; color: var(--testo-tenue); font-size: 0.9rem; }
+/* Quattro pulsanti affiancati: il "radio" vero è nascosto, si vede l'etichetta */
+.scelta-voto { display: flex; flex-wrap: wrap; gap: 4px; }
+.scelta-voto label { display: block; }
+.scelta-voto input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.scelta-voto span {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 1px solid var(--bordo);
+  border-radius: 6px;
+  background: var(--carta-2);
+  color: var(--testo);
+  font-size: 12px;
+  cursor: pointer;
+}
+.scelta-voto input:checked + span { background: var(--carta); color: var(--accento); border-color: var(--accento); font-weight: 600; }
+.scelta-voto input:focus-visible + span { outline: 2px solid var(--accento); outline-offset: 1px; }
+
+/* ---------- Il diario delle operazioni ---------- */
+.voce-diario { display: grid; gap: 3px; padding: 10px 0 10px 10px; border-top: 1px solid var(--bordo); box-shadow: inset 3px 0 0 var(--accento); }
+.voce-diario:first-child { border-top: none; }
+.voce-diario.vendita { box-shadow: inset 3px 0 0 var(--rosso); }
+.voce-diario + .voce-diario { margin-top: 2px; }
+.testa-diario { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.testa-diario b { font-weight: 600; min-width: 0; }
+.data-diario { color: var(--testo-tenue); font: 500 12px var(--carattere-numeri); }
+.prezzo-diario { margin-left: auto; font-size: 13px; white-space: nowrap; }
+.tipo-diario {
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--carta-2);
+  color: var(--accento);
+}
+.tipo-diario.vendita { background: var(--rosso-sfondo); color: var(--rosso); }
+.motivo-diario { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.voto-diario { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 4px; }
+.etichetta-voto { color: var(--testo-tenue); font-size: 12px; }
+.errore-diario { font-size: 12px; padding: 5px 8px; max-width: 100%; }
+#altre-operazioni { margin-top: 8px; font-size: 13px; }
+
+/* ---------- Le statistiche e gli errori più frequenti ---------- */
+#numeri-diario { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.errori-frequenti { display: grid; gap: 10px; }
+.riga-errore { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 13px; }
+.riga-errore .numero { font-weight: 600; }
+.barra-errore { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--carta-2); }
+.barra-errore span { display: block; height: 4px; border-radius: 2px; background: var(--ambra); }
+
+/* ---------- I titoli venduti del tutto ---------- */
+.voce-chiusa { display: grid; gap: 3px; padding: 9px 0; border-top: 1px solid var(--bordo); }
+.voce-chiusa:first-child { border-top: none; padding-top: 0; }
+.voce-chiusa .link { justify-self: start; font-size: 12px; margin-top: 2px; }
