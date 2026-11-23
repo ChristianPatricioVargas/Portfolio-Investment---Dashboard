@@ -31,6 +31,9 @@ let notizieServizi = {};  // da quale servizio arrivano le notizie di ogni titol
 let notizieTutte = false; // true = mostra tutte le notizie, non solo le prime 5
 // Le tue posizioni. Ogni titolo ha la sua lista di acquisti:
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
+// Un acquisto può avere anche:
+//   motivo: "..."       il motivo di quell'acquisto, in una riga (facoltativo)
+//   tesiPronta: true    per le azioni: la tesi era già scritta quando hai comprato? (la usa la pagina Disciplina)
 let posizioni = [];
 let inModifica = null;    // l'acquisto che stai modificando: { ticker, indice } (null = nuovo)
 // Il lavoro degli agenti (da data/analisi.json): per ogni titolo fondamentali, analisi tecnica, rischi...
@@ -101,7 +104,12 @@ function normalizza(dati) {
     if (!p.ticker || acquisti.length === 0 || !validi) throw new Error("dati non validi");
     return {
       ticker: p.ticker,
-      acquisti: acquisti.map((a) => ({ data: a.data || "", quote: Number(a.quote), investito: Number(a.investito) })),
+      acquisti: acquisti.map((a) => {
+        const acquisto = { data: a.data || "", quote: Number(a.quote), investito: Number(a.investito) };
+        if (a.motivo) acquisto.motivo = String(a.motivo);
+        if (typeof a.tesiPronta === "boolean") acquisto.tesiPronta = a.tesiPronta;
+        return acquisto;
+      }),
     };
   });
 }
@@ -502,7 +510,10 @@ function apriModulo(ticker = null, indice = null) {
   $("campo-data").max = oggiISO();                 // niente date future
   $("campo-quote").value = a ? String(a.quote).replace(".", ",") : "";
   $("campo-investito").value = a ? String(a.investito).replace(".", ",") : "";
+  $("campo-motivo-acquisto").value = a && a.motivo ? a.motivo : "";
   $("elimina").hidden = !a;
+  // Il promemoria della tesi (solo per un nuovo acquisto di un'azione: vedi agenti/fondamentale.js)
+  disegnaPromemoriaAcquisto($("campo-titolo").value, !a);
 
   const modulo = $("modulo");
   if (tickerAperto) {
@@ -539,7 +550,17 @@ function quandoSalvi(evento) {
   if (!(investito > 0)) return mostraErrore("L'importo pagato deve essere maggiore di zero.");
 
   const acquisto = { data, quote: numQuote, investito };
+  const motivo = $("campo-motivo-acquisto").value.trim();
+  if (motivo) acquisto.motivo = motivo;
   const posizione = posizioni.find((p) => p.ticker === ticker);
+  if (inModifica) {
+    // Modificando un acquisto, resta com'era se allora la tesi c'era o no
+    const prima = posizione.acquisti[inModifica.indice];
+    if (typeof prima.tesiPronta === "boolean") acquisto.tesiPronta = prima.tesiPronta;
+  } else if (serveTesi(ticker)) {
+    // Per le azioni ricordiamo se la tesi era già scritta: non blocca niente, serve al punteggio di disciplina
+    acquisto.tesiPronta = Boolean(tesi[ticker] && tesi[ticker].motivo);
+  }
   if (inModifica) {
     posizione.acquisti[inModifica.indice] = acquisto;     // sostituiamo quello vecchio
   } else if (posizione) {
@@ -1115,6 +1136,8 @@ async function avvia() {
   // Colleghiamo i pulsanti alle loro azioni
   $("apri-modulo").onclick = () => apriModulo();
   $("annulla").onclick = chiudiModulo;
+  // Se cambi titolo nel modulo, il promemoria della tesi cambia con lui
+  $("campo-titolo").addEventListener("change", () => disegnaPromemoriaAcquisto($("campo-titolo").value, !inModifica));
   $("finestra").addEventListener("close", () => { inModifica = null; });
   $("aggiungi-acquisto").onclick = () => apriModulo(tickerAperto);
   $("indietro").onclick = tornaAllaPanoramica;

@@ -1161,3 +1161,15 @@ a.link { text-decoration: none; font-size: 12px; }
   text-transform: uppercase;
   vertical-align: 1px;
 }
+
+/* Il promemoria nel modulo d'acquisto: una lista di controllo, non un blocco */
+.promemoria-acquisto { padding: 10px 12px; border: 1px solid var(--bordo); border-left: 3px solid var(--accento); border-radius: 6px; background: var(--sfondo); }
+.titolo-promemoria { margin: 0 0 6px; color: var(--testo-tenue); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.lista-promemoria { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--testo-tenue); }
+.lista-promemoria li { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.lista-promemoria li span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista-promemoria .segno { flex: none; width: 14px; font-weight: 700; text-align: center; }
+.lista-promemoria li.fatta { color: var(--testo); }
+.lista-promemoria li.fatta .segno { color: var(--verde); }
+.lista-promemoria li.manca-tesi { color: var(--ambra); font-weight: 600; }
+.nota-promemoria { margin: 8px 0 0; color: var(--testo-tenue); font-size: 12px; }

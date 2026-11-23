@@ -254,6 +254,43 @@ function pulisciTesi(dati) {
   return risultato;
 }
 
+// ---------- Il promemoria quando compri ----------
+// Nel modulo di un NUOVO acquisto di un'azione compare una piccola lista di controllo:
+// c'è la tesi? c'è il target? Se manca qualcosa lo dice, ma puoi comprare lo stesso:
+// è un promemoria, non un blocco. Per ETF e cripto non compare.
+
+// Le quattro righe della tesi: [fatta?, testo]
+function vociPromemoria(ticker) {
+  const t = tesi[ticker];
+  return [
+    [Boolean(t && t.motivo), t && t.motivo ? "Tesi scritta: " + t.motivo.split("\n")[0] : "Tesi non scritta"],
+    [Boolean(t && t.target), t && t.target ? "Target a 12 mesi: " + euro(t.target) : "Target a 12 mesi non scritto"],
+    [Boolean(t && t.uscita.length), t && t.uscita.length ? "Sai quando esci" : "Non hai scritto quando esci"],
+    [Boolean(t && t.rischio), t && t.rischio ? "Rischio principale: " + t.rischio : "Rischio principale non scritto"],
+  ];
+}
+
+function disegnaPromemoriaAcquisto(ticker, nuovo) {
+  const riquadro = $("promemoria-acquisto");
+  riquadro.hidden = !nuovo || !ticker || !serveTesi(ticker);
+  if (riquadro.hidden) return;
+  const elenco = $("lista-promemoria");
+  elenco.innerHTML = "";
+  const voci = vociPromemoria(ticker);
+  voci.forEach(([fatta, testo], i) => {
+    const voce = document.createElement("li");
+    // Un simbolo E un colore: si capisce anche senza distinguere i colori
+    voce.className = fatta ? "fatta" : i === 0 ? "manca-tesi" : "";
+    voce.innerHTML = `<span class="segno" aria-hidden="true"></span><span></span>`;
+    voce.querySelector(".segno").textContent = fatta ? "✓" : i === 0 ? "!" : "○";
+    voce.lastChild.textContent = testo;
+    elenco.appendChild(voce);
+  });
+  $("nota-promemoria").textContent = voci[0][0]
+    ? "Rileggi la tesi: è ancora il motivo per cui compri?"
+    : "Puoi salvare l'acquisto lo stesso: è solo un promemoria. La tesi la scrivi quando vuoi, nella pagina del titolo.";
+}
+
 // A che punto sei tra il tuo prezzo medio e il target.
 // Restituisce null se manca qualcosa (target, prezzo, posizione).
 function avanzamentoTesi(ticker) {

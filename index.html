@@ -553,6 +553,17 @@
         Importo pagato (€, commissioni incluse)
         <input id="campo-investito" type="text" inputmode="decimal" placeholder="es. 250,00" required>
       </label>
+      <label>
+        Motivo di questo acquisto (una riga, facoltativo)
+        <input id="campo-motivo-acquisto" type="text" maxlength="200" placeholder="es. Secondo acquisto dopo il calo del 10%">
+      </label>
+      <!-- Il promemoria della tesi, solo per le azioni (lo riempie agenti/fondamentale.js).
+           È un promemoria, NON un blocco: puoi salvare l'acquisto anche senza tesi. -->
+      <div class="promemoria-acquisto" id="promemoria-acquisto" hidden>
+        <p class="titolo-promemoria">Promemoria prima di comprare</p>
+        <ul class="lista-promemoria" id="lista-promemoria"></ul>
+        <p class="nota-promemoria" id="nota-promemoria"></p>
+      </div>
       <p class="errore" id="errore" hidden></p>
       <div class="pulsanti-modulo">
         <button type="button" class="pulsante secondario" id="annulla">Annulla</button>
