@@ -479,7 +479,8 @@
           <!-- Qui dentro app.js sposta il modulo quando modifichi un acquisto -->
           <div class="posto-modulo" id="posto-modulo" hidden></div>
 
-          <!-- La scheda tesi: perché sono entrato, target, quando esco. Resta solo su questo dispositivo. -->
+          <!-- La scheda tesi LEGGERA (solo per le azioni): perché compro, target a 12 mesi, quando esco,
+               rischio principale. Solo la prima riga è obbligatoria. Resta solo su questo dispositivo. -->
           <section class="riquadro" id="sezione-tesi">
             <div class="intestazione-riquadro">
               <h2>La mia tesi</h2>
@@ -487,17 +488,22 @@
             </div>
             <div id="corpo-tesi"></div>
             <form id="modulo-tesi" hidden>
+              <p class="suggerimento">Bastano poche parole. Solo la prima riga è obbligatoria.</p>
               <label>
-                Perché sono entrato
-                <textarea id="campo-motivo" rows="4" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
+                Perché compro <span class="obbligatorio">obbligatorio</span>
+                <textarea id="campo-motivo" rows="2" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
               </label>
               <label>
-                Il mio target (€ per azione)
+                Target a 12 mesi (€ per azione)
                 <input id="campo-target" type="text" inputmode="decimal">
               </label>
               <label>
-                Esco se… (una condizione per riga)
-                <textarea id="campo-uscita" rows="4" placeholder="es. Trimestrale debole&#10;Utili sotto le attese per due trimestri&#10;Taglio della guidance"></textarea>
+                Quando esco (una condizione per riga)
+                <textarea id="campo-uscita" rows="2" placeholder="es. Trimestrale debole&#10;Taglio della guidance"></textarea>
+              </label>
+              <label>
+                Rischio principale
+                <input id="campo-rischio" type="text" placeholder="es. I clienti rimandano gli acquisti per la crisi">
               </label>
               <p class="errore" id="errore-tesi" hidden></p>
               <div class="pulsanti-modulo">

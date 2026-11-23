@@ -1138,3 +1138,26 @@ footer { margin-top: 20px; font-size: 12px; }
 .scelta-tema .selettore { background: var(--carta-2); }
 
 a.link { text-decoration: none; font-size: 12px; }
+
+/* =====================================================================================
+   DISCIPLINA E TESI
+   La scheda tesi leggera, i promemoria quando compri, le vendite con il motivo,
+   il diario delle operazioni e la pagina Disciplina.
+   ===================================================================================== */
+
+/* La scheda tesi leggera: righe più vicine, campi più bassi */
+#modulo-tesi { gap: 10px; }
+#modulo-tesi .suggerimento { margin: 0; }
+/* La piccola etichetta "obbligatorio" accanto a "Perché compro" */
+.obbligatorio {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--carta-2);
+  color: var(--testo-tenue);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}

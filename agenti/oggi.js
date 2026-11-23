@@ -207,13 +207,15 @@ function disegnaRigaMercato() {
 // L'ultima colonna della tabella: dove sei rispetto al tuo target (o "Scrivi la tesi")
 function cellaTesi(ticker) {
   const cella = crea("td", "cella-target");
-  if (infoTitolo(ticker).tipo === "ETF") {
-    cella.appendChild(crea("span", "tenue", "core · lungo termine"));
+  // ETF e cripto non hanno la scheda tesi
+  if (!serveTesi(ticker)) {
+    cella.appendChild(crea("span", "tenue", infoTitolo(ticker).tipo === "ETF" ? "core · lungo termine" : "senza tesi"));
     return cella;
   }
   const t = tesi[ticker];
   if (!t) {
-    // Nessuna tesi: un pulsante che apre la pagina del titolo con il modulo della tesi già aperto
+    // Nessuna tesi: un promemoria, e un pulsante che apre la pagina del titolo con il modulo della tesi già aperto
+    cella.appendChild(crea("span", "avviso-tesi", "tesi non scritta"));
     const scrivi = crea("button", "link scrivi-tesi", "✎ Scrivi la tesi");
     scrivi.type = "button";
     scrivi.onclick = (evento) => { evento.stopPropagation(); scriviTesi(ticker); };
@@ -355,7 +357,7 @@ function disegnaOggi() {
     // Sotto il nome: il motivo della tesi (per gli ETF solo "ETF")
     const nome = crea("td", "nome-cella");
     nome.append(crea("b", "", info.nome));
-    const motivo = info.tipo === "ETF" ? "ETF" : tesi[ticker] && tesi[ticker].motivo ? tesi[ticker].motivo : "Azione · tesi non ancora scritta";
+    const motivo = !serveTesi(ticker) ? info.tipo : tesi[ticker] && tesi[ticker].motivo ? tesi[ticker].motivo : "Azione · tesi non ancora scritta";
     nome.append(crea("span", "motivo-tesi", motivo));
     riga.append(nome,
       crea("td", "destra numero", c ? numeroIt(c.prezzo, 2) : "–"),
@@ -530,13 +532,14 @@ function testoPerAnalisi() {
     }
     const mia = tesi[ticker];
     if (mia) {
-      righe.push(`La mia tesi (scritta il ${mia.aggiornata || "?"}):`);
-      if (mia.motivo) righe.push(`  Perché sono entrato: ${mia.motivo.replace(/\s*\n\s*/g, " ")}`);
-      if (mia.target) righe.push(`  Il mio target: ${euro(mia.target)}`);
+      righe.push(`La mia tesi (scritta il ${mia.scritta || mia.aggiornata || "?"}):`);
+      if (mia.motivo) righe.push(`  Perché compro: ${mia.motivo.replace(/\s*\n\s*/g, " ")}`);
+      if (mia.target) righe.push(`  Il mio target a 12 mesi: ${euro(mia.target)}`);
       const a = avanzamentoTesi(ticker);
       if (a) righe.push(`  Avanzamento: ${testoAvanzamento(a)}`);
       for (const u of mia.uscita) righe.push(`  Esco se: ${u.testo} → ${u.scattata ? "VERIFICATA (segnata da me)" : "non verificata"}`);
-    } else if (info.tipo !== "ETF") {
+      if (mia.rischio) righe.push(`  Rischio principale secondo me: ${mia.rischio}`);
+    } else if (serveTesi(ticker)) {
       righe.push("La mia tesi: non l'ho ancora scritta.");
     }
     righe.push(...righeAgenti(ticker, 5));
