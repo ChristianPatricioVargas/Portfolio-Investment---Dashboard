@@ -5,6 +5,7 @@
 //   3. il grafico e la tabella "Posizioni e tesi" (vicino al target? manca la tesi?)
 //   4. cosa è successo ai tuoi titoli (notizie, campanelli raggruppati per titolo, trimestrali vicine)
 //   5. le migliori occasioni del cacciatore
+//   6. in cima alla colonna destra, l'anello della disciplina (vedi agenti/disciplina.js)
 // E prepara il testo di "Copia per l'analisi", da incollare in una chat con Claude.
 
 const OCCASIONI_NEL_TESTO = 5;       // quante metterne nel testo da copiare
@@ -367,7 +368,8 @@ function disegnaOggi() {
       cellaTesi(ticker));
   }
 
-  // ---- 5. I campanelli d'allarme, raggruppati per titolo ----
+  // ---- 5. I campanelli d'allarme, raggruppati per titolo (sopra di loro, l'anello della disciplina) ----
+  disegnaDisciplinaOggi();
   disegnaCampanelliOggi();
 
   // ---- 6. Le occasioni: una tabella con le 5 che spiccano ----

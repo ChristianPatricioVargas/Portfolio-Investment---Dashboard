@@ -151,8 +151,14 @@
           </section>
         </div>
         <div class="colonna-oggi">
-          <!-- Spazio riservato in cima alla colonna destra: qui arriverà l'anello della disciplina (blocco 3) -->
-          <div id="oggi-disciplina" hidden></div>
+          <!-- L'anello della disciplina: il voto al centro e una frase sotto. Toccandolo si apre la pagina Disciplina
+               (lo riempie agenti/disciplina.js) -->
+          <a class="riquadro anello-oggi" id="oggi-disciplina" href="#disciplina" hidden>
+            <span class="etichetta">Disciplina</span>
+            <svg class="anello-disciplina" id="anello-oggi" viewBox="0 0 120 120" role="img"></svg>
+            <b id="frase-oggi-disciplina"></b>
+            <small id="da-fare-oggi-disciplina"></small>
+          </a>
           <!-- 6. I campanelli d'allarme dei tuoi titoli, raggruppati per titolo -->
           <section class="riquadro" id="oggi-campanelli">
             <h2>Campanelli d'allarme</h2>

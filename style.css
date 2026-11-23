@@ -1316,3 +1316,19 @@ a.link { text-decoration: none; font-size: 12px; }
 #revisioni-passate { margin-top: 12px; }
 .revisione-passata { margin-top: 8px; }
 .revisione-passata summary { cursor: pointer; color: var(--testo); }
+
+/* ---------- L'anello della disciplina nella pagina Oggi ---------- */
+.anello-oggi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--testo);
+  text-align: center;
+  text-decoration: none;
+}
+.anello-oggi:hover { border-color: var(--accento); }
+.anello-oggi .etichetta { align-self: flex-start; color: var(--testo-tenue); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.anello-oggi .anello-disciplina { width: 104px; height: 104px; }
+.anello-oggi b { font-weight: 600; font-size: 13px; }
+.anello-oggi small { color: var(--testo-tenue); font-size: 12px; }

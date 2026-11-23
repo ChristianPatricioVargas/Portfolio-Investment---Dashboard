@@ -650,6 +650,23 @@ function quandoSalviRevisione(evento) {
   disegnaDisciplina();
 }
 
+// ---------- L'anello nella pagina Oggi ----------
+// In cima alla colonna destra: il voto al centro, una frase breve sotto e la prima cosa da fare.
+// È un link: toccandolo si apre la pagina Disciplina.
+
+function disegnaDisciplinaOggi() {
+  const riquadro = $("oggi-disciplina");
+  riquadro.hidden = posizioni.length === 0 && chiuse.length === 0;
+  if (riquadro.hidden) return;
+  const { punteggio } = calcolaDisciplina();
+  disegnaAnelloDisciplina($("anello-oggi"), punteggio);
+  $("frase-oggi-disciplina").textContent = fraseDisciplina(punteggio);
+  const prima = cosaFare()[0];
+  $("da-fare-oggi-disciplina").textContent = prima ? "Da fare: " + prima.titolo : "Niente da fare: regole in ordine.";
+  riquadro.setAttribute("aria-label", `Disciplina: ${punteggio === null ? "voto non ancora disponibile" : punteggio + " su 100"}. ` +
+    `${fraseDisciplina(punteggio)} Tocca per aprire la pagina Disciplina.`);
+}
+
 // ---------- La pagina Disciplina ----------
 
 function disegnaDisciplina() {
