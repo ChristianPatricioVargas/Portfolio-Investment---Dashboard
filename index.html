@@ -471,13 +471,52 @@
         <!-- Colonna destra: gli acquisti, da aggiungere, modificare, eliminare -->
         <section class="colonna-destra" id="colonna-personale">
           <div class="intestazione-sezione">
-            <h2>Acquisti</h2>
-            <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
+            <h2>Acquisti e vendite</h2>
+            <div class="pulsanti-operazioni">
+              <button class="pulsante secondario" id="aggiungi-vendita" type="button">− Vendita</button>
+              <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
+            </div>
           </div>
-          <p class="suggerimento">Tocca un acquisto per modificarlo o eliminarlo.</p>
+          <p class="suggerimento">Tocca un'operazione per modificarla o eliminarla.</p>
           <div id="elenco-acquisti"></div>
           <!-- Qui dentro app.js sposta il modulo quando modifichi un acquisto -->
           <div class="posto-modulo" id="posto-modulo" hidden></div>
+          <!-- Il modulo di una vendita: chiede sempre il motivo, in una riga -->
+          <div class="posto-modulo" id="posto-vendita" hidden>
+            <form id="modulo-vendita">
+              <h3 id="titolo-vendita">Vendita</h3>
+              <p class="suggerimento" id="info-vendita"></p>
+              <label>
+                Data della vendita
+                <input id="campo-data-vendita" type="date" required>
+              </label>
+              <label>
+                Quote vendute
+                <span class="campo-con-pulsante">
+                  <input id="campo-quote-vendita" type="text" inputmode="decimal" placeholder="es. 0,5" required>
+                  <button type="button" class="pulsante secondario" id="vendi-tutte">Tutte</button>
+                </span>
+              </label>
+              <label>
+                Importo incassato (€, commissione già tolta)
+                <input id="campo-incassato" type="text" inputmode="decimal" placeholder="es. 249,00" required>
+              </label>
+              <label>
+                Perché vendo (una riga) <span class="obbligatorio">obbligatorio</span>
+                <input id="campo-motivo-vendita" type="text" maxlength="200" placeholder="es. È scattata una mia condizione di uscita">
+              </label>
+              <!-- Le tue condizioni di uscita: toccandone una diventa il motivo -->
+              <div class="scelte-motivo" id="scelte-motivo" hidden></div>
+              <p class="nota-vendita" id="nota-vendita" hidden></p>
+              <p class="suggerimento" id="anteprima-vendita" hidden></p>
+              <p class="errore" id="errore-vendita" hidden></p>
+              <div class="pulsanti-modulo">
+                <button type="button" class="pulsante secondario" id="annulla-vendita">Annulla</button>
+                <button type="submit" class="pulsante">Salva</button>
+              </div>
+              <button type="button" class="link pericolo" id="elimina-vendita" hidden>Elimina questa vendita</button>
+            </form>
+          </div>
 
           <!-- La scheda tesi LEGGERA (solo per le azioni): perché compro, target a 12 mesi, quando esco,
                rischio principale. Solo la prima riga è obbligatoria. Resta solo su questo dispositivo. -->

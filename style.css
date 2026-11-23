@@ -1173,3 +1173,43 @@ a.link { text-decoration: none; font-size: 12px; }
 .lista-promemoria li.fatta .segno { color: var(--verde); }
 .lista-promemoria li.manca-tesi { color: var(--ambra); font-weight: 600; }
 .nota-promemoria { margin: 8px 0 0; color: var(--testo-tenue); font-size: 12px; }
+
+/* ---------- Le vendite ---------- */
+.pulsanti-operazioni { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.colonna-destra .intestazione-sezione { gap: 8px; flex-wrap: wrap; }
+/* La riga di una vendita nell'elenco: bordo a sinistra ed etichetta "Vendita" */
+.riga-vendita { box-shadow: inset 3px 0 0 var(--rosso); }
+.etichetta-vendita {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--rosso-sfondo);
+  color: var(--rosso);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.motivo-operazione { color: var(--testo); font-size: 12px; line-height: 1.35; }
+/* "Quote vendute" con il pulsante "Tutte" accanto */
+.campo-con-pulsante { display: flex; gap: 8px; }
+.campo-con-pulsante input { flex: 1; min-width: 0; }
+.campo-con-pulsante .pulsante { flex: none; }
+/* Le scorciatoie per il motivo della vendita (le tue condizioni di uscita) */
+.scelte-motivo { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+.scelta-motivo {
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  background: var(--carta-2);
+  color: var(--testo);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.nota-vendita { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--carta-2); font-size: 13px; }
+.riga-numeri i.vendita { color: var(--rosso); }

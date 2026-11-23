@@ -525,7 +525,11 @@ function testoPerAnalisi() {
     righe.push(`Posizione: ${quote(t.quote)} quote · prezzo medio ${euro(t.prezzoMedio)} · investito ${euro(t.investito)}` +
       (c ? ` · prezzo ${euro(c.prezzo)} · valore ${euro(c.valore)} · guadagno/perdita ${euro(c.gp, true)} (${percentuale(c.gpPerc)})` +
         (r.completo && r.valore > 0 ? ` · peso ${percUno(c.valore / r.valore)} del portafoglio` : "") : ""));
-    righe.push("Acquisti: " + posizione.acquisti.map((a) => `${a.data || "senza data"} ${quote(a.quote)} quote a ${euro(a.investito / a.quote)}`).join("; "));
+    righe.push("Acquisti: " + posizione.acquisti.map((a) => `${a.data || "senza data"} ${quote(a.quote)} quote a ${euro(a.investito / a.quote)}${a.motivo ? ` (${a.motivo})` : ""}`).join("; "));
+    const vendite = contaOperazioni(posizione).vendite;
+    if (vendite.length) {
+      righe.push("Vendite: " + vendite.map((v) => `${v.data} ${quote(v.quote)} quote a ${euro(v.incassato / v.quote)}, ${v.guadagno >= 0 ? "guadagno" : "perdita"} ${euro(v.guadagno, true)} (perché: ${v.motivo})`).join("; "));
+    }
     if (c) {
       const v = calcolaVendita(posizione, c.prezzo);
       righe.push(`Se vendo oggi: netto in tasca ${euro(v.netto)}, tasse ${euro(v.tasse)}, guadagno netto ${euro(v.guadagnoNetto, true)} (${percentuale(v.guadagnoNetto / v.investito)})`);

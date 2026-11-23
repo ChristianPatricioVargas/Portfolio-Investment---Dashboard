@@ -8,6 +8,7 @@
 //   - trascinare avanti e indietro nel tempo con un dito
 //   - toccare: sopra il grafico compaiono i numeri del giorno toccato
 //   - vedere i tuoi acquisti: un pallino blu sotto la candela del giorno in cui hai comprato
+//     (e le tue vendite: un pallino rosso sopra la candela del giorno in cui hai venduto)
 //   - confrontare due titoli in percentuale (menu "Confronta con:")
 //   - disegnare linee orizzontali e di tendenza, salvate sul dispositivo e nel backup
 //
@@ -422,10 +423,9 @@ function riempiGrafico(stato, t) {
   for (const l of t.resistenze || []) livello(l.prezzo, "Resistenza");
 }
 
-// ---------- I pallini dei tuoi acquisti ----------
-// Leggono gli acquisti salvati su questo dispositivo (gli stessi della pagina Portafoglio):
-// niente esce dal browser. La dashboard per ora registra solo gli acquisti, non le vendite:
-// quando registrerà anche le vendite, compariranno qui con un pallino rosso.
+// ---------- I pallini dei tuoi acquisti e delle tue vendite ----------
+// Leggono le operazioni salvate su questo dispositivo (le stesse della pagina Portafoglio):
+// niente esce dal browser. Acquisti: pallino blu sotto il prezzo. Vendite: pallino rosso sopra.
 
 // Gli acquisti di un titolo, raggruppati per giorno di Borsa del grafico:
 // { "2026-03-10": { quote, investito, quanti }, ... }
@@ -445,15 +445,34 @@ function acquistiSulGrafico(ticker, giorni) {
   return perGiorno;
 }
 
-// Mette (o aggiorna) i pallini blu degli acquisti sotto il prezzo
+// Le vendite di un titolo, raggruppate per giorno di Borsa: { "2026-11-20": { quote, incassato, quanti } }
+function venditeSulGrafico(ticker, giorni) {
+  const posizione = posizioni.find((p) => p.ticker === ticker);
+  const perGiorno = {};
+  if (!posizione || !giorni.length) return perGiorno;
+  for (const v of posizione.vendite || []) {
+    if (!v.data || v.data < giorni[0]) continue;
+    const giorno = giorni.find((g) => g >= v.data) || giorni[giorni.length - 1];
+    const voce = perGiorno[giorno] || (perGiorno[giorno] = { quote: 0, incassato: 0, quanti: 0 });
+    voce.quote += v.quote;
+    voce.incassato += v.incassato;
+    voce.quanti += 1;
+  }
+  return perGiorno;
+}
+
+// Mette (o aggiorna) i pallini: blu sotto il prezzo per gli acquisti, rossi sopra per le vendite
 function mettiPallini(stato) {
   stato.acquisti = acquistiSulGrafico(stato.ticker, stato.dati.giorni);
-  const firma = JSON.stringify(stato.acquisti);
+  stato.vendite = venditeSulGrafico(stato.ticker, stato.dati.giorni);
+  const firma = JSON.stringify([stato.acquisti, stato.vendite]);
   if (firma === stato.firmaPallini) return;                  // niente di nuovo
   stato.firmaPallini = firma;
-  const segni = Object.keys(stato.acquisti).sort().map((giorno) => ({
-    time: giorno, position: "belowBar", shape: "circle", color: coloriGrafico().accento, size: 1,
-  }));
+  const colori = coloriGrafico();
+  const segni = [
+    ...Object.keys(stato.acquisti).map((giorno) => ({ time: giorno, position: "belowBar", shape: "circle", color: colori.accento, size: 1 })),
+    ...Object.keys(stato.vendite).map((giorno) => ({ time: giorno, position: "aboveBar", shape: "circle", color: colori.rosso || "#f0766d", size: 1 })),
+  ].sort((a, b) => a.time.localeCompare(b.time));            // la libreria li vuole in ordine di data
   if (stato.pallini) stato.pallini.setMarkers(segni);
   else stato.pallini = LWC.createSeriesMarkers(stato.principale, segni);
 }
@@ -785,6 +804,12 @@ function scriviRigaGrafico(stato, tempo) {
     pezzi.push(["● Acquist" + (acquisto.quanti > 1 ? "i" : "o"),
       `${quote(acquisto.quote)} quote a ${euro(acquisto.investito / acquisto.quote)}`]);
   }
+  // Il giorno di una tua vendita (pallino rosso)
+  const vendita = stato.vendite && stato.vendite[chiave];
+  if (vendita) {
+    pezzi.push(["● Vendit" + (vendita.quanti > 1 ? "e" : "a"),
+      `${quote(vendita.quote)} quote a ${euro(vendita.incassato / vendita.quote)}`]);
+  }
   scriviRiga(riga, pezzi);
 }
 
@@ -796,7 +821,7 @@ function scriviRiga(riga, pezzi) {
       const e = document.createElement("i");
       e.textContent = etichetta + " ";
       if (etichetta.startsWith("MM")) e.className = etichetta.toLowerCase();   // il colore della sua linea
-      if (etichetta.startsWith("●")) e.className = "acquisto";
+      if (etichetta.startsWith("●")) e.className = etichetta.includes("Vendit") ? "vendita" : "acquisto";
       if (classe) e.className = classe;
       pezzo.append(e);
     }
