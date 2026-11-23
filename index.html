@@ -77,13 +77,12 @@
       <p class="avviso" id="oggi-vuoto" hidden>Non hai ancora inserito acquisti: vai su <strong>Portafoglio</strong> e tocca <strong>+ Aggiungi</strong>.
         Intanto qui sotto trovi le occasioni del cacciatore.</p>
 
-      <!-- 1. I quattro numeri chiave del portafoglio -->
+      <!-- 1. I tre numeri chiave del portafoglio. Sotto il valore: quanto resterebbe in tasca
+           vendendo tutto oggi (ETF compresi), dopo tasse (26%) e commissioni -->
       <div class="numeri-chiave" id="oggi-portafoglio">
-        <div class="numero-chiave"><span class="etichetta">Valore</span><b id="oggi-valore">–</b><small id="oggi-investito"></small></div>
+        <div class="numero-chiave"><span class="etichetta">Valore</span><b id="oggi-valore">–</b><small id="oggi-investito"></small><small id="oggi-netto"></small></div>
         <div class="numero-chiave"><span class="etichetta">Guadagno totale</span><b id="oggi-gp">–</b><small id="oggi-gp-perc"></small></div>
         <div class="numero-chiave"><span class="etichetta">Oggi</span><b id="oggi-variazione">–</b><small id="oggi-variazione-perc"></small></div>
-        <!-- Tutto il portafoglio, ETF compresi: si confronta subito con "investito" -->
-        <div class="numero-chiave"><span class="etichetta">Se vendo tutto oggi</span><b id="oggi-netto">–</b><small id="oggi-netto-dettaglio">netto di tasse (26%) e commissioni</small></div>
       </div>
 
       <!-- 2. Il mercato di oggi in una riga: indici e watchlist. Toccandola vai alla pagina del mercato

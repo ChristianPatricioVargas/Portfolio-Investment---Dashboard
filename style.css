@@ -936,12 +936,15 @@ input, select, textarea { border-radius: 6px; border: 1px solid var(--bordo); ba
 .numero-chiave small { color: var(--testo-tenue); font-size: 12px; }
 .numero-chiave small.positivo { color: var(--verde); }
 .numero-chiave small.negativo { color: var(--rosso); }
+/* Sul telefono (2 colonne) il riquadro del valore prende tutta la riga: ha due righe di dettaglio */
+.numero-chiave:first-child { grid-column: 1 / -1; }
+@media (min-width: 900px) { .numero-chiave:first-child { grid-column: auto; } }
 
 .griglia-oggi { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; }
 .colonna-oggi { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .colonna-oggi > .riquadro { margin-top: 0; }
 @media (min-width: 900px) {
-  .numeri-chiave { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .numeri-chiave { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .griglia-oggi { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; }
 }
 

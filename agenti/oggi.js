@@ -314,7 +314,7 @@ function disegnaOggi() {
   for (const id of ["oggi-portafoglio", "oggi-titoli", "oggi-campanelli", "oggi-notizie", "oggi-composizione"]) $(id).hidden = !haTitoli;
   const r = riepilogoPortafoglio();
 
-  // ---- 1. I quattro numeri chiave ----
+  // ---- 1. I tre numeri chiave ----
   if (haTitoli) {
     const numero = (id, testo, valore = 0) => { $(id).textContent = testo; $(id).className = classeColore(valore); };
     numero("oggi-valore", r.completo ? euro(r.valore) : "–");
@@ -324,19 +324,13 @@ function disegnaOggi() {
     const oggiNoto = r.completo && r.valoreIeri > 0;
     numero("oggi-variazione", oggiNoto ? euro(r.variazioneOggi, true) : "–", oggiNoto ? r.variazioneOggi : 0);
     numero("oggi-variazione-perc", oggiNoto ? testoVariazione(r.variazioneOggi / r.valoreIeri) : "in attesa dei prezzi", oggiNoto ? r.variazioneOggi : 0);
-    // Se vendessi TUTTO oggi (azioni ed ETF), così il numero si confronta subito con "investito".
-    // Ogni vendita paga tasse e commissione per conto suo.
-    const conPrezzo = posizioni.every((p) => prezzi[p.ticker]);
-    const vendite = posizioni.filter((p) => prezzi[p.ticker]).map((p) => calcolaVendita(p, prezzi[p.ticker].prezzo));
-    const netto = vendite.reduce((somma, v) => somma + v.netto, 0);
-    const guadagnoNetto = vendite.reduce((somma, v) => somma + v.guadagnoNetto, 0);
-    if (!conPrezzo) {
-      numero("oggi-netto", "–");
-      numero("oggi-netto-dettaglio", "in attesa dei prezzi");
-    } else {
-      numero("oggi-netto", euro(netto));
-      numero("oggi-netto-dettaglio", `${euro(guadagnoNetto, true)} netti · tasse 26% e commissioni tolte`, guadagnoNetto);
-    }
+    // Sotto il valore: quanto resterebbe in tasca vendendo TUTTO oggi (azioni ed ETF),
+    // da confrontare con "investito". Ogni vendita paga tasse e commissione per conto suo.
+    const netto = r.completo
+      ? posizioni.reduce((somma, p) => somma + calcolaVendita(p, prezzi[p.ticker].prezzo).netto, 0)
+      : null;
+    $("oggi-netto").textContent = netto === null ? "" : `netto se vendo tutto: ${euro(netto)}`;
+    $("oggi-netto").title = "Dopo tasse (26% sul guadagno) e 1 € di commissione per titolo";
     $("oggi-fonte").textContent = Object.keys(prezzi).length ? testoFonte(posizioni.map((p) => p.ticker)) : "";
   }
 
