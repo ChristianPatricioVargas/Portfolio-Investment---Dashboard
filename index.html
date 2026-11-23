@@ -337,6 +337,47 @@
 
       <div class="griglia-oggi">
         <div class="colonna-oggi">
+          <!-- Il punteggio di disciplina: premia il rispetto delle MIE regole, non il guadagno -->
+          <section class="riquadro" id="disciplina-punteggio">
+            <h2>Punteggio di disciplina</h2>
+            <div class="punteggio-disciplina">
+              <svg class="anello-disciplina" id="anello-disciplina" viewBox="0 0 120 120" role="img"></svg>
+              <div>
+                <p class="frase-agente" id="frase-disciplina"></p>
+                <p class="suggerimento">Da 0 a 100: quanto segui le tue regole. Il guadagno non conta, e un'uscita
+                  con un motivo, anche prima del target, non toglie punti.</p>
+              </div>
+            </div>
+            <ul class="regole-disciplina" id="regole-disciplina"></ul>
+          </section>
+          <!-- Le cose da fare adesso: tesi mancanti, "la tesi regge ancora?", tesi di 12 mesi, revisione -->
+          <section class="riquadro" id="disciplina-da-fare">
+            <h2>Da fare</h2>
+            <div id="elenco-da-fare"></div>
+            <p class="vuoto" id="niente-da-fare" hidden>Niente da fare: le tue regole sono in ordine.</p>
+          </section>
+          <!-- La revisione mensile guidata: 5 domande -->
+          <section class="riquadro" id="disciplina-revisione">
+            <div class="intestazione-riquadro">
+              <h2 id="titolo-revisione">Revisione del mese</h2>
+              <span class="stato-revisione" id="stato-revisione"></span>
+            </div>
+            <div id="riepilogo-revisione" hidden></div>
+            <form id="modulo-revisione" hidden>
+              <p class="suggerimento">Rispondi con poche parole: nessuna risposta è sbagliata. Sotto ogni domanda ci sono i tuoi dati del mese.</p>
+              <div id="domande-revisione"></div>
+              <p class="errore" id="errore-revisione" hidden></p>
+              <div class="pulsanti-modulo">
+                <button type="button" class="pulsante secondario" id="annulla-revisione">Annulla</button>
+                <button type="submit" class="pulsante">Salva la revisione</button>
+              </div>
+            </form>
+            <button type="button" class="pulsante" id="apri-revisione">Inizia la revisione</button>
+            <details class="glossario" id="revisioni-passate" hidden>
+              <summary>Le revisioni dei mesi passati</summary>
+              <div id="elenco-revisioni-passate"></div>
+            </details>
+          </section>
           <!-- Il diario: ogni acquisto e ogni vendita, con data, prezzo e motivo -->
           <section class="riquadro" id="disciplina-diario">
             <h2>Diario delle operazioni</h2>
@@ -559,7 +600,7 @@
               <p class="nota-vendita" id="nota-vendita" hidden></p>
               <p class="suggerimento" id="anteprima-vendita" hidden></p>
               <!-- Il voto sulla tesi: serve al diario (pagina Disciplina). "Non so ancora" si può cambiare dopo. -->
-              <fieldset class="voto-tesi">
+              <fieldset class="voto-tesi" id="campo-voto-tesi">
                 <legend>La tesi era giusta?</legend>
                 <div class="scelta-voto" id="scelta-voto"></div>
               </fieldset>

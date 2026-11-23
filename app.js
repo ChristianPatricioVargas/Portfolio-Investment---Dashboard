@@ -766,6 +766,7 @@ function apriVendita(indice = null) {
   creaSceltaVoto($("scelta-voto"), v ? v.voto : "", (voto) => { $("riga-errore-vendita").hidden = !serveErrore(voto); });
   riempiErrori($("campo-errore-vendita"), v ? v.errore : "");
   $("riga-errore-vendita").hidden = !serveErrore(v ? v.voto : "");
+  $("campo-voto-tesi").hidden = !serveTesi(tickerAperto);   // ETF e cripto: niente tesi da votare
 
   // Quante quote puoi vendere: quelle che hai, più quelle di questa vendita se la stai modificando
   const t = totali(posizione);
@@ -906,10 +907,10 @@ function chiudiPosizione(posizione) {
 // ---------- Backup ----------
 // Copia i tuoi dati come testo: puoi incollarlo in Note per tenerlo al sicuro.
 // Dentro ci sono TUTTI i dati personali: acquisti e vendite, tesi, titoli tolti dalla watchlist,
-// linee disegnate sui grafici e operazioni chiuse.
+// linee disegnate sui grafici, operazioni chiuse e revisioni mensili (pagina Disciplina).
 
 function datiPersonali() {
-  return { versione: 5, posizioni, tesi, watchlist: watchlistLocale, disegni, chiuse };
+  return { versione: 5, posizioni, tesi, watchlist: watchlistLocale, disegni, chiuse, disciplina };
 }
 
 async function copiaBackup() {
@@ -945,6 +946,10 @@ function ripristinaBackup() {
       if (dati.chiuse) {
         chiuse = pulisciChiuse(dati.chiuse);
         salvaChiuse();
+      }
+      if (dati.disciplina) {
+        disciplina = pulisciDisciplina(dati.disciplina);
+        salvaDisciplina();
       }
     }
     disegna();
@@ -1410,6 +1415,7 @@ function applicaTema(tema) {
 async function avvia() {
   posizioni = caricaPosizioni();
   chiuse = caricaChiuse();
+  disciplina = caricaDisciplina();
   tesi = caricaTesi();
   watchlistLocale = caricaWatchlist();
 
@@ -1467,6 +1473,9 @@ async function avvia() {
   } catch (errore) {
     /* niente grafici, pazienza */
   }
+
+  // La pagina Disciplina annota le date delle trimestrali dei tuoi titoli (servono ai promemoria)
+  preparaDisciplina();
 
   // Riempiamo il menu a tendina con i titoli disponibili
   for (const t of titoli) {
