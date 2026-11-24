@@ -60,6 +60,11 @@
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="3.5"></circle><circle cx="10" cy="10" r="0.6"></circle></svg>
       <span>Occasioni</span>
     </a>
+    <a href="#disciplina" data-vista="disciplina">
+      <!-- Un segno di spunta dentro un cerchio: "ho seguito le mie regole" -->
+      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><path d="M6.5 10.2 l2.4 2.4 l4.6 -5"></path></svg>
+      <span>Disciplina</span>
+    </a>
   </nav>
 
   <!-- La striscia dei prezzi in alto: i tuoi titoli e gli indici di mercato (la riempie agenti/oggi.js) -->
@@ -146,8 +151,14 @@
           </section>
         </div>
         <div class="colonna-oggi">
-          <!-- Spazio riservato in cima alla colonna destra: qui arriverà l'anello della disciplina (blocco 3) -->
-          <div id="oggi-disciplina" hidden></div>
+          <!-- L'anello della disciplina: il voto al centro e una frase sotto. Toccandolo si apre la pagina Disciplina
+               (lo riempie agenti/disciplina.js) -->
+          <a class="riquadro anello-oggi" id="oggi-disciplina" href="#disciplina" hidden>
+            <span class="etichetta">Disciplina</span>
+            <svg class="anello-disciplina" id="anello-oggi" viewBox="0 0 120 120" role="img"></svg>
+            <b id="frase-oggi-disciplina"></b>
+            <small id="da-fare-oggi-disciplina"></small>
+          </a>
           <!-- 6. I campanelli d'allarme dei tuoi titoli, raggruppati per titolo -->
           <section class="riquadro" id="oggi-campanelli">
             <h2>Campanelli d'allarme</h2>
@@ -322,6 +333,91 @@
       </div>
     </div>
 
+    <!-- ===== VISTA "Disciplina": quanto seguo le MIE regole (la riempie agenti/disciplina.js) =====
+         Tutto ciò che c'è qui è personale: resta su questo dispositivo ed è incluso nel backup. -->
+    <div id="vista-disciplina" hidden>
+      <header class="testata-pagina">
+        <h1 class="titolo-pagina">Disciplina</h1>
+        <span class="etichetta-alta">le mie regole, non il guadagno</span>
+      </header>
+
+      <div class="griglia-oggi">
+        <div class="colonna-oggi">
+          <!-- Il punteggio di disciplina: premia il rispetto delle MIE regole, non il guadagno -->
+          <section class="riquadro" id="disciplina-punteggio">
+            <h2>Punteggio di disciplina</h2>
+            <div class="punteggio-disciplina">
+              <svg class="anello-disciplina" id="anello-disciplina" viewBox="0 0 120 120" role="img"></svg>
+              <div>
+                <p class="frase-agente" id="frase-disciplina"></p>
+                <p class="suggerimento">Da 0 a 100: quanto segui le tue regole. Il guadagno non conta, e un'uscita
+                  con un motivo, anche prima del target, non toglie punti.</p>
+              </div>
+            </div>
+            <ul class="regole-disciplina" id="regole-disciplina"></ul>
+          </section>
+          <!-- Le cose da fare adesso: tesi mancanti, "la tesi regge ancora?", tesi di 12 mesi, revisione -->
+          <section class="riquadro" id="disciplina-da-fare">
+            <h2>Da fare</h2>
+            <div id="elenco-da-fare"></div>
+            <p class="vuoto" id="niente-da-fare" hidden>Niente da fare: le tue regole sono in ordine.</p>
+          </section>
+          <!-- La revisione mensile guidata: 5 domande -->
+          <section class="riquadro" id="disciplina-revisione">
+            <div class="intestazione-riquadro">
+              <h2 id="titolo-revisione">Revisione del mese</h2>
+              <span class="stato-revisione" id="stato-revisione"></span>
+            </div>
+            <div id="riepilogo-revisione" hidden></div>
+            <form id="modulo-revisione" hidden>
+              <p class="suggerimento">Rispondi con poche parole: nessuna risposta è sbagliata. Sotto ogni domanda ci sono i tuoi dati del mese.</p>
+              <div id="domande-revisione"></div>
+              <p class="errore" id="errore-revisione" hidden></p>
+              <div class="pulsanti-modulo">
+                <button type="button" class="pulsante secondario" id="annulla-revisione">Annulla</button>
+                <button type="submit" class="pulsante">Salva la revisione</button>
+              </div>
+            </form>
+            <button type="button" class="pulsante" id="apri-revisione">Inizia la revisione</button>
+            <details class="glossario" id="revisioni-passate" hidden>
+              <summary>Le revisioni dei mesi passati</summary>
+              <div id="elenco-revisioni-passate"></div>
+            </details>
+          </section>
+          <!-- Il diario: ogni acquisto e ogni vendita, con data, prezzo e motivo -->
+          <section class="riquadro" id="disciplina-diario">
+            <h2>Diario delle operazioni</h2>
+            <p class="suggerimento">Le più recenti in alto. Per ogni vendita puoi dare (o cambiare) il voto sulla tesi.</p>
+            <div id="elenco-diario"></div>
+            <button type="button" class="link" id="altre-operazioni" hidden>Mostra tutte</button>
+            <p class="vuoto" id="diario-vuoto" hidden>Nessuna operazione ancora: gli acquisti si inseriscono nella pagina Portafoglio,
+              le vendite nella pagina di un titolo.</p>
+          </section>
+        </div>
+        <div class="colonna-oggi">
+          <!-- Le statistiche sulle vendite e gli errori più frequenti -->
+          <section class="riquadro" id="disciplina-statistiche">
+            <h2>Le mie tesi alla prova</h2>
+            <dl class="numeri-agente" id="numeri-diario"></dl>
+            <h3>Errori più frequenti</h3>
+            <div class="errori-frequenti" id="errori-frequenti"></div>
+            <p class="vuoto" id="errori-vuoto" hidden></p>
+          </section>
+          <!-- I titoli venduti del tutto -->
+          <section class="riquadro" id="disciplina-chiuse" hidden>
+            <h2>Titoli venduti del tutto</h2>
+            <div id="elenco-chiuse"></div>
+          </section>
+        </div>
+      </div>
+
+      <footer>
+        <p>Diario, voti e revisioni restano solo su questo dispositivo e sono inclusi nel backup (pagina Portafoglio).</p>
+        <p>Questa pagina misura quanto segui le tue regole, non quanto guadagni: <strong>non è consulenza finanziaria</strong>.
+          Un'uscita con un motivo, anche prima del target, non è un errore.</p>
+      </footer>
+    </div>
+
     <!-- ===== VISTA 2: la pagina di un singolo titolo ===== -->
     <div id="vista-titolo" hidden>
       <button type="button" class="link indietro" id="indietro">‹ Indietro</button>
@@ -471,15 +567,64 @@
         <!-- Colonna destra: gli acquisti, da aggiungere, modificare, eliminare -->
         <section class="colonna-destra" id="colonna-personale">
           <div class="intestazione-sezione">
-            <h2>Acquisti</h2>
-            <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
+            <h2>Acquisti e vendite</h2>
+            <div class="pulsanti-operazioni">
+              <button class="pulsante secondario" id="aggiungi-vendita" type="button">− Vendita</button>
+              <button class="pulsante" id="aggiungi-acquisto" type="button">+ Acquisto</button>
+            </div>
           </div>
-          <p class="suggerimento">Tocca un acquisto per modificarlo o eliminarlo.</p>
+          <p class="suggerimento">Tocca un'operazione per modificarla o eliminarla.</p>
           <div id="elenco-acquisti"></div>
           <!-- Qui dentro app.js sposta il modulo quando modifichi un acquisto -->
           <div class="posto-modulo" id="posto-modulo" hidden></div>
+          <!-- Il modulo di una vendita: chiede sempre il motivo, in una riga -->
+          <div class="posto-modulo" id="posto-vendita" hidden>
+            <form id="modulo-vendita">
+              <h3 id="titolo-vendita">Vendita</h3>
+              <p class="suggerimento" id="info-vendita"></p>
+              <label>
+                Data della vendita
+                <input id="campo-data-vendita" type="date" required>
+              </label>
+              <label>
+                Quote vendute
+                <span class="campo-con-pulsante">
+                  <input id="campo-quote-vendita" type="text" inputmode="decimal" placeholder="es. 0,5" required>
+                  <button type="button" class="pulsante secondario" id="vendi-tutte">Tutte</button>
+                </span>
+              </label>
+              <label>
+                Importo incassato (€, commissione già tolta)
+                <input id="campo-incassato" type="text" inputmode="decimal" placeholder="es. 249,00" required>
+              </label>
+              <label>
+                <span>Perché vendo (una riga) <span class="obbligatorio">obbligatorio</span></span>
+                <input id="campo-motivo-vendita" type="text" maxlength="200" placeholder="es. È scattata una mia condizione di uscita">
+              </label>
+              <!-- Le tue condizioni di uscita: toccandone una diventa il motivo -->
+              <div class="scelte-motivo" id="scelte-motivo" hidden></div>
+              <p class="nota-vendita" id="nota-vendita" hidden></p>
+              <p class="suggerimento" id="anteprima-vendita" hidden></p>
+              <!-- Il voto sulla tesi: serve al diario (pagina Disciplina). "Non so ancora" si può cambiare dopo. -->
+              <fieldset class="voto-tesi" id="campo-voto-tesi">
+                <legend>La tesi era giusta?</legend>
+                <div class="scelta-voto" id="scelta-voto"></div>
+              </fieldset>
+              <label id="riga-errore-vendita" hidden>
+                Cosa non ha funzionato? (facoltativo)
+                <select id="campo-errore-vendita"></select>
+              </label>
+              <p class="errore" id="errore-vendita" hidden></p>
+              <div class="pulsanti-modulo">
+                <button type="button" class="pulsante secondario" id="annulla-vendita">Annulla</button>
+                <button type="submit" class="pulsante">Salva</button>
+              </div>
+              <button type="button" class="link pericolo" id="elimina-vendita" hidden>Elimina questa vendita</button>
+            </form>
+          </div>
 
-          <!-- La scheda tesi: perché sono entrato, target, quando esco. Resta solo su questo dispositivo. -->
+          <!-- La scheda tesi LEGGERA (solo per le azioni): perché compro, target a 12 mesi, quando esco,
+               rischio principale. Solo la prima riga è obbligatoria. Resta solo su questo dispositivo. -->
           <section class="riquadro" id="sezione-tesi">
             <div class="intestazione-riquadro">
               <h2>La mia tesi</h2>
@@ -487,17 +632,22 @@
             </div>
             <div id="corpo-tesi"></div>
             <form id="modulo-tesi" hidden>
+              <p class="suggerimento">Bastano poche parole. Solo la prima riga è obbligatoria.</p>
               <label>
-                Perché sono entrato
-                <textarea id="campo-motivo" rows="4" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
+                <span>Perché compro <span class="obbligatorio">obbligatorio</span></span>
+                <textarea id="campo-motivo" rows="2" placeholder="es. Scesa del 25% per un problema temporaneo, ma i conti restano solidi"></textarea>
               </label>
               <label>
-                Il mio target (€ per azione)
+                Target a 12 mesi (€ per azione)
                 <input id="campo-target" type="text" inputmode="decimal">
               </label>
               <label>
-                Esco se… (una condizione per riga)
-                <textarea id="campo-uscita" rows="4" placeholder="es. Trimestrale debole&#10;Utili sotto le attese per due trimestri&#10;Taglio della guidance"></textarea>
+                Quando esco (una condizione per riga)
+                <textarea id="campo-uscita" rows="2" placeholder="es. Trimestrale debole&#10;Taglio della guidance"></textarea>
+              </label>
+              <label>
+                Rischio principale
+                <input id="campo-rischio" type="text" placeholder="es. I clienti rimandano gli acquisti per la crisi">
               </label>
               <p class="errore" id="errore-tesi" hidden></p>
               <div class="pulsanti-modulo">
@@ -547,6 +697,17 @@
         Importo pagato (€, commissioni incluse)
         <input id="campo-investito" type="text" inputmode="decimal" placeholder="es. 250,00" required>
       </label>
+      <label>
+        Motivo di questo acquisto (una riga, facoltativo)
+        <input id="campo-motivo-acquisto" type="text" maxlength="200" placeholder="es. Secondo acquisto dopo il calo del 10%">
+      </label>
+      <!-- Il promemoria della tesi, solo per le azioni (lo riempie agenti/fondamentale.js).
+           È un promemoria, NON un blocco: puoi salvare l'acquisto anche senza tesi. -->
+      <div class="promemoria-acquisto" id="promemoria-acquisto" hidden>
+        <p class="titolo-promemoria">Promemoria prima di comprare</p>
+        <ul class="lista-promemoria" id="lista-promemoria"></ul>
+        <p class="nota-promemoria" id="nota-promemoria"></p>
+      </div>
       <p class="errore" id="errore" hidden></p>
       <div class="pulsanti-modulo">
         <button type="button" class="pulsante secondario" id="annulla">Annulla</button>
@@ -566,6 +727,7 @@
   <script src="agenti/cacciatore.js"></script>
   <script src="agenti/avvocato.js"></script>
   <script src="agenti/oggi.js"></script>
+  <script src="agenti/disciplina.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->
   <script src="app.js"></script>
 </body>

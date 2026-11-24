@@ -31,6 +31,13 @@ let notizieServizi = {};  // da quale servizio arrivano le notizie di ogni titol
 let notizieTutte = false; // true = mostra tutte le notizie, non solo le prime 5
 // Le tue posizioni. Ogni titolo ha la sua lista di acquisti:
 // [{ ticker: "SAP.DE", acquisti: [{ data: "2026-10-03", quote: 0.25, investito: 50 }, ...] }]
+// Un acquisto può avere anche:
+//   motivo: "..."       il motivo di quell'acquisto, in una riga (facoltativo)
+//   tesiPronta: true    per le azioni: la tesi era già scritta quando hai comprato? (la usa la pagina Disciplina)
+// E può avere una lista di vendite (se non hai mai venduto non c'è):
+//   vendite: [{ data: "2026-11-20", quote: 0.1, incassato: 25, motivo: "...", target: 260, primaDelTarget: true }]
+//   incassato = quanto ti è arrivato sul conto, commissione già tolta (tasse escluse)
+// Quando vendi TUTTE le quote, il titolo esce da qui e va nelle operazioni chiuse (vedi più sotto).
 let posizioni = [];
 let inModifica = null;    // l'acquisto che stai modificando: { ticker, indice } (null = nuovo)
 // Il lavoro degli agenti (da data/analisi.json): per ogni titolo fondamentali, analisi tecnica, rischi...
@@ -99,11 +106,35 @@ function normalizza(dati) {
       : [{ data: p.dataAcquisto || "", quote: p.quote, investito: p.investito }];
     const validi = acquisti.every((a) => a.quote > 0 && a.investito > 0);
     if (!p.ticker || acquisti.length === 0 || !validi) throw new Error("dati non validi");
-    return {
+    const posizione = {
       ticker: p.ticker,
-      acquisti: acquisti.map((a) => ({ data: a.data || "", quote: Number(a.quote), investito: Number(a.investito) })),
+      acquisti: acquisti.map((a) => {
+        const acquisto = { data: a.data || "", quote: Number(a.quote), investito: Number(a.investito) };
+        if (a.motivo) acquisto.motivo = String(a.motivo);
+        if (typeof a.tesiPronta === "boolean") acquisto.tesiPronta = a.tesiPronta;
+        return acquisto;
+      }),
     };
+    const vendite = pulisciVendite(p.vendite);
+    if (vendite.length) posizione.vendite = vendite;
+    return posizione;
   });
+}
+
+// Controlla le vendite (lette dal browser o da un backup): tiene solo quelle sensate
+function pulisciVendite(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista
+    .filter((v) => v && Number(v.quote) > 0 && Number(v.incassato) >= 0 && /^\d{4}-\d{2}-\d{2}$/.test(String(v.data || "")))
+    .map((v) => {
+      const vendita = { data: String(v.data), quote: Number(v.quote), incassato: Number(v.incassato), motivo: String(v.motivo || "") };
+      if (Number(v.target) > 0) vendita.target = Number(v.target);
+      if (typeof v.primaDelTarget === "boolean") vendita.primaDelTarget = v.primaDelTarget;
+      // Il voto sulla tesi e l'errore principale (vedi agenti/disciplina.js)
+      if (VOTI[v.voto]) vendita.voto = v.voto;
+      if (ERRORI[v.errore]) vendita.errore = v.errore;
+      return vendita;
+    });
 }
 
 function caricaPosizioni() {
@@ -131,16 +162,91 @@ function salvaPosizioni() {
   }
 }
 
+// ---------- Le operazioni chiuse ----------
+// Quando vendi TUTTE le quote di un titolo, esce dal portafoglio, ma la sua storia resta qui
+// (la vedi nel diario della pagina Disciplina): acquisti, vendite e la tesi di quel momento.
+// chiuse = [{ ticker, nome, tipo, chiusa: "2026-11-20", acquisti: [...], vendite: [...], tesi: {...} oppure null }]
+// Anche queste restano solo su questo dispositivo e sono nel backup.
+
+const CHIAVE_CHIUSE = "chiuse-v1";
+let chiuse = [];
+
+function pulisciChiuse(dati) {
+  if (!Array.isArray(dati)) return [];
+  const risultato = [];
+  for (const c of dati) {
+    try {
+      const [posizione] = normalizza([{ ticker: c.ticker, acquisti: c.acquisti, vendite: c.vendite }]);
+      risultato.push({
+        ...posizione,
+        vendite: posizione.vendite || [],
+        nome: String(c.nome || c.ticker),
+        tipo: String(c.tipo || ""),
+        chiusa: String(c.chiusa || ""),
+        tesi: c.tesi ? pulisciTesi({ [c.ticker]: c.tesi })[c.ticker] || null : null,
+      });
+    } catch (errore) {
+      // un'operazione chiusa illeggibile: la saltiamo
+    }
+  }
+  return risultato;
+}
+
+function caricaChiuse() {
+  try {
+    return pulisciChiuse(JSON.parse(localStorage.getItem(CHIAVE_CHIUSE) || "[]"));
+  } catch (errore) {
+    return [];
+  }
+}
+
+function salvaChiuse() {
+  try {
+    localStorage.setItem(CHIAVE_CHIUSE, JSON.stringify(chiuse));
+  } catch (errore) {
+    alert("Non riesco a salvare su questo dispositivo (navigazione privata?).");
+  }
+}
+
 // ---------- Calcoli ----------
 
-// Somma tutti gli acquisti di un titolo
-function totali(posizione) {
-  let numQuote = 0, investito = 0;
-  for (const a of posizione.acquisti) {
-    numQuote += a.quote;
-    investito += a.investito;
+// Ripercorre acquisti e vendite di un titolo in ordine di data, come fa il fisco italiano
+// con il "costo medio ponderato":
+//   - un acquisto aggiunge quote e soldi investiti
+//   - una vendita toglie quote; i soldi investiti calano in proporzione (quote vendute × prezzo medio
+//     di quel momento), così il prezzo medio delle quote che restano NON cambia
+//   - guadagno di una vendita = incassato − quanto erano costate quelle quote
+// Restituisce anche "valida": false se in qualche momento avresti venduto più quote di quelle che avevi.
+function contaOperazioni(posizione) {
+  const eventi = [
+    ...posizione.acquisti.map((a) => ({ tipo: "acquisto", data: a.data || "", a })),
+    ...(posizione.vendite || []).map((v, indice) => ({ tipo: "vendita", data: v.data || "", v, indice })),
+  ].sort((x, y) => x.data.localeCompare(y.data) || (x.tipo === "acquisto" ? -1 : 1));   // stesso giorno: prima gli acquisti
+  let numQuote = 0, investito = 0, realizzato = 0, valida = true;
+  const vendite = [];
+  for (const e of eventi) {
+    if (e.tipo === "acquisto") {
+      numQuote += e.a.quote;
+      investito += e.a.investito;
+      continue;
+    }
+    if (e.v.quote > numQuote + 1e-9) valida = false;      // più quote di quelle che avevi
+    const venduteDavvero = Math.min(e.v.quote, numQuote);
+    const costo = numQuote > 0 ? (investito / numQuote) * venduteDavvero : 0;
+    investito -= costo;
+    numQuote -= e.v.quote;
+    if (numQuote < 1e-9) { numQuote = 0; investito = 0; }   // venduto tutto (anche i "resti" dei decimali)
+    realizzato += e.v.incassato - costo;
+    vendite.push({ ...e.v, indice: e.indice, costo, guadagno: e.v.incassato - costo });
   }
-  return { quote: numQuote, investito, prezzoMedio: investito / numQuote };
+  return { quote: numQuote, investito, prezzoMedio: numQuote > 0 ? investito / numQuote : 0, realizzato, vendite, valida };
+}
+
+// Quote, soldi investiti e prezzo medio di ciò che hai ANCORA (acquisti meno vendite).
+// Senza vendite è semplicemente la somma di tutti gli acquisti, come prima.
+function totali(posizione) {
+  const c = contaOperazioni(posizione);
+  return { quote: c.quote, investito: c.investito, prezzoMedio: c.prezzoMedio, realizzato: c.realizzato };
 }
 
 // Per una posizione calcola valore attuale e guadagno/perdita
@@ -216,6 +322,8 @@ function disegna() {
     const numAcquisti = posizione.acquisti.length;
     const riga1 = `${quote(t.quote)} quote · prezzo medio ${euro(t.prezzoMedio)}`;
     let riga2 = numAcquisti === 1 ? "1 acquisto" : `${numAcquisti} acquisti`;
+    const numVendite = (posizione.vendite || []).length;
+    if (numVendite) riga2 += numVendite === 1 ? " · 1 vendita" : ` · ${numVendite} vendite`;
     if (r) riga2 += " · ora " + euro(r.prezzo);
     if (r && r.oggi !== null) riga2 += " · oggi " + percentuale(r.oggi);
     if (testoCampanelli(posizione.ticker)) riga2 += " · " + testoCampanelli(posizione.ticker);
@@ -285,11 +393,12 @@ function disegna() {
 //   .../  oppure #oggi    la pagina Oggi: il riepilogo (è la pagina iniziale)
 //   .../#portafoglio      la panoramica del portafoglio
 //   .../#occasioni        la classifica del cacciatore
+//   .../#disciplina       la pagina Disciplina: diario, punteggio, revisione mensile
 //   .../#titolo=SAP.DE    la pagina di un titolo (tuo, oppure della watchlist)
 // Così il gesto "indietro" dell'iPad funziona come in un'app.
 
 let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = nessuno)
-let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni" o "titolo"
+let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni", "disciplina" o "titolo"
 let arrivatoDaDentro = false;     // true = sei arrivato al titolo toccandolo in un'altra pagina
 
 function vaiAlTitolo(ticker) {
@@ -308,6 +417,7 @@ function disegnaVista() {
   if (vistaAperta === "titolo") disegnaTitolo();
   else if (vistaAperta === "occasioni") disegnaOccasioni();
   else if (vistaAperta === "oggi") disegnaOggi();
+  else if (vistaAperta === "disciplina") disegnaDisciplina();
   else disegnaGrafico();
 }
 
@@ -321,7 +431,7 @@ function mostraVista() {
     titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
   if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
-  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni"].includes(indirizzo) ? indirizzo : "oggi";
+  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni", "disciplina"].includes(indirizzo) ? indirizzo : "oggi";
 
   chiudiModulo();
   $("modulo-tesi").hidden = true;
@@ -329,6 +439,7 @@ function mostraVista() {
   $("vista-oggi").hidden = vistaAperta !== "oggi";
   $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
   $("vista-occasioni").hidden = vistaAperta !== "occasioni";
+  $("vista-disciplina").hidden = vistaAperta !== "disciplina";
   $("vista-titolo").hidden = vistaAperta !== "titolo";
   if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
   document.querySelectorAll("#navigazione a").forEach((a) => a.classList.toggle("attivo", a.dataset.vista === vistaAperta));
@@ -389,6 +500,10 @@ function disegnaPosizione(posizione) {
     ["Oggi", r && r.oggi !== null ? percentuale(r.oggi) : "–"],
     ["Acquisti", String(posizione.acquisti.length)],
   ];
+  // Se hai venduto qualcosa: quante vendite e quanto hai già guadagnato (o perso) con quelle
+  if ((posizione.vendite || []).length) {
+    numeri.push(["Vendite", String(posizione.vendite.length)], ["Già incassato", euro(t.realizzato, true)]);
+  }
   const griglia = $("numeri-titolo");
   griglia.innerHTML = "";
   for (const [etichetta, valore] of numeri) {
@@ -397,27 +512,45 @@ function disegnaPosizione(posizione) {
     blocco.querySelector("dt").textContent = etichetta;
     blocco.querySelector("dd").textContent = valore;
     if (etichetta === "Oggi" && r && r.oggi !== null) blocco.querySelector("dd").className = classeColore(r.oggi);
+    if (etichetta === "Già incassato") blocco.querySelector("dd").className = classeColore(t.realizzato);
     griglia.appendChild(blocco);
   }
 
-  // ---- La colonna di destra: un pulsante per ogni acquisto ----
+  // ---- La colonna di destra: un pulsante per ogni acquisto e per ogni vendita, in ordine di data ----
   const elenco = $("elenco-acquisti");
   elenco.innerHTML = "";
-  posizione.acquisti
-    .map((a, indice) => ({ ...a, indice }))
-    .sort((a, b) => (a.data || "").localeCompare(b.data || ""))
-    .forEach((a) => {
-      const riga = document.createElement("button");
-      riga.type = "button";
-      riga.className = "riga-acquisto";
-      if (inModifica && inModifica.ticker === tickerAperto && inModifica.indice === a.indice) riga.classList.add("selezionata");
-      riga.innerHTML = `<span class="data-acquisto"></span><span class="numeri-acquisto"></span>`;
-      riga.querySelector(".data-acquisto").textContent = dataBreve(a.data);
+  const operazioni = [
+    ...posizione.acquisti.map((a, indice) => ({ tipo: "acquisto", data: a.data || "", a, indice })),
+    ...contaOperazioni(posizione).vendite.map((v) => ({ tipo: "vendita", data: v.data, v, indice: v.indice })),
+  ].sort((x, y) => x.data.localeCompare(y.data) || (x.tipo === "acquisto" ? -1 : 1));
+  for (const o of operazioni) {
+    const riga = document.createElement("button");
+    riga.type = "button";
+    riga.className = "riga-acquisto" + (o.tipo === "vendita" ? " riga-vendita" : "");
+    const scelta = o.tipo === "acquisto"
+      ? inModifica && inModifica.ticker === tickerAperto && inModifica.indice === o.indice
+      : !$("posto-vendita").hidden && venditaInModifica === o.indice;
+    if (scelta) riga.classList.add("selezionata");
+    riga.innerHTML = `<span class="data-acquisto"></span><span class="numeri-acquisto"></span>`;
+    const data = riga.querySelector(".data-acquisto");
+    if (o.tipo === "acquisto") {
+      data.textContent = dataBreve(o.a.data);
       riga.querySelector(".numeri-acquisto").textContent =
-        `${quote(a.quote)} quote · ${euro(a.investito)} · a ${euro(a.investito / a.quote)}`;
-      riga.onclick = () => apriModulo(tickerAperto, a.indice);
-      elenco.appendChild(riga);
-    });
+        `${quote(o.a.quote)} quote · ${euro(o.a.investito)} · a ${euro(o.a.investito / o.a.quote)}`;
+      riga.onclick = () => apriModulo(tickerAperto, o.indice);
+    } else {
+      // La vendita: con l'etichetta "Vendita" (non solo un colore), il guadagno e il motivo
+      data.append(Object.assign(document.createElement("span"), { className: "etichetta-vendita", textContent: "Vendita" }), " " + dataBreve(o.v.data));
+      riga.querySelector(".numeri-acquisto").textContent =
+        `${quote(o.v.quote)} quote · ${euro(o.v.incassato)} · a ${euro(o.v.incassato / o.v.quote)} · ${o.v.guadagno >= 0 ? "guadagno" : "perdita"} ${euro(o.v.guadagno, true)}`;
+      const motivo = document.createElement("span");
+      motivo.className = "motivo-operazione";
+      motivo.textContent = "Perché: " + o.v.motivo;
+      riga.appendChild(motivo);
+      riga.onclick = () => apriVendita(o.indice);
+    }
+    elenco.appendChild(riga);
+  }
 
   disegnaGraficoTitolo();
 }
@@ -491,6 +624,7 @@ const oggiISO = () => new Date().toISOString().slice(0, 10);
 //   apriModulo("SAP.DE")       → nuovo acquisto di SAP
 //   apriModulo("SAP.DE", 2)    → modifica il terzo acquisto di SAP
 function apriModulo(ticker = null, indice = null) {
+  chiudiVendita();   // un modulo alla volta
   inModifica = indice === null ? null : { ticker, indice };
   mostraErrore("");
   const a = indice === null ? null : posizioni.find((p) => p.ticker === ticker).acquisti[indice];
@@ -502,7 +636,10 @@ function apriModulo(ticker = null, indice = null) {
   $("campo-data").max = oggiISO();                 // niente date future
   $("campo-quote").value = a ? String(a.quote).replace(".", ",") : "";
   $("campo-investito").value = a ? String(a.investito).replace(".", ",") : "";
+  $("campo-motivo-acquisto").value = a && a.motivo ? a.motivo : "";
   $("elimina").hidden = !a;
+  // Il promemoria della tesi (solo per un nuovo acquisto di un'azione: vedi agenti/fondamentale.js)
+  disegnaPromemoriaAcquisto($("campo-titolo").value, !a);
 
   const modulo = $("modulo");
   if (tickerAperto) {
@@ -522,6 +659,7 @@ function chiudiModulo() {
   inModifica = null;
   if ($("finestra").open) $("finestra").close();
   $("posto-modulo").hidden = true;
+  chiudiVendita();
   if (tickerAperto) disegnaTitolo();
 }
 
@@ -539,7 +677,26 @@ function quandoSalvi(evento) {
   if (!(investito > 0)) return mostraErrore("L'importo pagato deve essere maggiore di zero.");
 
   const acquisto = { data, quote: numQuote, investito };
+  const motivo = $("campo-motivo-acquisto").value.trim();
+  if (motivo) acquisto.motivo = motivo;
   const posizione = posizioni.find((p) => p.ticker === ticker);
+  if (inModifica) {
+    // Modificando un acquisto, resta com'era se allora la tesi c'era o no
+    const prima = posizione.acquisti[inModifica.indice];
+    if (typeof prima.tesiPronta === "boolean") acquisto.tesiPronta = prima.tesiPronta;
+  } else if (serveTesi(ticker)) {
+    // Per le azioni ricordiamo se la tesi era già scritta: non blocca niente, serve al punteggio di disciplina
+    acquisto.tesiPronta = Boolean(tesi[ticker] && tesi[ticker].motivo);
+  }
+  // Se hai già venduto qualcosa, controlliamo che le vendite restino possibili
+  // (per esempio: non puoi spostare un acquisto dopo la vendita di quelle stesse quote)
+  if (posizione && (posizione.vendite || []).length) {
+    const nuovi = posizione.acquisti.slice();
+    if (inModifica) nuovi[inModifica.indice] = acquisto; else nuovi.push(acquisto);
+    if (!contaOperazioni({ acquisti: nuovi, vendite: posizione.vendite }).valida) {
+      return mostraErrore("Con questa modifica una tua vendita avrebbe più quote di quelle comprate prima. Controlla data e quote.");
+    }
+  }
   if (inModifica) {
     posizione.acquisti[inModifica.indice] = acquisto;     // sostituiamo quello vecchio
   } else if (posizione) {
@@ -557,6 +714,11 @@ function elimina() {
   if (!confirm("Vuoi davvero eliminare questo acquisto?")) return;
   const { ticker, indice } = inModifica;
   const posizione = posizioni.find((p) => p.ticker === ticker);
+  const restanti = posizione.acquisti.filter((a, i) => i !== indice);
+  if ((posizione.vendite || []).length && !contaOperazioni({ acquisti: restanti, vendite: posizione.vendite }).valida) {
+    alert("Non posso eliminare questo acquisto: una tua vendita usa quelle quote. Elimina prima la vendita.");
+    return;
+  }
   posizione.acquisti.splice(indice, 1);
   // Se non resta nessun acquisto, il titolo sparisce e torniamo alla panoramica
   const ultimo = posizione.acquisti.length === 0;
@@ -567,13 +729,188 @@ function elimina() {
   if (ultimo && tickerAperto) tornaAllaPanoramica();
 }
 
+// ---------- Il modulo di una vendita ----------
+// Quando vendi, la pagina ti chiede SEMPRE il motivo, in una riga. Puoi uscire anche prima del
+// target: un'uscita motivata non è un errore (e non toglie punti nella pagina Disciplina).
+// Se vendi tutte le quote, il titolo esce dal portafoglio e va nelle operazioni chiuse.
+
+let venditaInModifica = null;   // l'indice della vendita che stai modificando (null = vendita nuova)
+
+function erroreVendita(messaggio) {
+  $("errore-vendita").textContent = messaggio;
+  $("errore-vendita").hidden = !messaggio;
+}
+
+// Le vendite come sarebbero salvando il modulo (serve all'anteprima e al salvataggio)
+function venditeConModulo(posizione, vendita) {
+  const nuove = (posizione.vendite || []).slice();
+  if (venditaInModifica === null) nuove.push(vendita); else nuove[venditaInModifica] = vendita;
+  return nuove;
+}
+
+function apriVendita(indice = null) {
+  const posizione = posizioni.find((p) => p.ticker === tickerAperto);
+  if (!posizione) return;
+  chiudiModulo();                       // chiude il modulo dell'acquisto, se era aperto
+  venditaInModifica = indice;
+  const v = indice === null ? null : posizione.vendite[indice];
+  erroreVendita("");
+  $("titolo-vendita").textContent = v ? "Modifica vendita" : "Vendita";
+  $("campo-data-vendita").value = v ? v.data : oggiISO();
+  $("campo-data-vendita").max = oggiISO();
+  $("campo-quote-vendita").value = v ? String(v.quote).replace(".", ",") : "";
+  $("campo-incassato").value = v ? String(v.incassato).replace(".", ",") : "";
+  $("campo-motivo-vendita").value = v ? v.motivo : "";
+  $("elimina-vendita").hidden = !v;
+  // Il voto sulla tesi (vedi agenti/disciplina.js): il menu dell'errore compare solo con "In parte" o "No"
+  creaSceltaVoto($("scelta-voto"), v ? v.voto : "", (voto) => { $("riga-errore-vendita").hidden = !serveErrore(voto); });
+  riempiErrori($("campo-errore-vendita"), v ? v.errore : "");
+  $("riga-errore-vendita").hidden = !serveErrore(v ? v.voto : "");
+  $("campo-voto-tesi").hidden = !serveTesi(tickerAperto);   // ETF e cripto: niente tesi da votare
+
+  // Quante quote puoi vendere: quelle che hai, più quelle di questa vendita se la stai modificando
+  const t = totali(posizione);
+  const disponibili = t.quote + (v ? v.quote : 0);
+  $("info-vendita").textContent = `Puoi vendere fino a ${quote(disponibili)} quote · prezzo medio ${euro(t.prezzoMedio || 0)}`;
+  $("vendi-tutte").onclick = () => { $("campo-quote-vendita").value = String(disponibili).replace(".", ","); aggiornaAnteprimaVendita(); };
+
+  // Le scorciatoie per il motivo: le tue condizioni di uscita e il target
+  const scelte = $("scelte-motivo");
+  scelte.innerHTML = "";
+  const mia = tesi[tickerAperto];
+  const proposte = [];
+  if (mia) for (const u of mia.uscita) proposte.push((u.scattata ? "È scattata la mia condizione di uscita: " : "Uscita: ") + u.testo);
+  const a = avanzamentoTesi(tickerAperto);
+  if (a && a.raggiunto) proposte.push("Target raggiunto");
+  for (const testo of proposte) {
+    const pulsante = document.createElement("button");
+    pulsante.type = "button";
+    pulsante.className = "scelta-motivo";
+    pulsante.textContent = testo;
+    pulsante.onclick = () => { $("campo-motivo-vendita").value = testo; };
+    scelte.appendChild(pulsante);
+  }
+  scelte.hidden = proposte.length === 0;
+
+  $("posto-vendita").hidden = false;
+  aggiornaAnteprimaVendita();
+  disegnaTitolo();                       // evidenzia la vendita scelta
+  $("posto-vendita").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function chiudiVendita() {
+  venditaInModifica = null;
+  $("posto-vendita").hidden = true;
+}
+
+// Sotto i campi: il prezzo di vendita rispetto al tuo target e il guadagno su quelle quote
+function aggiornaAnteprimaVendita() {
+  const posizione = posizioni.find((p) => p.ticker === tickerAperto);
+  const numQuote = leggiNumero($("campo-quote-vendita").value);
+  const incassato = leggiNumero($("campo-incassato").value);
+  const nota = $("nota-vendita");
+  const anteprima = $("anteprima-vendita");
+  nota.hidden = true;
+  anteprima.hidden = true;
+  if (!posizione || !(numQuote > 0) || !(incassato >= 0) || !$("campo-incassato").value.trim()) return;
+  const prezzo = incassato / numQuote;
+  const mia = tesi[tickerAperto];
+  if (mia && mia.target) {
+    nota.textContent = prezzo < mia.target
+      ? `Venderesti a ${euro(prezzo)}, sotto il tuo target a 12 mesi (${euro(mia.target)}). Uscire prima con un motivo va bene: non è un errore.`
+      : `Venderesti a ${euro(prezzo)}: hai raggiunto il tuo target a 12 mesi (${euro(mia.target)}).`;
+    nota.hidden = false;
+  }
+  const vendita = { data: $("campo-data-vendita").value || oggiISO(), quote: numQuote, incassato, motivo: "" };
+  const prova = contaOperazioni({ acquisti: posizione.acquisti, vendite: venditeConModulo(posizione, vendita) });
+  const questa = prova.vendite.find((x) => x.indice === (venditaInModifica === null ? prova.vendite.length - 1 : venditaInModifica));
+  if (prova.valida && questa) {
+    anteprima.textContent = `Su queste quote: ${questa.guadagno >= 0 ? "guadagno" : "perdita"} ${euro(questa.guadagno, true)} prima delle tasse ` +
+      `(ti erano costate ${euro(questa.costo)}).` + (prova.quote === 0 ? " Vendi tutte le quote: il titolo esce dal portafoglio." : "");
+    anteprima.hidden = false;
+  }
+}
+
+function quandoSalviVendita(evento) {
+  evento.preventDefault();
+  const posizione = posizioni.find((p) => p.ticker === tickerAperto);
+  if (!posizione) return;
+  const data = $("campo-data-vendita").value;
+  const numQuote = leggiNumero($("campo-quote-vendita").value);
+  const incassato = leggiNumero($("campo-incassato").value);
+  const motivo = $("campo-motivo-vendita").value.trim();
+  if (!data) return erroreVendita("Inserisci la data della vendita.");
+  if (data > oggiISO()) return erroreVendita("La data non può essere nel futuro.");
+  if (!(numQuote > 0)) return erroreVendita("Il numero di quote deve essere maggiore di zero.");
+  if (!(incassato >= 0) || !$("campo-incassato").value.trim()) return erroreVendita("Scrivi quanto hai incassato (commissione già tolta).");
+  if (!motivo) return erroreVendita("Scrivi perché vendi, anche solo poche parole: rileggerlo in futuro ti aiuterà.");
+
+  const vendita = { data, quote: numQuote, incassato, motivo };
+  const voto = votoScelto($("scelta-voto"));
+  if (voto) vendita.voto = voto;
+  if (serveErrore(voto) && $("campo-errore-vendita").value) vendita.errore = $("campo-errore-vendita").value;
+  // Ricordiamo il target di quel momento: un'uscita prima del target, con un motivo, NON è un errore
+  const prima = venditaInModifica === null ? null : posizione.vendite[venditaInModifica];
+  const target = prima && prima.target ? prima.target : tesi[tickerAperto] && tesi[tickerAperto].target;
+  if (target) {
+    vendita.target = target;
+    vendita.primaDelTarget = incassato / numQuote < target;
+  }
+  const nuove = venditeConModulo(posizione, vendita);
+  const prova = contaOperazioni({ acquisti: posizione.acquisti, vendite: nuove });
+  if (!prova.valida) return erroreVendita("Alla data della vendita non avevi così tante quote: controlla data e quote.");
+
+  if (prova.quote === 0) {
+    const domanda = `Vendi tutte le quote di ${infoTitolo(tickerAperto).nome}: il titolo esce dal portafoglio. ` +
+      "Acquisti, vendite e tesi restano nel diario delle operazioni (pagina Disciplina). Confermi?";
+    if (!confirm(domanda)) return;
+    posizione.vendite = nuove;
+    chiudiPosizione(posizione);
+    chiudiModulo();
+    disegna();
+    location.hash = "disciplina";   // il titolo ora è nel diario delle operazioni
+    return;
+  }
+  posizione.vendite = nuove;
+  salvaPosizioni();
+  chiudiModulo();
+  disegna();
+}
+
+function eliminaVendita() {
+  if (!confirm("Vuoi davvero eliminare questa vendita?")) return;
+  const posizione = posizioni.find((p) => p.ticker === tickerAperto);
+  posizione.vendite.splice(venditaInModifica, 1);
+  if (posizione.vendite.length === 0) delete posizione.vendite;
+  salvaPosizioni();
+  chiudiModulo();
+  disegna();
+}
+
+// Hai venduto tutto: il titolo passa dalle posizioni alle operazioni chiuse, con la sua tesi
+function chiudiPosizione(posizione) {
+  const info = infoTitolo(posizione.ticker);
+  const ultima = posizione.vendite.map((v) => v.data).sort().pop();
+  chiuse.push({
+    ticker: posizione.ticker, nome: info.nome, tipo: info.tipo, chiusa: ultima,
+    acquisti: posizione.acquisti, vendite: posizione.vendite,
+    tesi: tesi[posizione.ticker] ? JSON.parse(JSON.stringify(tesi[posizione.ticker])) : null,
+  });
+  posizioni = posizioni.filter((p) => p !== posizione);
+  // La tesi va in archivio con le operazioni: se un giorno ricompri, parti da una tesi nuova
+  delete tesi[posizione.ticker];
+  salvaPosizioni();
+  salvaChiuse();
+  salvaTesi();
+}
+
 // ---------- Backup ----------
 // Copia i tuoi dati come testo: puoi incollarlo in Note per tenerlo al sicuro.
-// Dentro ci sono TUTTI i dati personali: acquisti, tesi, titoli tolti dalla watchlist
-// e linee disegnate sui grafici.
+// Dentro ci sono TUTTI i dati personali: acquisti e vendite, tesi, titoli tolti dalla watchlist,
+// linee disegnate sui grafici, operazioni chiuse e revisioni mensili (pagina Disciplina).
 
 function datiPersonali() {
-  return { versione: 4, posizioni, tesi, watchlist: watchlistLocale, disegni };
+  return { versione: 5, posizioni, tesi, watchlist: watchlistLocale, disegni, chiuse, disciplina };
 }
 
 async function copiaBackup() {
@@ -604,6 +941,15 @@ function ripristinaBackup() {
       if (dati.disegni) {
         disegni = pulisciDisegni(dati.disegni);
         salvaDisegni();
+      }
+      // Le operazioni chiuse (dalla versione 5): un backup più vecchio non le tocca
+      if (dati.chiuse) {
+        chiuse = pulisciChiuse(dati.chiuse);
+        salvaChiuse();
+      }
+      if (dati.disciplina) {
+        disciplina = pulisciDisciplina(dati.disciplina);
+        salvaDisciplina();
       }
     }
     disegna();
@@ -659,11 +1005,22 @@ function etichettaLunga(chiave) {
 const euroTondo = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const percTonda = (n) => (n > 0 ? "+" : "") + (n * 100).toFixed(1).replace(".", ",") + "%";
 
-// Tutti gli acquisti (di un titolo, o di tutti) in un'unica lista
+// Tutti gli acquisti (di un titolo, o di tutti) in un'unica lista.
+// Una vendita entra come un "acquisto al contrario": quote in meno e investito in meno
+// (quanto erano costate le quote vendute). Così dal giorno della vendita il grafico segue
+// solo le quote che ti restano; il guadagno già incassato non è nella linea.
 function lotti(ticker = null) {
   return posizioni
     .filter((p) => !ticker || p.ticker === ticker)
-    .flatMap((p) => p.acquisti.map((a) => ({ ticker: p.ticker, data: a.data, quote: a.quote, investito: a.investito })));
+    .flatMap((p) => [
+      ...p.acquisti.map((a) => ({ ticker: p.ticker, data: a.data, quote: a.quote, investito: a.investito })),
+      ...contaOperazioni(p).vendite.map((v) => ({ ticker: p.ticker, data: v.data, quote: -v.quote, investito: -v.costo })),
+    ]);
+}
+
+// Quanto hai già incassato di guadagno (o perdita) con le vendite dei titoli che hai ancora
+function realizzatoAperte(ticker = null) {
+  return posizioni.filter((p) => !ticker || p.ticker === ticker).reduce((somma, p) => somma + totali(p).realizzato, 0);
 }
 
 // Calcola valore e investito in ogni momento per cui abbiamo i prezzi.
@@ -782,6 +1139,15 @@ function scriviNota(nota, area, punti, esclusi, acquisti) {
   return true;
 }
 
+// Se hai venduto qualcosa, la nota sotto il grafico lo spiega (il guadagno incassato non è nella linea)
+function notaVendite(nota, ticker = null) {
+  const conVendite = posizioni.some((p) => (!ticker || p.ticker === ticker) && (p.vendite || []).length);
+  if (!conVendite) return;
+  const testo = `Dal giorno di una vendita la linea segue solo le quote che ti restano: il guadagno già incassato (${euro(realizzatoAperte(ticker), true)}) non è nel grafico.`;
+  nota.textContent = nota.hidden ? testo : nota.textContent + " " + testo;
+  nota.hidden = false;
+}
+
 // La riga sopra il grafico: "Ultimo mese: +12,30 € · +1,62%"
 function scriviRiepilogo(elemento, punti) {
   const nome = PERIODI.find(([chiave]) => chiave === periodo)[2];
@@ -813,6 +1179,7 @@ function disegnaGrafico() {
   const { punti, esclusi } = serieDelPeriodo(acquisti);
   scriviRiepilogo($("riepilogo-periodo"), punti);
   if (!scriviNota($("nota-grafico"), $("area-grafico"), punti, esclusi, acquisti)) return;
+  notaVendite($("nota-grafico"));
 
   const linee = unitaGrafico === "perc"
     ? [{ campo: "rendP", classe: "linea-valore", nome: "Rendimento" }]
@@ -831,6 +1198,7 @@ function disegnaGraficoTitolo() {
   const { punti, esclusi } = serieDelPeriodo(acquisti);
   scriviRiepilogo($("riepilogo-periodo-titolo"), punti);
   if (!scriviNota($("nota-grafico-titolo"), $("area-grafico-titolo"), punti, esclusi, acquisti)) return;
+  notaVendite($("nota-grafico-titolo"), tickerAperto);
 
   // Il rendimento di tutto il portafoglio negli stessi momenti, per fare il confronto
   const portafoglio = {};
@@ -1046,6 +1414,8 @@ function applicaTema(tema) {
 
 async function avvia() {
   posizioni = caricaPosizioni();
+  chiuse = caricaChiuse();
+  disciplina = caricaDisciplina();
   tesi = caricaTesi();
   watchlistLocale = caricaWatchlist();
 
@@ -1104,6 +1474,9 @@ async function avvia() {
     /* niente grafici, pazienza */
   }
 
+  // La pagina Disciplina annota le date delle trimestrali dei tuoi titoli (servono ai promemoria)
+  preparaDisciplina();
+
   // Riempiamo il menu a tendina con i titoli disponibili
   for (const t of titoli) {
     const opzione = document.createElement("option");
@@ -1115,6 +1488,8 @@ async function avvia() {
   // Colleghiamo i pulsanti alle loro azioni
   $("apri-modulo").onclick = () => apriModulo();
   $("annulla").onclick = chiudiModulo;
+  // Se cambi titolo nel modulo, il promemoria della tesi cambia con lui
+  $("campo-titolo").addEventListener("change", () => disegnaPromemoriaAcquisto($("campo-titolo").value, !inModifica));
   $("finestra").addEventListener("close", () => { inModifica = null; });
   $("aggiungi-acquisto").onclick = () => apriModulo(tickerAperto);
   $("indietro").onclick = tornaAllaPanoramica;
@@ -1129,11 +1504,18 @@ async function avvia() {
   if (!PERIODI.some(([chiave]) => chiave === periodo)) periodo = "tutto";
   document.querySelectorAll(".periodi button").forEach((b) => b.classList.toggle("attivo", b.dataset.periodo === periodo));
   $("elimina").onclick = elimina;
+  // Il modulo della vendita (pagina del titolo)
+  $("aggiungi-vendita").onclick = () => apriVendita();
+  $("annulla-vendita").onclick = () => { chiudiVendita(); disegnaTitolo(); };
+  $("elimina-vendita").onclick = eliminaVendita;
+  $("modulo-vendita").addEventListener("submit", quandoSalviVendita);
+  for (const id of ["campo-quote-vendita", "campo-incassato", "campo-data-vendita"]) $(id).addEventListener("input", aggiornaAnteprimaVendita);
   $("modulo").addEventListener("submit", quandoSalvi);
   collegaFondamentale();
   collegaTecnico();
   collegaCacciatore();
   collegaOggi();
+  collegaDisciplina();
   // Il selettore del tema; se cambi le impostazioni del dispositivo, "Automatico" si adegua subito
   document.querySelectorAll(".scelta-tema button").forEach((b) => (b.onclick = () => applicaTema(b.dataset.tema)));
   window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => applicaTema(temaScelto()));

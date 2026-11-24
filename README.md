@@ -66,8 +66,9 @@ ci sono l'investito e il "netto se vendo tutto", cioè dopo tasse 26% e commissi
 c'è "Se vendo oggi" nella sua pagina), la riga "Mercato oggi" (S&P 500, Euro Stoxx 50 e quanti titoli della watchlist sono
 saliti o scesi all'ultima chiusura). A sinistra il grafico e la tabella **Posizioni e tesi**: tocchi una riga e il
 grafico mostra quel titolo; sotto ogni nome c'è il motivo della tesi e l'ultima colonna dice quanto manca al target
-(o "Scrivi la tesi"). A destra i campanelli raggruppati per titolo, le 5 occasioni, la composizione, le trimestrali
-e "Copia per l'analisi".
+(o "Scrivi la tesi"). A destra, in cima, l'anello della **disciplina** (voto da 0 a 100, frase breve e prima cosa
+da fare: toccandolo si apre la pagina Disciplina), poi i campanelli raggruppati per titolo, le 5 occasioni,
+la composizione, le trimestrali e "Copia per l'analisi".
 Il grafico del prezzo di ogni titolo (pagina del titolo e pagina Oggi) è fatto con **Lightweight Charts**:
 si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni periodo fino a 5 anni
 (dettagli più sotto, in "Il grafico del prezzo").
@@ -78,8 +79,11 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
   la composizione del portafoglio, le prossime trimestrali, lo stato delle tesi e **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
 - **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
+- **Disciplina**: punteggio di disciplina, cose da fare, revisione mensile guidata, diario delle operazioni,
+  statistiche sugli errori e titoli venduti del tutto (dettagli più sotto, in "Disciplina e tesi").
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
-  avvocato del diavolo, notizie. Per i miei titoli anche acquisti, rendimento, **scheda tesi** e **Se vendo oggi**.
+  avvocato del diavolo, notizie. Per i miei titoli anche acquisti e vendite, rendimento, **scheda tesi** (solo azioni)
+  e **Se vendo oggi**.
 
 ### Il grafico del prezzo
 
@@ -96,8 +100,8 @@ lo facciamo con una riga in fondo a ogni pagina (al posto del logo sul grafico, 
 - **Periodi** 2S, 1M, 3M, 6M, 1A, 5A e **Candele / Linea**: passando da candele a linea (e viceversa) resta lo stesso periodo.
   Le candele ci sono per ogni periodo: sono i prezzi giornalieri di Yahoo degli ultimi 5 anni.
 - **Medie mobili** a 50 e 200 giorni: i pulsanti MM50 e MM200 le accendono e spengono (la scelta resta salvata).
-- **Pallini blu** nei giorni dei miei acquisti (letti dai dati salvati nel browser). Toccando quel giorno, la riga sopra il grafico
-  dice quante quote e a che prezzo. *Le vendite non ci sono: la dashboard per ora registra solo gli acquisti.*
+- **Pallini blu** (sotto il prezzo) nei giorni dei miei acquisti e **pallini rossi** (sopra) nei giorni delle mie vendite,
+  letti dai dati salvati nel browser. Toccando quel giorno, la riga sopra il grafico dice quante quote e a che prezzo.
 - **Confronta con:** "nessuna" (niente confronto) oppure un secondo titolo, che compare come linea arancione con la scala
   in percentuale. Durante il confronto anche il titolo principale è una linea (due serie di candele sarebbero confuse):
   il pulsante Candele resta spento finché non scegli "nessuna". Le due linee partono da 0% nel primo giorno visibile
@@ -113,9 +117,11 @@ che apri. Se il file non c'è ancora, il grafico usa i dati di prima (un anno a 
 
 ### La scheda tesi e "Se vendo oggi"
 
-Per ogni titolo posso scrivere **perché sono entrato**, il **mio target** e le **condizioni di uscita** (una per riga).
+Per ogni **azione** (non per ETF e cripto) c'è una scheda tesi **leggera**, di quattro righe: **perché compro**
+(l'unica obbligatoria), **target a 12 mesi**, **quando esco** (una condizione per riga) e **rischio principale**.
 Una barra mostra a che punto sono tra il mio prezzo medio e il target. Quando una condizione di uscita si verifica
-la spunto io: comparirà nella pagina Oggi.
+la spunto io: comparirà nella pagina Oggi e, se non decido niente entro 30 giorni, nella pagina Disciplina.
+La tesi ricorda il giorno in cui l'ho scritta: da lì contano i 12 mesi.
 
 **Se vendo oggi** calcola il netto in tasca:
 
@@ -208,6 +214,50 @@ Nella pagina Oggi, **Copia per l'analisi** mette in un testo semplice portafogli
 campanelli, occasioni e notizie. Incollandolo in una chat con Claude si ottiene un'analisi critica **gratis**
 (senza API) e con tutti i dati, compresi quelli personali, che però escono dal dispositivo solo se li incollo io.
 
+## Disciplina e tesi
+
+Tutto questo è **personale**: resta nel browser (`localStorage`) ed è incluso nel backup. Gli agenti su GitHub e l'AI
+non ne vedono niente. Non è consulenza finanziaria: la pagina misura quanto seguo le mie regole, non dice cosa fare.
+
+- **Quando compro** un'azione, il modulo dell'acquisto mostra un **promemoria** (tesi, target, quando esco, rischio).
+  Se manca la tesi compare "Tesi non scritta", ma **posso comprare lo stesso**: è un promemoria, non un blocco.
+  L'acquisto ricorda se la tesi era già scritta e può avere un motivo in una riga (facoltativo).
+- **Quando vendo** (pulsante "− Vendita" nella pagina del titolo) scrivo data, quote, importo incassato e il
+  **motivo in una riga** (obbligatorio); le mie condizioni di uscita compaiono come scorciatoie. Posso uscire anche
+  **prima del target**: la pagina lo fa notare, ma un'uscita motivata non è un errore e non toglie punti.
+  Do anche un voto: **la tesi era giusta?** (Sì, In parte, No, Non so ancora) e, se serve, cosa non ha funzionato.
+- Vendendo **tutte** le quote il titolo esce dal portafoglio e passa tra i **titoli venduti del tutto**, con acquisti,
+  vendite e la tesi di quel momento (si può annullare l'ultima vendita).
+- Il **diario delle operazioni** elenca acquisti e vendite (data, prezzo, motivo); per ogni vendita il voto si può dare
+  o cambiare anche dopo. Le **statistiche** contano tesi giuste e sbagliate, uscite prima del target e gli **errori
+  più frequenti** (quelli scelti nel voto, più gli acquisti di azioni fatti senza tesi, contati dalla pagina).
+- **Da fare**: tesi mancanti; "**la tesi regge ancora?**" dopo ogni trimestrale del titolo; avviso quando una tesi
+  **compie 12 mesi** senza aver raggiunto il target (rinnovo per altri 12 mesi, la rivedo, oppure esco);
+  condizioni di uscita spuntate; revisione del mese; vendite senza voto.
+  Gli agenti conoscono solo la *prossima* trimestrale: la pagina annota le date man mano che le vede e,
+  quando una è passata, fa la domanda. Per questo serve aprire la dashboard ogni tanto (basta una volta al mese).
+- **Revisione mensile guidata**: 5 domande (le tesi reggono? ho seguito le regole? ho fatto qualcosa d'impulso?
+  trimestrali e uscite: cosa ho deciso? cosa faccio di diverso?), con sotto ognuna i miei dati del mese.
+
+### Il punteggio di disciplina (0-100)
+
+È la media pesata di sette regole. Una regola che oggi non si può valutare (per esempio "vendite" se non ho mai
+venduto) non conta e il suo peso passa alle altre. **Il guadagno non c'entra.**
+
+| Regola | Peso | Cosa misura |
+|---|---|---|
+| Tesi scritte | 25 | azioni possedute con la tesi |
+| Tesi complete | 10 | tesi con target e "quando esco" (metà se c'è solo uno dei due) |
+| Tesi prima di comprare | 15 | acquisti di azioni degli ultimi 12 mesi fatti con la tesi già scritta |
+| Vendite ragionate | 10 | vendite degli ultimi 12 mesi: metà per il motivo, metà per il voto (ETF: basta il motivo) |
+| Tesi ricontrollate | 15 | trimestrali seguite entro 14 giorni da "regge" o da una modifica della tesi |
+| Revisione mensile | 15 | revisioni dei 3 mesi precedenti (da quando uso la pagina), più questo mese se già fatta |
+| Avvisi gestiti | 10 | condizioni di uscita spuntate e tesi di 12 mesi gestite entro 30 giorni |
+
+L'anello va dal rosso (0) al verde (100); il voto e la frase dicono la stessa cosa anche senza colori.
+Frasi: 85 e più "Stai seguendo bene le tue regole", 65-84 "Quasi", 40-64 "Alcune regole sono rimaste indietro",
+sotto 40 "Le regole sono poco seguite".
+
 ## Le fonti dei dati e i loro limiti
 
 | Dato | Fonte | Note |
@@ -248,8 +298,9 @@ Per ricontrollare le fonti: **Actions → Prova agenti → Run workflow**. La ta
 Il codice è pubblico, ma **quote, capitale investito, prezzi d'acquisto e tesi non sono nel codice**:
 ognuno li inserisce dalla pagina e restano salvati solo nel proprio browser (`localStorage`).
 Chi apre il link vede una dashboard vuota e può usarla per sé.
-Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti, tesi, titoli tolti dalla watchlist
-e linee disegnate sui grafici. Un backup fatto prima delle linee si può ancora ripristinare: le linee già presenti restano.
+Il backup ("Copia backup" nella pagina Portafoglio) contiene acquisti e vendite, tesi, titoli tolti dalla watchlist,
+linee disegnate sui grafici, titoli venduti del tutto e i dati della pagina Disciplina (revisioni mensili, date delle
+trimestrali viste). Un backup più vecchio si può ancora ripristinare: le parti che non conteneva restano come sono.
 
 ## Com'è fatto
 
@@ -258,7 +309,7 @@ e linee disegnate sui grafici. Un backup fatto prima delle linee si può ancora 
 | `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni e Titolo |
 | `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina). I caratteri (IBM Plex Sans e Mono) sono caricati da Google Fonts |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
-| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo |
+| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo; `agenti/disciplina.js` è la pagina Disciplina (solo dati personali, niente agenti su GitHub) |
 | `librerie/` | Lightweight Charts di TradingView (la libreria del grafico del prezzo) e la sua licenza |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
 | `data/watchlist.json` | Le grandi aziende che il cacciatore tiene d'occhio |
@@ -300,6 +351,13 @@ La pagina li somma da sola:
 - **Valore attuale** = quote totali × prezzo attuale
 - **Guadagno/perdita (€)** = valore attuale − capitale investito
 - **Guadagno/perdita (%)** = guadagno/perdita ÷ capitale investito
+
+**Vendite**: si usa il **costo medio ponderato**, come il fisco italiano. Acquisti e vendite vengono letti in ordine
+di data; una vendita toglie quote e toglie dall'investito quote vendute × prezzo medio di quel momento, quindi il
+prezzo medio delle quote che restano non cambia. Guadagno di una vendita = incassato − quanto erano costate quelle quote
+("Già incassato" nella pagina del titolo). Senza vendite i numeri sono la semplice somma degli acquisti.
+Nei grafici del rendimento una vendita è un "acquisto al contrario": dal suo giorno la linea segue solo le quote
+rimaste, e il guadagno già incassato non è nella linea (lo dice una nota sotto il grafico).
 
 Il grafico della panoramica mostra di default il **rendimento in %** (valore ÷ investito − 1, giorno per giorno):
 così i nuovi acquisti non creano "gradini" e si vede come stanno andando davvero i soldi investiti.
@@ -357,3 +415,5 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 14. ✅ Grafico del prezzo con Lightweight Charts: zoom, periodi fino a 5 anni, medie, pallini degli acquisti, confronto, disegni
 15. ✅ Grafico più comodo: zoom con le dita più rapido, pulsanti + − e "Oggi ›", bordi fissi, confronto solo a linee, periodo di 2 settimane
 16. ⏳ Più strumenti di analisi sul grafico (altri disegni e indicatori), da fare più avanti
+17. ✅ Disciplina e tesi: tesi leggera, promemoria quando compro, vendite con motivo, diario con voto ed errori,
+    pagina Disciplina (punteggio, revisione mensile, promemoria su trimestrali e tesi di 12 mesi), anello nella pagina Oggi

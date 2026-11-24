@@ -192,9 +192,27 @@ function disegnaFondamentali() {
 }
 
 // ---------- 2. La scheda tesi (personale, salvata solo nel browser) ----------
-// tesi = { "SAP.DE": { motivo: "...", target: 250, uscita: [{ testo: "...", scattata: false }], aggiornata: "2026-11-14" } }
+// È una scheda LEGGERA, solo per le azioni (ETF e cripto non ne hanno bisogno): quattro righe,
+// solo la prima obbligatoria.
+// tesi = { "SAP.DE": {
+//   motivo: "...",            perché compro (obbligatorio)
+//   target: 250,              target a 12 mesi, in € per azione (facoltativo)
+//   uscita: [{ testo: "...", scattata: false, scattataIl: "" }],   quando esco (facoltativo)
+//   rischio: "...",           il rischio principale (facoltativo)
+//   scritta: "2026-11-14",    quando l'hai scritta la prima volta (da qui partono i 12 mesi)
+//   aggiornata: "2026-11-14", l'ultima modifica
+//   verificata: "",           l'ultima volta che hai detto "la tesi regge ancora" (pagina Disciplina)
+//   rinnovata: "",            l'ultima volta che l'hai rinnovata per altri 12 mesi (pagina Disciplina)
+// } }
 
 const CHIAVE_TESI = "tesi-v1";
+
+// ETF e cripto non hanno la scheda tesi: un ETF si tiene a lungo, una cripto non ha conti da leggere.
+// Il tipo arriva da data/titoli.json ("Azione", "ETF", in futuro magari "Cripto").
+const SENZA_TESI = /^(etf|etc|cripto|crypto)/i;
+function serveTesi(ticker) {
+  return !SENZA_TESI.test(infoTitolo(ticker).tipo || "");
+}
 
 function caricaTesi() {
   try {
@@ -218,16 +236,59 @@ function pulisciTesi(dati) {
   if (!dati || typeof dati !== "object" || Array.isArray(dati)) return risultato;
   for (const [ticker, t] of Object.entries(dati)) {
     if (!t || typeof t !== "object") continue;
+    const data = (testo) => (/^\d{4}-\d{2}-\d{2}$/.test(String(testo || "")) ? String(testo) : "");
     risultato[ticker] = {
       motivo: String(t.motivo || ""),
       target: Number(t.target) > 0 ? Number(t.target) : null,
       uscita: (Array.isArray(t.uscita) ? t.uscita : [])
         .filter((u) => u && u.testo)
-        .map((u) => ({ testo: String(u.testo), scattata: Boolean(u.scattata) })),
-      aggiornata: String(t.aggiornata || ""),
+        .map((u) => ({ testo: String(u.testo), scattata: Boolean(u.scattata), scattataIl: data(u.scattataIl) })),
+      rischio: String(t.rischio || ""),
+      // Le tesi scritte prima di questa versione non hanno "scritta": usiamo l'ultima modifica
+      scritta: data(t.scritta) || data(t.aggiornata),
+      aggiornata: data(t.aggiornata),
+      verificata: data(t.verificata),
+      rinnovata: data(t.rinnovata),
     };
   }
   return risultato;
+}
+
+// ---------- Il promemoria quando compri ----------
+// Nel modulo di un NUOVO acquisto di un'azione compare una piccola lista di controllo:
+// c'è la tesi? c'è il target? Se manca qualcosa lo dice, ma puoi comprare lo stesso:
+// è un promemoria, non un blocco. Per ETF e cripto non compare.
+
+// Le quattro righe della tesi: [fatta?, testo]
+function vociPromemoria(ticker) {
+  const t = tesi[ticker];
+  return [
+    [Boolean(t && t.motivo), t && t.motivo ? "Tesi scritta: " + t.motivo.split("\n")[0] : "Tesi non scritta"],
+    [Boolean(t && t.target), t && t.target ? "Target a 12 mesi: " + euro(t.target) : "Target a 12 mesi non scritto"],
+    [Boolean(t && t.uscita.length), t && t.uscita.length ? "Sai quando esci" : "Non hai scritto quando esci"],
+    [Boolean(t && t.rischio), t && t.rischio ? "Rischio principale: " + t.rischio : "Rischio principale non scritto"],
+  ];
+}
+
+function disegnaPromemoriaAcquisto(ticker, nuovo) {
+  const riquadro = $("promemoria-acquisto");
+  riquadro.hidden = !nuovo || !ticker || !serveTesi(ticker);
+  if (riquadro.hidden) return;
+  const elenco = $("lista-promemoria");
+  elenco.innerHTML = "";
+  const voci = vociPromemoria(ticker);
+  voci.forEach(([fatta, testo], i) => {
+    const voce = document.createElement("li");
+    // Un simbolo E un colore: si capisce anche senza distinguere i colori
+    voce.className = fatta ? "fatta" : i === 0 ? "manca-tesi" : "";
+    voce.innerHTML = `<span class="segno" aria-hidden="true"></span><span></span>`;
+    voce.querySelector(".segno").textContent = fatta ? "✓" : i === 0 ? "!" : "○";
+    voce.lastChild.textContent = testo;
+    elenco.appendChild(voce);
+  });
+  $("nota-promemoria").textContent = voci[0][0]
+    ? "Rileggi la tesi: è ancora il motivo per cui compri?"
+    : "Puoi salvare l'acquisto lo stesso: è solo un promemoria. La tesi la scrivi quando vuoi, nella pagina del titolo.";
 }
 
 // A che punto sei tra il tuo prezzo medio e il target.
@@ -257,7 +318,8 @@ function testoAvanzamento(a) {
 }
 
 function disegnaTesi() {
-  const posseduto = posizioni.some((p) => p.ticker === tickerAperto);
+  // La scheda c'è solo per le azioni che possiedi
+  const posseduto = posizioni.some((p) => p.ticker === tickerAperto) && serveTesi(tickerAperto);
   $("sezione-tesi").hidden = !posseduto;
   if (!posseduto) return;
   const t = tesi[tickerAperto];
@@ -272,7 +334,8 @@ function disegnaTesi() {
   if (!t) {
     const p = document.createElement("p");
     p.className = "vuoto";
-    p.textContent = "Scrivi perché sei entrato, il tuo target e quando usciresti: rileggerlo nei momenti difficili aiuta a decidere con calma.";
+    p.textContent = "Tesi non scritta. Bastano poche parole: perché compri, il target a 12 mesi, quando usciresti e il rischio principale. " +
+      "Rileggerla nei momenti difficili aiuta a decidere con calma.";
     corpo.appendChild(p);
     return;
   }
@@ -285,7 +348,7 @@ function disegnaTesi() {
     p.textContent = testo;
     corpo.append(h, p);
   };
-  if (t.motivo) blocco("Perché sono entrato", t.motivo);
+  blocco("Perché compro", t.motivo || "Non l'hai ancora scritto: tocca Modifica.");
 
   // La barra di avanzamento: dal tuo prezzo medio al target
   const a = avanzamentoTesi(tickerAperto);
@@ -310,13 +373,13 @@ function disegnaTesi() {
     frase.textContent = testoAvanzamento(a);
     corpo.append(h, barra, estremi, frase);
   } else if (t.target) {
-    blocco("Target", euro(t.target));
+    blocco("Target a 12 mesi", euro(t.target));
   }
 
   // Le condizioni di uscita: le spunti tu quando si verificano
   if (t.uscita.length) {
     const h = document.createElement("h3");
-    h.textContent = "Esco se…";
+    h.textContent = "Quando esco";
     corpo.appendChild(h);
     t.uscita.forEach((condizione, indice) => {
       const riga = document.createElement("label");
@@ -325,7 +388,10 @@ function disegnaTesi() {
       const casella = riga.querySelector("input");
       casella.checked = condizione.scattata;
       casella.onchange = () => {
-        tesi[tickerAperto].uscita[indice].scattata = casella.checked;
+        const u = tesi[tickerAperto].uscita[indice];
+        u.scattata = casella.checked;
+        // Ricordiamo il giorno: la pagina Disciplina ti ricorda di decidere (vendere o aggiornare la tesi)
+        u.scattataIl = casella.checked ? oggiISO() : "";
         salvaTesi();
         disegnaTesi();
       };
@@ -339,16 +405,18 @@ function disegnaTesi() {
       : "Spunta una condizione quando si verifica: comparirà nella pagina Oggi.";
     corpo.appendChild(nota);
   }
-  if (t.aggiornata) {
+  if (t.rischio) blocco("Rischio principale", t.rischio);
+  if (t.scritta) {
     const data = document.createElement("p");
     data.className = "suggerimento";
-    data.textContent = "Tesi scritta il " + dataBreve(t.aggiornata);
+    data.textContent = "Tesi scritta il " + dataBreve(t.scritta) +
+      (t.aggiornata && t.aggiornata !== t.scritta ? " · modificata il " + dataBreve(t.aggiornata) : "");
     corpo.appendChild(data);
   }
 }
 
 function apriModuloTesi() {
-  const t = tesi[tickerAperto] || { motivo: "", target: null, uscita: [] };
+  const t = tesi[tickerAperto] || { motivo: "", target: null, uscita: [], rischio: "" };
   const f = (analisi.titoli[tickerAperto] || {}).fondamentali;
   $("campo-motivo").value = t.motivo;
   $("campo-target").value = t.target ? String(t.target).replace(".", ",") : "";
@@ -356,6 +424,7 @@ function apriModuloTesi() {
   $("campo-target").placeholder = f && f.target && f.valuta === "EUR"
     ? `es. ${String(f.target).replace(".", ",")} (target medio degli analisti)` : "es. 250,00";
   $("campo-uscita").value = t.uscita.map((u) => u.testo).join("\n");
+  $("campo-rischio").value = t.rischio || "";
   $("elimina-tesi").hidden = !tesi[tickerAperto];
   $("errore-tesi").hidden = true;
   $("modulo-tesi").hidden = false;
@@ -369,18 +438,28 @@ function chiudiModuloTesi() {
 
 function quandoSalviTesi(evento) {
   evento.preventDefault();
+  const errore = (testo) => { $("errore-tesi").textContent = testo; $("errore-tesi").hidden = false; };
+  const motivo = $("campo-motivo").value.trim();
+  if (!motivo) return errore("Scrivi almeno perché compri: è l'unica riga obbligatoria.");
   const testoTarget = $("campo-target").value.trim();
   const target = testoTarget ? leggiNumero(testoTarget) : null;
-  if (testoTarget && !(target > 0)) {
-    $("errore-tesi").textContent = "Il target deve essere un prezzo maggiore di zero (oppure lascialo vuoto).";
-    $("errore-tesi").hidden = false;
-    return;
-  }
-  // Una condizione per riga. Se una riga c'era già, resta spuntata com'era.
-  const vecchie = (tesi[tickerAperto] || { uscita: [] }).uscita;
+  if (testoTarget && !(target > 0)) return errore("Il target deve essere un prezzo maggiore di zero (oppure lascialo vuoto).");
+  // Una condizione per riga. Se una riga c'era già, resta spuntata com'era (con il suo giorno).
+  const vecchia = tesi[tickerAperto] || { uscita: [] };
   const uscita = $("campo-uscita").value.split("\n").map((r) => r.trim()).filter(Boolean)
-    .map((testo) => ({ testo, scattata: vecchie.some((v) => v.testo === testo && v.scattata) }));
-  tesi[tickerAperto] = { motivo: $("campo-motivo").value.trim(), target, uscita, aggiornata: oggiISO() };
+    .map((testo) => {
+      const prima = vecchia.uscita.find((v) => v.testo === testo && v.scattata);
+      return { testo, scattata: Boolean(prima), scattataIl: prima ? prima.scattataIl || "" : "" };
+    });
+  tesi[tickerAperto] = {
+    motivo, target, uscita,
+    rischio: $("campo-rischio").value.trim(),
+    // La data in cui l'hai scritta la prima volta non cambia con le modifiche: da lì contano i 12 mesi
+    scritta: vecchia.scritta || oggiISO(),
+    aggiornata: oggiISO(),
+    verificata: vecchia.verificata || "",
+    rinnovata: vecchia.rinnovata || "",
+  };
   salvaTesi();
   chiudiModuloTesi();
   disegnaSeVendo();   // "se vendo al target" usa il target della tesi

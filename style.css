@@ -1138,3 +1138,197 @@ footer { margin-top: 20px; font-size: 12px; }
 .scelta-tema .selettore { background: var(--carta-2); }
 
 a.link { text-decoration: none; font-size: 12px; }
+
+/* =====================================================================================
+   DISCIPLINA E TESI
+   La scheda tesi leggera, i promemoria quando compri, le vendite con il motivo,
+   il diario delle operazioni e la pagina Disciplina.
+   ===================================================================================== */
+
+/* La scheda tesi leggera: righe più vicine, campi più bassi */
+#modulo-tesi { gap: 10px; }
+#modulo-tesi .suggerimento { margin: 0; }
+/* La piccola etichetta "obbligatorio" accanto a "Perché compro" */
+.obbligatorio {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--carta-2);
+  color: var(--testo-tenue);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+/* Il promemoria nel modulo d'acquisto: una lista di controllo, non un blocco */
+.promemoria-acquisto { padding: 10px 12px; border: 1px solid var(--bordo); border-left: 3px solid var(--accento); border-radius: 6px; background: var(--sfondo); }
+.titolo-promemoria { margin: 0 0 6px; color: var(--testo-tenue); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.lista-promemoria { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--testo-tenue); }
+.lista-promemoria li { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.lista-promemoria li span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista-promemoria .segno { flex: none; width: 14px; font-weight: 700; text-align: center; }
+.lista-promemoria li.fatta { color: var(--testo); }
+.lista-promemoria li.fatta .segno { color: var(--verde); }
+.lista-promemoria li.manca-tesi { color: var(--ambra); font-weight: 600; }
+.nota-promemoria { margin: 8px 0 0; color: var(--testo-tenue); font-size: 12px; }
+
+/* ---------- Le vendite ---------- */
+.pulsanti-operazioni { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.colonna-destra .intestazione-sezione { gap: 8px; flex-wrap: wrap; }
+/* La riga di una vendita nell'elenco: bordo a sinistra ed etichetta "Vendita" */
+.riga-vendita { box-shadow: inset 3px 0 0 var(--rosso); }
+.etichetta-vendita {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--rosso-sfondo);
+  color: var(--rosso);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.motivo-operazione { color: var(--testo); font-size: 12px; line-height: 1.35; }
+/* "Quote vendute" con il pulsante "Tutte" accanto */
+.campo-con-pulsante { display: flex; gap: 8px; }
+.campo-con-pulsante input { flex: 1; min-width: 0; }
+.campo-con-pulsante .pulsante { flex: none; }
+/* Le scorciatoie per il motivo della vendita (le tue condizioni di uscita) */
+.scelte-motivo { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -4px; }
+.scelta-motivo {
+  max-width: 100%;
+  padding: 4px 10px;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  background: var(--carta-2);
+  color: var(--testo);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.nota-vendita { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--carta-2); font-size: 13px; }
+.riga-numeri i.vendita { color: var(--rosso); }
+
+/* ---------- Il voto sulla tesi (modulo della vendita e diario) ---------- */
+.voto-tesi { margin: 0; padding: 0; border: none; min-width: 0; }
+.voto-tesi legend { padding: 0; margin-bottom: 6px; color: var(--testo-tenue); font-size: 0.9rem; }
+/* Quattro pulsanti affiancati: il "radio" vero è nascosto, si vede l'etichetta */
+.scelta-voto { display: flex; flex-wrap: wrap; gap: 4px; }
+.scelta-voto label { display: block; }
+.scelta-voto input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.scelta-voto span {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 1px solid var(--bordo);
+  border-radius: 6px;
+  background: var(--carta-2);
+  color: var(--testo);
+  font-size: 12px;
+  cursor: pointer;
+}
+.scelta-voto input:checked + span { background: var(--carta); color: var(--accento); border-color: var(--accento); font-weight: 600; }
+.scelta-voto input:focus-visible + span { outline: 2px solid var(--accento); outline-offset: 1px; }
+
+/* ---------- Il diario delle operazioni ---------- */
+.voce-diario { display: grid; gap: 3px; padding: 10px 0 10px 10px; border-top: 1px solid var(--bordo); box-shadow: inset 3px 0 0 var(--accento); }
+.voce-diario:first-child { border-top: none; }
+.voce-diario.vendita { box-shadow: inset 3px 0 0 var(--rosso); }
+.voce-diario + .voce-diario { margin-top: 2px; }
+.testa-diario { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.testa-diario b { font-weight: 600; min-width: 0; }
+.data-diario { color: var(--testo-tenue); font: 500 12px var(--carattere-numeri); }
+.prezzo-diario { margin-left: auto; font-size: 13px; white-space: nowrap; }
+.tipo-diario {
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--carta-2);
+  color: var(--accento);
+}
+.tipo-diario.vendita { background: var(--rosso-sfondo); color: var(--rosso); }
+.motivo-diario { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.voto-diario { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 4px; }
+.etichetta-voto { color: var(--testo-tenue); font-size: 12px; }
+.errore-diario { font-size: 12px; padding: 5px 8px; max-width: 100%; }
+#altre-operazioni { margin-top: 8px; font-size: 13px; }
+
+/* ---------- Le statistiche e gli errori più frequenti ---------- */
+#numeri-diario { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.errori-frequenti { display: grid; gap: 10px; }
+.riga-errore { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 13px; }
+.riga-errore .numero { font-weight: 600; }
+.barra-errore { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--carta-2); }
+.barra-errore span { display: block; height: 4px; border-radius: 2px; background: var(--ambra); }
+
+/* ---------- I titoli venduti del tutto ---------- */
+.voce-chiusa { display: grid; gap: 3px; padding: 9px 0; border-top: 1px solid var(--bordo); }
+.voce-chiusa:first-child { border-top: none; padding-top: 0; }
+.voce-chiusa .link { justify-self: start; font-size: 12px; margin-top: 2px; }
+
+/* ---------- Il punteggio di disciplina e il suo anello ---------- */
+/* L'anello va dal rosso (tinta 0) al verde (tinta 130): la tinta la mette agenti/disciplina.js,
+   la luminosità dipende dal tema, così il colore si legge bene sia sul chiaro sia sullo scuro */
+:root { --luce-anello: 58%; }
+:root[data-tema="chiaro"] { --luce-anello: 40%; }
+@media (prefers-color-scheme: light) { :root:not([data-tema="scuro"]) { --luce-anello: 40%; } }
+.anello-disciplina { width: 112px; height: 112px; flex: none; --tinta: 0; }
+.fondo-anello { fill: none; stroke: var(--carta-2); stroke-width: 12; }
+.arco-anello { fill: none; stroke: hsl(var(--tinta) 65% var(--luce-anello)); stroke-width: 12; stroke-linecap: round; }
+.voto-anello { fill: var(--testo); font: 600 28px var(--carattere-numeri); }
+.punteggio-disciplina { display: flex; align-items: center; gap: 16px; }
+.punteggio-disciplina .frase-agente { margin: 0 0 6px; font-weight: 600; }
+.punteggio-disciplina .suggerimento { margin: 0; }
+/* Le regole, una per una, con la loro barra */
+.regole-disciplina { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.regola { display: grid; gap: 3px; }
+.testa-regola { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.testa-regola b { font-weight: 600; }
+.barra-regola { height: 4px; border-radius: 2px; background: var(--carta-2); }
+.barra-regola span { display: block; height: 4px; border-radius: 2px; background: var(--accento); }
+.spiega-regola { color: var(--testo-tenue); font-size: 12px; line-height: 1.35; }
+.regola.non-valutabile .testa-regola { color: var(--testo-tenue); }
+
+/* ---------- Le cose da fare ---------- */
+.voce-da-fare { display: grid; gap: 4px; padding: 10px 0 10px 10px; border-top: 1px solid var(--bordo); box-shadow: inset 3px 0 0 var(--accento); }
+.voce-da-fare:first-child { border-top: none; }
+.voce-da-fare.urgente { box-shadow: inset 3px 0 0 var(--ambra); }
+.voce-da-fare b { font-weight: 600; font-size: 13px; }
+.pulsanti-da-fare { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.pulsanti-da-fare .pulsante { padding: 6px 12px; font-size: 12px; }
+
+/* ---------- La revisione mensile ---------- */
+.stato-revisione { font-size: 12px; font-weight: 600; }
+#modulo-revisione { padding: 0; gap: 12px; }
+#domande-revisione { display: grid; gap: 14px; }
+.domanda-revisione { gap: 4px; }
+.testo-domanda { color: var(--testo); font-weight: 600; font-size: 13px; }
+.aiuto-domanda { color: var(--testo-tenue); font-size: 12px; line-height: 1.35; }
+#riepilogo-revisione h3:first-child { margin-top: 0; }
+#apri-revisione { margin-top: 4px; }
+#revisioni-passate { margin-top: 12px; }
+.revisione-passata { margin-top: 8px; }
+.revisione-passata summary { cursor: pointer; color: var(--testo); }
+
+/* ---------- L'anello della disciplina nella pagina Oggi ---------- */
+.anello-oggi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--testo);
+  text-align: center;
+  text-decoration: none;
+}
+.anello-oggi:hover { border-color: var(--accento); }
+.anello-oggi .etichetta { align-self: flex-start; color: var(--testo-tenue); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.anello-oggi .anello-disciplina { width: 104px; height: 104px; }
+.anello-oggi b { font-weight: 600; font-size: 13px; }
+.anello-oggi small { color: var(--testo-tenue); font-size: 12px; }
