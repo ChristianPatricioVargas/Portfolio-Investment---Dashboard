@@ -60,6 +60,11 @@
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="3.5"></circle><circle cx="10" cy="10" r="0.6"></circle></svg>
       <span>Occasioni</span>
     </a>
+    <a href="#mercato" data-vista="mercato">
+      <!-- Riquadri di grandezze diverse: la "mappa" del mercato -->
+      <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="8" rx="1"></rect><rect x="12.5" y="2.5" width="5" height="8" rx="1"></rect><rect x="2.5" y="11.5" width="5" height="6" rx="1"></rect><rect x="8.5" y="11.5" width="9" height="6" rx="1"></rect></svg>
+      <span>Mercato</span>
+    </a>
     <a href="#disciplina" data-vista="disciplina">
       <!-- Un segno di spunta dentro un cerchio: "ho seguito le mie regole" -->
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><path d="M6.5 10.2 l2.4 2.4 l4.6 -5"></path></svg>
@@ -90,9 +95,8 @@
         <div class="numero-chiave"><span class="etichetta">Oggi</span><b id="oggi-variazione">–</b><small id="oggi-variazione-perc"></small></div>
       </div>
 
-      <!-- 2. Il mercato di oggi in una riga: indici e watchlist. Toccandola vai alla pagina del mercato
-           (per ora la pagina Occasioni: la pagina Mercato arriverà più avanti) -->
-      <a class="riga-mercato" id="oggi-mercato" href="#occasioni">
+      <!-- 2. Il mercato di oggi in una riga: indici e watchlist. Toccandola vai alla pagina Mercato -->
+      <a class="riga-mercato" id="oggi-mercato" href="#mercato">
         <span class="etichetta">Mercato oggi</span>
         <span class="voci-mercato" id="voci-mercato"></span>
         <span class="freccia-mercato" aria-hidden="true">›</span>
@@ -331,6 +335,20 @@
         <p class="avvertenza">Il cacciatore applica regole meccaniche a dati pubblici: segnala titoli da studiare, <strong>non dice cosa comprare</strong>.
           Un titolo sceso molto può scendere ancora. Non è consulenza finanziaria. La decisione è tua.</p>
       </div>
+    </div>
+
+    <!-- ===== VISTA "Mercato": la mappa del mercato, paura e avidità, macro, nuove quotazioni
+         (la riempie agenti/mercato.js; i dati li prepara scripts/aggiorna_mercato.py) ===== -->
+    <div id="vista-mercato" hidden>
+      <header class="testata-pagina">
+        <h1 class="titolo-pagina">Mercato</h1>
+        <span class="etichetta-alta" id="data-mercato"></span>
+      </header>
+      <p class="avviso" id="attesa-mercato">I dati del mercato arriveranno con il prossimo giro automatico.</p>
+
+      <footer>
+        <p>Questa pagina mostra dati pubblici: <strong>non è consulenza finanziaria</strong>.</p>
+      </footer>
     </div>
 
     <!-- ===== VISTA "Disciplina": quanto seguo le MIE regole (la riempie agenti/disciplina.js) =====
@@ -726,6 +744,7 @@
   <script src="agenti/grafico.js"></script>
   <script src="agenti/cacciatore.js"></script>
   <script src="agenti/avvocato.js"></script>
+  <script src="agenti/mercato.js"></script>
   <script src="agenti/oggi.js"></script>
   <script src="agenti/disciplina.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->

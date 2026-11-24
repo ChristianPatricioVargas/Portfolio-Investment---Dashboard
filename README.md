@@ -79,6 +79,8 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
   la composizione del portafoglio, le prossime trimestrali, lo stato delle tesi e **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
 - **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
+- **Mercato** (sotto Occasioni nel menu): la mappa del mercato, l'indice "paura e avidità", i numeri dell'economia
+  e le nuove quotazioni (dettagli più sotto, in "La pagina Mercato"). La riga "Mercato oggi" della pagina Oggi porta qui.
 - **Disciplina**: punteggio di disciplina, cose da fare, revisione mensile guidata, diario delle operazioni,
   statistiche sugli errori e titoli venduti del tutto (dettagli più sotto, in "Disciplina e tesi").
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
@@ -306,7 +308,7 @@ trimestrali viste). Un backup più vecchio si può ancora ripristinare: le parti
 
 | File | A cosa serve |
 |---|---|
-| `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni e Titolo |
+| `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni, Mercato, Disciplina e Titolo |
 | `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina). I caratteri (IBM Plex Sans e Mono) sono caricati da Google Fonts |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
 | `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo; `agenti/disciplina.js` è la pagina Disciplina (solo dati personali, niente agenti su GitHub) |

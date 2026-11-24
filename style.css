@@ -807,8 +807,12 @@ body.dettaglio main { max-width: 1320px; }
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  min-width: 76px;
-  padding: 6px 10px;
+  /* Cinque voci devono stare anche sullo schermo stretto di un iPhone (375 pixel):
+     si dividono lo spazio in parti uguali, senza superare gli 88 pixel ciascuna */
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 88px;
+  padding: 6px 4px;
   border-radius: 8px;
   background: none;
   color: var(--testo-tenue);
@@ -834,7 +838,7 @@ body.dettaglio main { max-width: 1320px; }
     border-right: 1px solid var(--bordo);
   }
   .navigazione .logo { display: block; margin-bottom: 12px; }
-  .navigazione a { min-width: 0; width: 64px; padding: 9px 0; }
+  .navigazione a { flex: none; min-width: 0; width: 64px; padding: 9px 0; }
 }
 
 /* ---------- La striscia dei prezzi in alto ---------- */
