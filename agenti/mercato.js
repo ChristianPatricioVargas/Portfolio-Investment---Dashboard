@@ -257,9 +257,11 @@ function disegnaMappa() {
   // Se il settore ingrandito non c'è nell'indice scelto, torniamo a tutti i settori
   if (settoreAperto && !settori.some((s) => s.nome === settoreAperto)) settoreAperto = null;
 
-  // L'altezza: un rettangolo largo sull'iPad, più alto che largo sul telefono
-  const altezza = stretta ? Math.round(Math.min(Math.max(larghezza * 1.25, 380), 620))
-    : Math.round(Math.min(Math.max(larghezza * 0.6, 420), 780));
+  // L'altezza: un rettangolo largo sull'iPad, più alto che largo sul telefono.
+  // Con tante aziende (l'S&P 500 ne ha circa 500) la mappa è più alta, così i riquadri non diventano minuscoli.
+  const tante = aziende.length > 150;
+  const altezza = stretta ? Math.round(Math.min(Math.max(larghezza * (tante && settoreAperto ? 1.6 : 1.25), 380), 760))
+    : Math.round(Math.min(Math.max(larghezza * (tante ? 0.82 : 0.6), 420), tante ? 940 : 780));
   area.style.height = altezza + "px";
 
   $("percorso-mappa").hidden = !settoreAperto;

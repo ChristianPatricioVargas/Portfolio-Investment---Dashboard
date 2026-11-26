@@ -298,10 +298,15 @@ Da dove arrivano i dati:
 
 - **Prezzi**: Yahoo Finance, a **gruppi di 20 titoli** per richiesta (circa 600 titoli, una trentina di richieste),
   a ogni giro (ogni 30 minuti nei giorni di Borsa). Se Yahoo non dà un titolo, restano i suoi numeri del giro prima.
-- **Logo e capitalizzazione**: Finnhub (`/stock/profile2`, gratuito), **una volta a settimana** per azienda, nei due
-  giri degli agenti, al massimo 150 aziende per giro e una richiesta al secondo (il limite gratuito è 60 al minuto).
-  Le aziende europee si chiedono con la sigla americana (es. LVMH → `LVMUY`); la capitalizzazione è in dollari ed è
-  indicativa. Le prime volte arrivano poco per volta: finché mancano, la pagina lo dice e usa la grandezza media.
+- **Capitalizzazione**: dall'**elenco pubblico del Nasdaq** (`api.nasdaq.com/api/screener/stocks`, gratuito, senza chiave):
+  **una sola richiesta** dà tutte le aziende quotate in America, nei due giri degli agenti. Copre quasi tutto l'S&P 500
+  (502 su 503) e le europee quotate in America con un ADR "di listino" (ASML, SAP, TotalEnergies...).
+  Così l'S&P 500 ha subito le grandezze giuste, senza aspettare Finnhub.
+- **Logo** (e capitalizzazione di chi manca al Nasdaq): Finnhub (`/stock/profile2`, gratuito), **una volta a settimana**
+  per azienda, nei due giri degli agenti, al massimo 150 aziende per giro e una richiesta al secondo (il limite gratuito
+  è 60 al minuto), prima quelle che il Nasdaq non conosce (le europee quotate solo "fuori listino", es. LVMH → `LVMUY`).
+  La capitalizzazione è in dollari ed è indicativa. Finché manca, la pagina lo dice e usa la grandezza media.
+- Con molte aziende (S&P 500) la mappa è **più alta**, così i riquadri non diventano minuscoli.
 - `data/mappa.json` (i riquadri) e `data/anagrafica.json` (elenchi e profili già chiesti, serve solo ai giri
   successivi) non sono nel repository: vivono nel sito pubblicato, come gli altri dati.
 
@@ -364,7 +369,7 @@ direttamente al riquadro nella pagina Mercato.
 | Notizie | Google News, Bing News, Yahoo Finance | Senza chiave |
 | Nuove quotazioni (IPO) | Finnhub (calendario, settore, notizie), Wikipedia (descrizione) | Con la chiave gratuita di Finnhub |
 | Paura e avidità, numeri dell'economia | alternative.me, BCE, Fed di New York, Eurostat, BLS, Yahoo Finance | Senza chiave. Vedi "La pagina Mercato" |
-| Mappa del mercato | Yahoo Finance (prezzi, a gruppi di 20), Finnhub (logo e capitalizzazione), liste pubbliche (elenchi degli indici) | Vedi "La pagina Mercato" |
+| Mappa del mercato | Yahoo Finance (prezzi, a gruppi di 20), Nasdaq (capitalizzazioni), Finnhub (loghi), liste pubbliche (elenchi degli indici) | Vedi "La pagina Mercato" |
 
 **Come ci si è arrivati** (prove dal vivo del 14-15 novembre 2026, fatte dai server di GitHub):
 

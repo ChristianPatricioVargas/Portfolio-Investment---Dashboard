@@ -189,6 +189,23 @@ def scheda_mappa(voce, prezzo, profilo):
     return scheda
 
 
+def leggi_nasdaq(risposta):
+    """Le capitalizzazioni di tutte le aziende quotate in America, dall'elenco pubblico del sito del Nasdaq
+    (una sola richiesta, gratuita). Restituisce {sigla americana: miliardi di dollari}.
+    Il Nasdaq scrive le classi di azioni con la barra (BRK/B): le riportiamo al punto (BRK.B), come la lista dell'S&P 500."""
+    righe = (((risposta or {}).get("data") or {}).get("rows")) or []
+    capitali = {}
+    for riga in righe:
+        sigla = (riga.get("symbol") or "").strip().replace("/", ".")
+        try:
+            cap = float(riga.get("marketCap") or 0)
+        except (TypeError, ValueError):
+            continue
+        if sigla and cap > 0:
+            capitali[sigla] = round(cap / 1e9, 1)
+    return capitali
+
+
 def profilo_breve(grezzo, oggi):
     """Dal profilo di Finnhub teniamo solo ciò che serve: capitalizzazione (miliardi), logo, settore."""
     cap = grezzo.get("marketCapitalization")      # Finnhub la dà in milioni

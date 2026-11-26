@@ -11,8 +11,11 @@ Ogni 30 minuti, nei giorni di Borsa:
 Due volte al giorno (con l'opzione --completo, insieme agli agenti) fa anche il lavoro lento:
   - una volta a settimana riscarica gli elenchi degli indici da liste pubbliche gratuite
     (S&P 500: un file CSV pubblico su GitHub; Euro Stoxx 50: la tabella di Wikipedia)
+  - scarica le capitalizzazioni di tutte le aziende quotate in America dall'elenco pubblico del Nasdaq
+    (una sola richiesta, gratuita, senza chiave): così l'S&P 500 ha subito le grandezze giuste
   - chiede a Finnhub logo e capitalizzazione delle aziende: ognuna una volta a settimana,
-    al massimo PROFILI_PER_GIRO per giro, una richiesta al secondo (il limite gratuito è 60 al minuto)
+    al massimo PROFILI_PER_GIRO per giro, una richiesta al secondo (il limite gratuito è 60 al minuto).
+    Prima quelle che il Nasdaq non conosce (le europee quotate in America solo "fuori listino", es. LVMUY)
 
 E poi le altre parti della pagina:
   - "paura e avidità" delle azioni, calcolato da noi con i prezzi già scaricati (S&P 500, VIX e le sue aziende),
@@ -56,6 +59,9 @@ FILE_ANALISI = CARTELLA_DATI / "analisi.json"
 INDIRIZZO_SP500 = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
 INDIRIZZO_EUROSTOXX50 = ("https://en.wikipedia.org/w/api.php?action=parse&page=EURO_STOXX_50"
                          "&prop=wikitext&format=json&formatversion=2")
+# Le capitalizzazioni di tutte le aziende quotate in America: l'elenco pubblico del sito del Nasdaq
+INDIRIZZO_NASDAQ = "https://api.nasdaq.com/api/screener/stocks?tableonly=true&download=true"
+
 # I numeri dell'economia: fonti ufficiali, gratuite e senza chiave
 INDIRIZZO_BCE = ("https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.4F.KR.DFR.LEV"
                  "?format=csvdata&lastNObservations=2")          # tasso sui depositi della BCE
@@ -168,11 +174,32 @@ def anagrafica(elenchi, profili):
     return tutte
 
 
-def aggiorna_profili(finnhub, profili, sigle_usa, oggi, errori):
+def aggiorna_capitalizzazioni(vecchie, sigle_usa, oggi, errori):
+    """Le capitalizzazioni dal Nasdaq, solo per le aziende che ci servono. Se il Nasdaq non risponde restano quelle di prima."""
+    try:
+        richiesta = urllib.request.Request(INDIRIZZO_NASDAQ, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+        with urllib.request.urlopen(richiesta, timeout=60) as risposta:
+            dati = risposta.read()
+        if dati[:2] == b"\x1f\x8b":
+            dati = gzip.decompress(dati)
+        tutte = mercato.leggi_nasdaq(json.loads(dati))
+        if len(tutte) < 1000:
+            raise ValueError(f"solo {len(tutte)} aziende: l'elenco sembra incompleto")
+        valori = {s: tutte[s] for s in sigle_usa if s in tutte}
+        print(f"OK   capitalizzazioni dal Nasdaq: {len(valori)} aziende su {len(sigle_usa)}")
+        return {"giorno": oggi, "valori": valori}
+    except Exception as errore:
+        errori.append(f"capitalizzazioni Nasdaq: {errore}")
+        print(f"ERRORE capitalizzazioni Nasdaq: {errore} (tengo quelle di prima)")
+        return vecchie
+
+
+def aggiorna_profili(finnhub, profili, sigle_usa, oggi, errori, gia_note=()):
     """Chiede a Finnhub logo e capitalizzazione: prima le aziende mai chieste, poi le più vecchie.
+    A parità, prima quelle di cui non conosciamo la capitalizzazione dal Nasdaq ("gia_note").
     Ognuna al massimo una volta a settimana, e non più di PROFILI_PER_GIRO per giro."""
     da_chiedere = sorted((s for s in sigle_usa if vecchio_di((profili.get(s) or {}).get("giorno"), GIORNI_PROFILI, oggi)),
-                         key=lambda s: ((profili.get(s) or {}).get("giorno") or "", s))
+                         key=lambda s: ((profili.get(s) or {}).get("giorno") or "", s in gia_note, s))
     fatti = 0
     for sigla in da_chiedere[:PROFILI_PER_GIRO]:
         try:
@@ -362,11 +389,15 @@ def main():
     elenchi["watchlist"] = elenco_watchlist()
     tutte = anagrafica(elenchi, profili)
 
-    # 2. Logo e capitalizzazione da Finnhub (lavoro lento: ogni azienda una volta a settimana)
+    # 2. Le capitalizzazioni dal Nasdaq (tutte insieme, due volte al giorno),
+    #    poi logo e capitalizzazione da Finnhub (lavoro lento: ogni azienda una volta a settimana)
+    sigle_usa = sorted({v["usa"] for v in tutte.values() if v.get("usa")})
+    capitali = archivio.get("capitalizzazioni") or {}
+    if completo or not capitali:
+        capitali = aggiorna_capitalizzazioni(capitali, sigle_usa, oggi, errori)
     chiave = (os.environ.get("FINNHUB_API_KEY") or "").strip()
     if completo and chiave:
-        sigle_usa = sorted({v["usa"] for v in tutte.values() if v.get("usa")})
-        aggiorna_profili(Finnhub(chiave), profili, sigle_usa, oggi, errori)
+        aggiorna_profili(Finnhub(chiave), profili, sigle_usa, oggi, errori, set(capitali.get("valori") or {}))
         tutte = anagrafica(elenchi, profili)     # i settori della watchlist possono essere arrivati ora
     elif completo:
         print("Manca il segreto FINNHUB_API_KEY: niente loghi e capitalizzazioni nuove.")
@@ -381,12 +412,16 @@ def main():
             # Yahoo oggi non l'ha dato: teniamo i numeri del giro prima
             prezzo = {k: v for k, v in vecchi_titoli[ticker].items()
                       if k in ("prezzo", "giorno", "oggi", "settimana", "mese", "anno", "linea")}
-        titoli[ticker] = mercato.scheda_mappa(voce, prezzo, profili.get(voce.get("usa")))
+        # La capitalizzazione del Nasdaq (aggiornata due volte al giorno) vale più di quella di Finnhub (una a settimana)
+        profilo = dict(profili.get(voce.get("usa")) or {})
+        if (capitali.get("valori") or {}).get(voce.get("usa")):
+            profilo["cap"] = capitali["valori"][voce["usa"]]
+        titoli[ticker] = mercato.scheda_mappa(voce, prezzo, profilo)
 
     risultato = {
         "aggiornato": adesso.strftime(FORMATO_ORA),
         "completo": adesso.strftime(FORMATO_ORA) if completo else vecchia.get("completo"),
-        "fonte": "Yahoo Finance (prezzi), Finnhub (logo e capitalizzazione)",
+        "fonte": "Yahoo Finance (prezzi), Nasdaq e Finnhub (capitalizzazione), Finnhub (logo)",
         "errori": errori,
         # Per ogni indice: nome, fonte, data dell'elenco e le sigle (i dettagli stanno in "titoli")
         "elenchi": {k: {**{c: v for c, v in e.items() if c != "voci"}, "sigle": [x["ticker"] for x in e["voci"]]}
@@ -419,7 +454,7 @@ def main():
     print(f"Paura e avidità delle azioni: {(paura or {}).get('valore')} ({(paura or {}).get('umore')}).")
     # L'archivio per i giri successivi: elenchi, profili Finnhub e quotazioni già controllate
     scrivi_compatto(FILE_ANAGRAFICA, {"elenchi": {k: e for k, e in elenchi.items() if k in INDICI}, "profili": profili,
-                                      "ipo": archivio_ipo})
+                                      "capitalizzazioni": capitali, "ipo": archivio_ipo})
 
     con_prezzo = sum(1 for t in titoli.values() if t.get("giorno"))
     con_cap = sum(1 for t in titoli.values() if t.get("cap"))

@@ -371,6 +371,18 @@ def prova_mercato_elenchi():
     assert mercato.settore_italiano("Qualcosa di nuovo") == mercato.ALTRO
 
 
+def prova_mercato_nasdaq():
+    # L'elenco del Nasdaq: capitalizzazione in dollari → miliardi; la barra delle classi diventa punto; i vuoti si saltano
+    risposta = {"data": {"rows": [
+        {"symbol": "AAPL", "marketCap": "5167353275560.00"},
+        {"symbol": "BRK/B", "marketCap": "1278072050993.00"},
+        {"symbol": "VUOTA", "marketCap": ""},
+        {"symbol": "STRANA", "marketCap": "NA"},
+    ]}}
+    assert mercato.leggi_nasdaq(risposta) == {"AAPL": 5167.4, "BRK.B": 1278.1}
+    assert mercato.leggi_nasdaq({}) == {}
+
+
 def prova_mercato_variazioni():
     # 300 sedute: dal 2 gennaio 2025, un giorno di Borsa dopo l'altro, prezzo che sale di 1 al giorno
     from datetime import datetime, timedelta, timezone
@@ -562,7 +574,7 @@ PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
          prova_ai_spenta_senza_chiave, prova_ai_freni,
-         prova_mercato_elenchi, prova_mercato_variazioni, prova_mercato_riquadri,
+         prova_mercato_elenchi, prova_mercato_nasdaq, prova_mercato_variazioni, prova_mercato_riquadri,
          prova_mercato_paura, prova_mercato_macro, prova_mercato_quotazioni, prova_mercato_quotazioni_giro]
 
 
@@ -615,7 +627,17 @@ def prova_dal_vivo():
         storia_ok = len(storia["giorni"]) > 1000
     except Exception as errore:
         stato_storia, storia_ok = f"ERRORE {type(errore).__name__}: {errore}", False
+    # Le capitalizzazioni della mappa del mercato: il Nasdaq risponde? (solo informativo: se non risponde c'è Finnhub)
+    try:
+        import aggiorna_mercato
+        errori_nasdaq = []
+        capitali = aggiorna_mercato.aggiorna_capitalizzazioni({}, ["AAPL", "MSFT", "BRK.B"], oggi, errori_nasdaq)
+        stato_nasdaq = f"{len(capitali.get('valori') or {})} su 3 (AAPL {(capitali.get('valori') or {}).get('AAPL')} miliardi $)" \
+            if not errori_nasdaq else f"ERRORE {errori_nasdaq[0]}"
+    except Exception as errore:
+        stato_nasdaq = f"ERRORE {type(errore).__name__}: {errore}"
     righe += ["", f"Prezzi storici (analisi tecnica): {prezzi_ok} titoli su {len(campione)}.",
+              f"Capitalizzazioni dal Nasdaq (mappa del mercato): {stato_nasdaq}.",
               f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}.",
               f"Grafico a 5 anni (SAP.DE): {stato_storia}."]
     testo = "\n".join(righe)
