@@ -277,18 +277,30 @@
       <header class="testata">
         <div class="etichetta-alta">Il cacciatore</div>
         <h1 class="titolo-pagina">Occasioni</h1>
-        <p class="sotto">Le 5 aziende della watchlist che oggi rispettano meglio i tuoi criteri. Le altre sono negli elenchi chiusi più in basso.</p>
+        <p class="sotto">Le prime 20 aziende della watchlist che oggi rispettano meglio i tuoi criteri, da filtrare per settore e area.
+          Le altre sono negli elenchi chiusi più in basso. La pagina Oggi mostra le prime 5.</p>
       </header>
       <p class="avviso" id="attesa-occasioni">Le occasioni arriveranno con il prossimo giro degli agenti.</p>
       <div id="corpo-occasioni" hidden>
         <p class="avviso" id="errori-occasioni" hidden></p>
         <p class="nota-criteri" id="criteri-occasioni"></p>
 
-        <div class="intestazione-sezione"><h2>Le 5 che spiccano oggi</h2></div>
-        <p class="suggerimento">Le prime per numero di segnali e punteggio. È una selezione da studiare, non una previsione:
+        <!-- I filtri: area (Europa, USA, Asia) e settore. Valgono per tutti gli elenchi della pagina -->
+        <div class="filtri-occasioni" role="group" aria-label="Filtri">
+          <div class="selettore" id="filtro-area" role="group" aria-label="Area"></div>
+          <label class="etichetta-confronto">Settore
+            <select class="confronto-prezzo" id="filtro-settore"></select>
+          </label>
+          <span class="conta-filtri" id="conta-filtri"></span>
+          <button type="button" class="link" id="togli-filtri" hidden>Togli i filtri</button>
+        </div>
+
+        <div class="intestazione-sezione"><h2 id="titolo-classifica">Le prime 20 oggi</h2></div>
+        <p class="suggerimento">Le prime per numero di segnali e punteggio (su 100). A destra di ogni scheda, ciò che le distingue:
+          di quanto è scesa dal massimo dell'anno e il punteggio. È una selezione da studiare, non una previsione:
           nessuno sa quale salirà prima. La freccia dice solo dove sta andando il prezzo nelle ultime settimane.</p>
         <div id="elenco-classifica"></div>
-        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede: le vere occasioni sono rare.</p>
+        <p class="vuoto" id="vuoto-classifica" hidden></p>
 
         <section class="riquadro">
           <h2>Il resto della watchlist</h2>
@@ -311,7 +323,9 @@
           </details>
         </section>
 
-        <section class="riquadro">
+        <!-- Le cose che servono di rado stanno in un pannello chiuso: si apre toccando "Avanzate" -->
+        <details class="riquadro avanzate" id="avanzate-occasioni">
+          <summary>Avanzate</summary>
           <h2>Aggiungi un titolo alla watchlist</h2>
           <p class="suggerimento">La watchlist sta nel file <code>data/watchlist.json</code> del repository: è GitHub, ogni sera,
             a scaricare i dati. Qui prepari la riga da incollare nel file. La sigla è quella di
@@ -336,7 +350,7 @@
               <li>Il titolo comparirà dopo il prossimo giro degli agenti (verso le 13 e la sera)</li>
             </ol>
           </div>
-        </section>
+        </details>
 
         <p class="fonte-notizie" id="fonte-occasioni"></p>
         <p class="avvertenza">Il cacciatore applica regole meccaniche a dati pubblici: segnala titoli da studiare, <strong>non dice cosa comprare</strong>.

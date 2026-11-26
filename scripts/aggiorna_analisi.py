@@ -33,7 +33,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from aggiorna_prezzi import CARTELLA_DATI, FILE_NOTIZIE, FILE_TITOLI, leggi_json, notizie_di, scrivi_json
-from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
+from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, mercato, tecnico
 from agenti.finnhub import Finnhub, FonteNonDisponibile, TitoloNonCoperto
 from agenti.yahoo import Yahoo
 
@@ -218,6 +218,10 @@ def main():
                 errori.append(errore)
                 if "FINNHUB_API_KEY" in errore or "ha rifiutato" in errore:
                     print(f"ERRORE fondamentali: {errore}. Per questo giro tengo quelli di prima, se ci sono.")
+        # Il settore in italiano, in uno degli 11 grandi settori (serve al filtro della pagina Occasioni)
+        industria = (scheda.get("fondamentali") or {}).get("settore")
+        if industria:
+            scheda["settore"] = mercato.settore_italiano(industria)
         schede[voce["ticker"]] = scheda
 
     # --- Cacciatore: controlla i criteri su ogni azione con dati recenti ---

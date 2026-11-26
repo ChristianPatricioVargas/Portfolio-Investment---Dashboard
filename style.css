@@ -1468,3 +1468,24 @@ a.link { text-decoration: none; font-size: 12px; }
 .riga-quotazioni .voce-mercato { white-space: normal; }
 /* Quando la pagina scorre fino a un riquadro, si ferma sotto la striscia dei prezzi */
 #sezione-quotazioni, #sezione-mappa { scroll-margin-top: calc(var(--sotto-striscia) + 8px); }
+
+/* ---------- La pagina Occasioni: filtri, cifre delle schede, pannello "Avanzate" ---------- */
+.filtri-occasioni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 4px; }
+.filtri-occasioni .selettore { max-width: 100%; overflow-x: auto; }
+.filtri-occasioni select { max-width: 220px; }
+.conta-filtri { color: var(--testo-tenue); font-size: 12px; }
+#togli-filtri { font-size: 13px; padding: 4px 0; }
+/* A destra di ogni scheda: calo dal massimo (grande) e punteggio con la sua barretta */
+.cifre-occasione { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 76px; }
+.cifre-occasione .valore { margin: 0; font-size: 1.1rem; }
+.cifre-occasione small { color: var(--testo-tenue); font-size: 11px; }
+.cifre-occasione .punteggio { margin-top: 6px; color: var(--testo-tenue); font-size: 12px; }
+.cifre-occasione .punteggio b { color: var(--accento); font-size: 14px; font-weight: 600; }
+.barra-punti { display: block; width: 64px; height: 4px; border-radius: 2px; background: var(--carta-2); overflow: hidden; }
+.barra-punti span { display: block; height: 100%; background: var(--accento); }
+/* Il pannello "Avanzate": chiuso, si apre toccando il titolo */
+.avanzate > summary { cursor: pointer; color: var(--accento); font-weight: 600; }
+.avanzate[open] > summary { margin-bottom: 10px; }
+/* Nome e etichette: se non c'è posto, le etichette vanno sulla riga sotto (intere, senza spezzarsi) */
+.scheda-occasione .nome { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.scheda-occasione .nome .tag { white-space: nowrap; }

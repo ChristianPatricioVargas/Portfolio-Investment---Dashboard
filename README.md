@@ -78,7 +78,7 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
   RSI, mini-grafico del mese, avanzamento verso il mio target, rischi), le 5 occasioni, i campanelli d'allarme,
   la composizione del portafoglio, le prossime trimestrali, lo stato delle tesi e **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
-- **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
+- **Occasioni**: le **prime 20** aziende della watchlist (più segnali e punteggio più alto), con **filtri per area** (Europa, USA, Asia) **e settore**; ogni scheda mette in evidenza ciò che la distingue (calo dal massimo e punteggio) e mostra la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali. Il modulo per aggiungere un titolo sta nel pannello chiuso **Avanzate**. La pagina Oggi continua a mostrare le prime 5.
 - **Mercato** (sotto Occasioni nel menu): la mappa del mercato, l'indice "paura e avidità", i numeri dell'economia
   e le nuove quotazioni (dettagli più sotto, in "La pagina Mercato"). La riga "Mercato oggi" della pagina Oggi porta qui.
 - **Disciplina**: punteggio di disciplina, cose da fare, revisione mensile guidata, diario delle operazioni,
@@ -146,11 +146,15 @@ I quattro segnali (le soglie sono in cima a `scripts/agenti/cacciatore.py`):
 3. **Conti solidi**: in utile e con debito netto non oltre 3 volte l'EBITDA (per banche e assicurazioni conta solo l'utile)
 4. **Analisti positivi**: almeno il 60% degli analisti (e almeno 5 analisti) ha un giudizio positivo
 
-La pagina mette in cima le 5 aziende con più segnali e punteggio più alto. È una selezione da studiare, non una previsione.
+La pagina Occasioni mette in cima le **prime 20** aziende con almeno 3 segnali, dal maggior numero di segnali e dal punteggio
+più alto (la pagina Oggi ne mostra 5). È una selezione da studiare, non una previsione. A destra di ogni scheda: il **calo dal
+massimo** dell'anno (grande) e il **punteggio** con la sua barretta. I **filtri** per area e settore valgono per tutti gli elenchi
+della pagina e restano scelti su questo dispositivo. Il settore è uno degli 11 grandi settori della mappa del mercato,
+ricavato dal settore di Finnhub (lo scrive `aggiorna_analisi.py` nella scheda di ogni titolo, campo `settore`).
 Il punteggio (0-100) ordina le aziende a parità di segnali: più calo, più crescita, meno debito e più analisti positivi = più punti.
 
 **Togliere un titolo**: nella pagina Occasioni, "Togli" lo nasconde su questo dispositivo (si può rimettere).
-**Aggiungere un titolo**: la pagina Occasioni prepara la riga da incollare in `data/watchlist.json`
+**Aggiungere un titolo**: la pagina Occasioni (pannello **Avanzate**) prepara la riga da incollare in `data/watchlist.json`
 (servono la sigla di Yahoo Finance sulla Borsa principale, es. `MC.PA`, e la sigla americana per i fondamentali,
 es. `LVMUY`). Deve stare nel repository perché è GitHub, non il browser, a scaricare i dati.
 Se non si è sicuri della sigla (o un titolo dà "errore 404"): **Actions → Prova agenti → Run workflow**,
@@ -514,3 +518,5 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 16. ⏳ Più strumenti di analisi sul grafico (altri disegni e indicatori), da fare più avanti
 17. ✅ Disciplina e tesi: tesi leggera, promemoria quando compro, vendite con motivo, diario con voto ed errori,
     pagina Disciplina (punteggio, revisione mensile, promemoria su trimestrali e tesi di 12 mesi), anello nella pagina Oggi
+18. ✅ Pagina Mercato: mappa del mercato (S&P 500, Euro Stoxx 50, watchlist), paura e avidità (azioni e cripto),
+    numeri dell'economia, nuove quotazioni con l'avviso in Oggi; Occasioni con le prime 20 e i filtri per area e settore
