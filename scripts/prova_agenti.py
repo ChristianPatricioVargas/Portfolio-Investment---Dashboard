@@ -416,12 +416,70 @@ def prova_mercato_riquadri():
     assert leggi_gruppo(vecchia) == {"SAP.DE": {"tempi": [1, 2], "chiusure": [5, 6]}}
 
 
+# ---------- La pagina Mercato: paura e avidità, numeri dell'economia ----------
+
+def prova_mercato_paura():
+    # Mercato calmo e in salita: indice 10% sopra la sua media, VIX più basso del solito, tutti i titoli ai massimi
+    salita = [100 + i * 0.1 for i in range(250)]
+    vix = [20.0] * 249 + [14.0]
+    titoli = [[50 + i * 0.2 for i in range(250)] for _ in range(60)]
+    p = mercato.paura_azioni(salita, vix, titoli)
+    assert len(p["pezzi"]) == 4 and p["valore"] >= 76 and p["umore"] == "Avidità estrema"
+    assert {x["chiave"]: x["valore"] for x in p["pezzi"]}["massimi"] == 100
+
+    # Mercato in caduta: indice sotto la media, VIX che schizza, titoli ai minimi
+    discesa = [125 - i * 0.1 for i in range(250)]
+    titoli_giu = [[90 - i * 0.2 for i in range(250)] for _ in range(60)]
+    p = mercato.paura_azioni(discesa, [15.0] * 249 + [30.0], titoli_giu)
+    assert p["valore"] < 25 and p["umore"] == "Paura estrema"
+
+    # Una settimana fa: si tolgono le ultime 5 sedute (qui il VIX era ancora normale)
+    prima = mercato.paura_azioni(discesa, [15.0] * 245 + [30.0] * 5, titoli_giu, indietro=5)
+    assert prima["valore"] > p["valore"]
+
+    # Senza i titoli (meno di 50) restano due pezzi su quattro: troppo pochi, nessun numero
+    assert mercato.paura_azioni(salita, vix, []) is None
+    assert mercato.umore(50) == "Neutrale" and mercato.umore(None) is None
+
+    # Le criptovalute: dal più recente al più vecchio, con la parola tradotta
+    giorni = [{"value": str(20 + i), "value_classification": "Fear", "timestamp": str(1_790_000_000 - i * 86400)}
+              for i in range(31)]
+    c = mercato.paura_cripto({"data": giorni})
+    assert c["valore"] == 20 and c["umore"] == "Paura" and c["ieri"] == 21 and c["settimana"] == 27 and c["mese"] == 50
+    assert mercato.paura_cripto({"data": []}) is None
+
+
+def prova_mercato_macro():
+    bce = mercato.leggi_bce("KEY,TIME_PERIOD,OBS_VALUE\nFM.DFR,2026-06-17,2.25\nFM.DFR,2026-09-16,2.5\n")
+    assert bce == {"valore": 2.5, "data": "2026-09-16", "prima": 2.25}
+    assert mercato.leggi_bce("KEY,TIME_PERIOD,OBS_VALUE\n") is None
+
+    fed = mercato.leggi_fed({"refRates": [{"effectiveDate": "2026-11-24", "percentRate": 3.88,
+                                           "targetRateFrom": 3.75, "targetRateTo": 4.0}]})
+    assert fed == {"da": 3.75, "a": 4.0, "effettivo": 3.88, "data": "2026-11-24"}
+    assert mercato.leggi_fed({}) is None
+
+    euro = mercato.leggi_eurostat({"value": {"0": 3.8, "1": 4.0},
+                                   "dimension": {"time": {"category": {"index": {"2026-09": 0, "2026-10": 1}}}}})
+    assert euro == {"valore": 4.0, "mese": "2026-10", "prima": 3.8}
+
+    # USA: l'inflazione è la crescita dell'indice rispetto allo stesso mese dell'anno prima.
+    # Ottobre 2025 manca (succede): ottobre 2026 non si può calcolare, si usa settembre.
+    dati = [{"year": "2026", "period": "M10", "value": "340"}, {"year": "2026", "period": "M09", "value": "330"},
+            {"year": "2026", "period": "M08", "value": "320"}, {"year": "2025", "period": "M09", "value": "300"},
+            {"year": "2025", "period": "M08", "value": "300"}, {"year": "2025", "period": "M13", "value": "999"}]
+    usa = mercato.leggi_bls({"Results": {"series": [{"data": dati}]}})
+    assert usa == {"valore": 10.0, "mese": "2026-09", "prima": 6.7}
+    assert mercato.leggi_bls({"status": "errore"}) is None
+
+
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
          prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_storia, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
          prova_ai_spenta_senza_chiave, prova_ai_freni,
-         prova_mercato_elenchi, prova_mercato_variazioni, prova_mercato_riquadri]
+         prova_mercato_elenchi, prova_mercato_variazioni, prova_mercato_riquadri,
+         prova_mercato_paura, prova_mercato_macro]
 
 
 # ---------- Prova dal vivo (con internet) ----------

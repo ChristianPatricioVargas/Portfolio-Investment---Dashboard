@@ -14,14 +14,22 @@ Due volte al giorno (con l'opzione --completo, insieme agli agenti) fa anche il 
   - chiede a Finnhub logo e capitalizzazione delle aziende: ognuna una volta a settimana,
     al massimo PROFILI_PER_GIRO per giro, una richiesta al secondo (il limite gratuito è 60 al minuto)
 
+E poi le altre parti della pagina:
+  - "paura e avidità" delle azioni, calcolato da noi con i prezzi già scaricati (S&P 500, VIX e le sue aziende),
+    e quello delle criptovalute di alternative.me (gratuito, due volte al giorno)
+  - i numeri dell'economia: euro/dollaro, petrolio e oro (Yahoo, ogni giro); tassi della BCE e della Fed,
+    inflazione dell'area euro e americana (fonti ufficiali gratuite, due volte al giorno)
+
 Cosa scrive:
   data/mappa.json        i riquadri della mappa (la pagina lo scarica solo quando apri Mercato)
+  data/mercato.json      paura e avidità, numeri dell'economia (piccolo: lo legge anche la pagina Oggi)
   data/anagrafica.json   gli elenchi degli indici e i profili (logo, capitalizzazione) già chiesti
                          a Finnhub: serve solo ai giri successivi, la pagina non lo usa
 
 Se una fonte non risponde restano i dati del giro prima. Solo dati pubblici: niente di personale.
 """
 
+import gzip
 import json
 import os
 import sys
@@ -34,6 +42,7 @@ from agenti.finnhub import Finnhub, FonteNonDisponibile, TitoloNonCoperto
 from agenti.yahoo import MASSIMO_GRUPPO, Yahoo
 
 FILE_MAPPA = CARTELLA_DATI / "mappa.json"
+FILE_MERCATO = CARTELLA_DATI / "mercato.json"
 FILE_ANAGRAFICA = CARTELLA_DATI / "anagrafica.json"
 FILE_WATCHLIST = CARTELLA_DATI / "watchlist.json"
 FILE_ANALISI = CARTELLA_DATI / "analisi.json"
@@ -42,6 +51,20 @@ FILE_ANALISI = CARTELLA_DATI / "analisi.json"
 INDIRIZZO_SP500 = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
 INDIRIZZO_EUROSTOXX50 = ("https://en.wikipedia.org/w/api.php?action=parse&page=EURO_STOXX_50"
                          "&prop=wikitext&format=json&formatversion=2")
+# I numeri dell'economia: fonti ufficiali, gratuite e senza chiave
+INDIRIZZO_BCE = ("https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.4F.KR.DFR.LEV"
+                 "?format=csvdata&lastNObservations=2")          # tasso sui depositi della BCE
+INDIRIZZO_FED = "https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json"   # Fed di New York
+INDIRIZZO_EUROSTAT = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_minr"
+                      "?geo=EA&coicop18=TOTAL&unit=RCH_A&lastTimePeriod=2")   # inflazione dell'area euro
+INDIRIZZO_BLS = "https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0"   # prezzi al consumo USA
+INDIRIZZO_CRIPTO = "https://api.alternative.me/fng/?limit=31"     # paura e avidità delle criptovalute
+
+# Le sigle di Yahoo che servono oltre alle aziende: l'S&P 500 e il VIX per "paura e avidità",
+# euro/dollaro, petrolio e oro per i numeri dell'economia
+INDICE_SP500, SIGLA_VIX = "^GSPC", "^VIX"
+MERCATI = [("EURUSD=X", "Euro/dollaro", ""), ("BZ=F", "Petrolio Brent", "$ al barile"), ("GC=F", "Oro", "$ l'oncia")]
+
 # Wikipedia chiede ai programmi di presentarsi con un nome: un nome generico, senza dati personali
 PRESENTAZIONE = "PortafoglioDashboard/1.0 (progetto personale open source)"
 
@@ -60,7 +83,11 @@ INDICI = {
 def scarica_testo(indirizzo):
     richiesta = urllib.request.Request(indirizzo, headers={"User-Agent": PRESENTAZIONE})
     with urllib.request.urlopen(richiesta, timeout=30) as risposta:
-        return risposta.read().decode("utf-8")
+        dati = risposta.read()
+    # Qualche fonte (la BCE) manda il file compresso anche se non lo chiediamo: lo riconosciamo e lo apriamo
+    if dati[:2] == b"\x1f\x8b":
+        dati = gzip.decompress(dati)
+    return dati.decode("utf-8")
 
 
 def vecchio_di(giorno, giorni, oggi):
@@ -169,6 +196,58 @@ def scarica_prezzi(yahoo, sigle, errori):
     return serie
 
 
+def calcola_paura(serie, elenchi):
+    """Paura e avidità delle azioni: oggi, una settimana fa e un mese fa."""
+    chiusure = lambda sigla: (serie.get(sigla) or {}).get("chiusure") or []
+    sigle_sp500 = [v["ticker"] for v in (elenchi.get("sp500") or {}).get("voci") or []]
+    titoli = [chiusure(s) for s in sigle_sp500 if s in serie]
+    oggi = mercato.paura_azioni(chiusure(INDICE_SP500), chiusure(SIGLA_VIX), titoli)
+    if not oggi:
+        return None
+    for chiave, sedute in (("settimana", 5), ("mese", 21)):
+        prima = mercato.paura_azioni(chiusure(INDICE_SP500), chiusure(SIGLA_VIX), titoli, indietro=sedute)
+        oggi[chiave] = prima["valore"] if prima else None
+    giorni = (serie.get(INDICE_SP500) or {}).get("tempi") or []
+    if giorni:
+        oggi["giorno"] = datetime.fromtimestamp(giorni[-1], timezone.utc).date().isoformat()
+    return oggi
+
+
+def calcola_mercati(serie):
+    """Euro/dollaro, petrolio e oro: prezzo e variazioni (oggi, mese, da inizio anno)."""
+    risultato = []
+    for sigla, nome, unita in MERCATI:
+        v = mercato.variazioni(**serie[sigla]) if sigla in serie else None
+        if v:
+            risultato.append({"sigla": sigla, "nome": nome, "unita": unita,
+                              **{k: v[k] for k in ("prezzo", "giorno", "oggi", "mese", "anno")}})
+    return risultato
+
+
+def aggiorna_lento(vecchio, errori):
+    """Le fonti che cambiano al massimo una volta al giorno: tassi, inflazione, paura e avidità delle cripto.
+    Ognuna per conto suo: se una non risponde resta il suo valore di prima."""
+    fonti = {
+        "bce": (INDIRIZZO_BCE, lambda testo: mercato.leggi_bce(testo)),
+        "fed": (INDIRIZZO_FED, lambda testo: mercato.leggi_fed(json.loads(testo))),
+        "inflazioneEuro": (INDIRIZZO_EUROSTAT, lambda testo: mercato.leggi_eurostat(json.loads(testo))),
+        "inflazioneUsa": (INDIRIZZO_BLS, lambda testo: mercato.leggi_bls(json.loads(testo))),
+        "cripto": (INDIRIZZO_CRIPTO, lambda testo: mercato.paura_cripto(json.loads(testo))),
+    }
+    risultato = dict(vecchio)
+    for chiave, (indirizzo, leggi) in fonti.items():
+        try:
+            dato = leggi(scarica_testo(indirizzo))
+            if not dato:
+                raise ValueError("risposta senza dati")
+            risultato[chiave] = dato
+            print(f"OK   {chiave}: {dato.get('valore', dato.get('da'))}")
+        except Exception as errore:
+            errori.append(f"{chiave}: {errore}")
+            print(f"ERRORE {chiave}: {errore} (tengo il valore di prima, se c'è)")
+    return risultato
+
+
 def lavoro_lento_da_fare(mappa):
     """Vero se il lavoro lento (elenchi, profili) non si fa da più di ORE_COMPLETO ore."""
     try:
@@ -208,8 +287,8 @@ def main():
     elif completo:
         print("Manca il segreto FINNHUB_API_KEY: niente loghi e capitalizzazioni nuove.")
 
-    # 3. I prezzi di tutte le aziende (ogni giro)
-    serie = scarica_prezzi(Yahoo(pausa=0.3), list(tutte), errori)
+    # 3. I prezzi di tutte le aziende, più indici e mercati per le altre parti della pagina (ogni giro)
+    serie = scarica_prezzi(Yahoo(pausa=0.3), list(tutte) + [INDICE_SP500, SIGLA_VIX] + [m[0] for m in MERCATI], errori)
     vecchi_titoli = vecchia.get("titoli") or {}
     titoli = {}
     for ticker, voce in tutte.items():
@@ -232,6 +311,22 @@ def main():
     }
     scrivi_compatto(FILE_MAPPA, risultato)
     scrivi_compatto(FILE_ANAGRAFICA, {"elenchi": {k: e for k, e in elenchi.items() if k in INDICI}, "profili": profili})
+
+    # 4. Paura e avidità, numeri dell'economia: il file piccolo data/mercato.json
+    vecchio_mercato = leggi_json(FILE_MERCATO, {})
+    lento = vecchio_mercato.get("lento") or {}
+    if completo or not lento:
+        lento = aggiorna_lento(lento, errori)
+    paura = calcola_paura(serie, elenchi) or vecchio_mercato.get("pauraAzioni")
+    mercati = calcola_mercati(serie) or vecchio_mercato.get("mercati") or []
+    scrivi_compatto(FILE_MERCATO, {
+        "aggiornato": adesso.strftime(FORMATO_ORA),
+        "pauraAzioni": paura,
+        "mercati": mercati,
+        "lento": lento,      # tassi, inflazione e paura delle cripto (aggiornati due volte al giorno)
+    })
+    print(f"Paura e avidità delle azioni: {(paura or {}).get('valore')} ({(paura or {}).get('umore')}).")
+
     con_prezzo = sum(1 for t in titoli.values() if t.get("giorno"))
     con_cap = sum(1 for t in titoli.values() if t.get("cap"))
     print(f"Mappa salvata: {len(titoli)} aziende, {con_prezzo} con il prezzo, {con_cap} con la capitalizzazione.")

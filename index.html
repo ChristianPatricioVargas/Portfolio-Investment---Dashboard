@@ -377,6 +377,42 @@
         <p class="fonte-notizie" id="fonte-mappa"></p>
       </section>
 
+      <div class="griglia-mercato">
+        <!-- 2. Paura e avidità: l'umore del mercato delle azioni (calcolato da noi) e delle criptovalute -->
+        <section class="riquadro" id="sezione-paura" hidden>
+          <h2>Paura e avidità</h2>
+          <p class="suggerimento">L'umore del mercato, da 0 (paura estrema: si vende) a 100 (avidità estrema: si compra).
+            Descrive il presente: non dice dove andranno i prezzi.</p>
+          <div class="indicatori-paura">
+            <div class="indicatore-paura" id="paura-azioni"></div>
+            <div class="indicatore-paura" id="paura-cripto"></div>
+          </div>
+          <details class="glossario" id="spiega-paura">
+            <summary>Come è calcolato quello delle azioni?</summary>
+            <p>È la media di quattro pezzi, ognuno da 0 a 100, calcolati ogni 30 minuti con i prezzi gratuiti di Yahoo
+              (l'indice "Fear &amp; Greed" della CNN funziona in modo simile, ma non è gratuito da scaricare):</p>
+            <ul class="pezzi-paura" id="pezzi-paura"></ul>
+            <p>Quello delle criptovalute è l'indice di alternative.me: guarda volatilità, volumi e umore sui social del Bitcoin.</p>
+          </details>
+          <p class="fonte-notizie" id="fonte-paura"></p>
+        </section>
+
+        <!-- 3. I numeri dell'economia: tassi, inflazione, cambio, petrolio, oro -->
+        <section class="riquadro" id="sezione-macro" hidden>
+          <h2>I numeri dell'economia</h2>
+          <dl class="numeri-agente" id="numeri-macro"></dl>
+          <details class="glossario">
+            <summary>Cosa significano?</summary>
+            <p><b>Tassi</b>: il "prezzo" del denaro deciso dalle banche centrali (BCE per l'euro, Fed per il dollaro).
+              Tassi più alti frenano l'economia e l'inflazione, e di solito pesano sulle Borse; tassi più bassi le aiutano.</p>
+            <p><b>Inflazione</b>: di quanto sono saliti i prezzi rispetto a un anno prima. L'obiettivo delle banche centrali è il 2%.</p>
+            <p><b>Euro/dollaro</b>: quanti dollari vale un euro. Se sale, le azioni americane valgono un po' meno in euro.</p>
+            <p><b>Petrolio e oro</b>: il petrolio pesa sui costi di aziende e famiglie; l'oro sale spesso quando c'è paura.</p>
+          </details>
+          <p class="fonte-notizie" id="fonte-macro"></p>
+        </section>
+      </div>
+
       <footer>
         <p>Questa pagina mostra dati pubblici: <strong>non è consulenza finanziaria</strong>.</p>
       </footer>

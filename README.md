@@ -301,6 +301,37 @@ Da dove arrivano i dati:
 - `data/mappa.json` (i riquadri) e `data/anagrafica.json` (elenchi e profili già chiesti, serve solo ai giri
   successivi) non sono nel repository: vivono nel sito pubblicato, come gli altri dati.
 
+### Paura e avidità
+
+Due indicatori a semicerchio, da 0 (**paura estrema**: si vende) a 100 (**avidità estrema**: si compra), con il valore
+di una settimana e di un mese prima. Descrivono l'umore di adesso: non dicono dove andranno i prezzi.
+Fasce: sotto 25 paura estrema, 25-46 paura, 47-54 neutrale, 55-75 avidità, da 76 avidità estrema.
+
+- **Criptovalute**: l'indice gratuito di [alternative.me](https://alternative.me/crypto/fear-and-greed-index/)
+  (uno al giorno), scaricato nei due giri degli agenti.
+- **Azioni**: calcolato da noi a ogni giro (l'indice della CNN non è scaricabile gratis), media di quattro pezzi da 0 a 100:
+  1. *Andamento*: l'S&P 500 rispetto alla sua media di 125 sedute (+8% sopra = 100, −8% sotto = 0);
+  2. *Volatilità*: il VIX rispetto alla sua media di 50 sedute (30% sotto = 100, 30% sopra = 0);
+  3. *Ampiezza*: quante aziende dell'S&P 500 sono sopra la loro media a 50 giorni (20% = 0, 80% = 100);
+  4. *Massimi e minimi*: tra le aziende entro il 3% dal massimo o dal minimo di un anno, la quota di quelle vicine al massimo.
+
+  Le soglie stanno in `PAURA` dentro `scripts/agenti/mercato.py`. Con meno di tre pezzi disponibili il numero non viene mostrato.
+
+### I numeri dell'economia
+
+| Numero | Fonte (gratuita, senza chiave) | Quando |
+|---|---|---|
+| Tasso BCE (sui depositi) | Portale dati della BCE (`FM.B.U2.EUR.4F.KR.DFR.LEV`) | due volte al giorno |
+| Tasso Fed (forchetta e tasso effettivo) | Fed di New York (`markets.newyorkfed.org`, EFFR) | due volte al giorno |
+| Inflazione area euro | Eurostat (`prc_hicp_minr`, variazione annua) | due volte al giorno |
+| Inflazione USA | Ufficio statistico USA, BLS (indice `CUUR0000SA0`, variazione rispetto allo stesso mese dell'anno prima) | due volte al giorno |
+| Euro/dollaro, petrolio Brent, oro | Yahoo Finance (`EURUSD=X`, `BZ=F`, `GC=F`) | a ogni giro |
+
+FRED (la banca dati della Fed di St. Louis) sarebbe stata comoda, ma nelle prove non rispondeva: per questo si usano
+direttamente le fonti ufficiali. La vecchia serie dell'inflazione della BCE (`ICP`) è ferma a dicembre 2025, sostituita
+da quella di Eurostat. Se una fonte non risponde resta il suo valore di prima. Tutto finisce in `data/mercato.json`
+(pochi kB, non nel repository).
+
 ## Le fonti dei dati e i loro limiti
 
 | Dato | Fonte | Note |
@@ -308,6 +339,7 @@ Da dove arrivano i dati:
 | Prezzi, storico, analisi tecnica | Yahoo Finance (grafico) | Senza chiave. Funziona dai server di GitHub |
 | Conti delle aziende, giudizi degli analisti, trimestrali | **Finnhub**, con chiave gratuita (`FINNHUB_API_KEY` nei Secrets) | Il piano gratuito copre le aziende quotate negli Stati Uniti: per questo ogni titolo ha una sigla americana (campo `usa`) |
 | Notizie | Google News, Bing News, Yahoo Finance | Senza chiave |
+| Paura e avidità, numeri dell'economia | alternative.me, BCE, Fed di New York, Eurostat, BLS, Yahoo Finance | Senza chiave. Vedi "La pagina Mercato" |
 | Mappa del mercato | Yahoo Finance (prezzi, a gruppi di 20), Finnhub (logo e capitalizzazione), liste pubbliche (elenchi degli indici) | Vedi "La pagina Mercato" |
 
 **Come ci si è arrivati** (prove dal vivo del 14-15 novembre 2026, fatte dai server di GitHub):
@@ -357,10 +389,10 @@ trimestrali viste). Un backup più vecchio si può ancora ripristinare: le parti
 | `librerie/` | Lightweight Charts di TradingView (la libreria del grafico del prezzo) e la sua licenza |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
 | `data/watchlist.json` | Le grandi aziende che il cacciatore tiene d'occhio |
-| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `mappa.json`, `anagrafica.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
+| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `mappa.json`, `anagrafica.json`, `mercato.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
 | `scripts/aggiorna_prezzi.py` | Scarica prezzi, storico e notizie e manda gli allarmi (ogni 30 minuti) |
 | `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
-| `scripts/aggiorna_mercato.py` | Il direttore della pagina Mercato: prezzi della mappa a ogni giro; elenchi degli indici e profili Finnhub due volte al giorno |
+| `scripts/aggiorna_mercato.py` | Il direttore della pagina Mercato: prezzi della mappa, paura e avidità delle azioni, cambio, petrolio e oro a ogni giro; elenchi degli indici, profili Finnhub, tassi, inflazione e paura delle cripto due volte al giorno |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
 | `scripts/prova_agenti.py` | Le prove automatiche degli agenti |
 | `scripts/trova_sigla.py` | Programma di prova: dice quali sigle riconosce Yahoo Finance |

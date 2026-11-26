@@ -61,7 +61,7 @@ jobs:
           SITO: ${{ steps.pages.outputs.base_url }}
         run: |
           mkdir -p data
-          for nome in prezzi storico intraday allarmi notizie analisi serie ai mappa anagrafica; do
+          for nome in prezzi storico intraday allarmi notizie analisi serie ai mappa anagrafica mercato; do
             # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
             if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
                && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then
@@ -117,7 +117,7 @@ jobs:
             python3 scripts/aggiorna_analisi.py --se-vecchia
           fi
 
-      - name: Prepara la pagina Mercato (la mappa del mercato)
+      - name: Prepara la pagina Mercato (mappa, paura e avidità, numeri dell'economia)
         # Ogni giro: i prezzi delle ~600 aziende della mappa, a gruppi di 20.
         # Nei due giri degli agenti anche il lavoro lento: elenchi degli indici e loghi/capitalizzazioni da Finnhub.
         # Se qualcosa non risponde, la pagina mostra i dati del giro prima.

@@ -1415,3 +1415,23 @@ a.link { text-decoration: none; font-size: 12px; }
 .linea-mappa polyline { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
 .linea-mappa polyline.sale { stroke: var(--verde); }
 .linea-mappa polyline.scende { stroke: var(--rosso); }
+
+/* ---------- La pagina Mercato: paura e avidità, numeri dell'economia ---------- */
+/* Su iPad e computer i due riquadri stanno affiancati */
+@media (min-width: 900px) {
+  .griglia-mercato { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+}
+.indicatori-paura { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.indicatore-paura { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; }
+.titolo-paura { align-self: stretch; color: var(--testo-tenue); font-size: 12px; font-weight: 600; }
+.quadrante-paura { width: 100%; max-width: 180px; margin-top: 6px; }
+.fascia-paura { fill: none; stroke-width: 9; }
+.lancetta-paura { stroke: var(--testo); stroke-width: 2.5; stroke-linecap: round; }
+.perno-paura { fill: var(--testo); }
+.valore-paura { display: flex; flex-direction: column; align-items: center; margin-top: 4px; }
+.valore-paura b { font-family: var(--carattere-numeri); font-size: 1.6rem; font-weight: 600; line-height: 1.1; }
+.valore-paura span { font-size: 13px; font-weight: 600; }
+.prima-paura { margin-top: 4px; color: var(--testo-tenue); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pezzi-paura { margin: 8px 0 0; padding-left: 18px; }
+.pezzi-paura li { margin-top: 4px; }
+#numeri-macro { margin-top: 4px; }

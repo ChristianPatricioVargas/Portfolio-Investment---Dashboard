@@ -376,12 +376,13 @@ function disegnaFonteMappa() {
 
 function disegnaMercato() {
   $("data-mercato").textContent = new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
-  if (mappa === null) {
-    caricaMappa().then(() => { if (vistaAperta === "mercato") disegnaMercato(); });
+  if (mappa === null || datiMercato === null) {
+    Promise.all([caricaMappa(), caricaDatiMercato()]).then(() => { if (vistaAperta === "mercato") disegnaMercato(); });
     return;
   }
+  disegnaPauraEMacro();
   const pronta = Object.keys(mappa.titoli).length > 0;
-  $("attesa-mercato").hidden = pronta;
+  $("attesa-mercato").hidden = pronta || !$("sezione-paura").hidden || !$("sezione-macro").hidden;
   $("sezione-mappa").hidden = !pronta;
   if (!pronta) return;
   disegnaSelettoriMappa();
@@ -468,4 +469,135 @@ function collegaMercato() {
     inAttesa = true;
     requestAnimationFrame(() => { inAttesa = false; disegnaMappa(); });
   });
+}
+
+// ---------- Paura e avidità, numeri dell'economia (da data/mercato.json) ----------
+
+let datiMercato = null;           // il file piccolo con paura e avidità e i numeri dell'economia
+let caricamentoDatiMercato = null;
+
+// Scarica data/mercato.json una volta sola (lo usa anche la pagina Oggi)
+function caricaDatiMercato() {
+  if (!caricamentoDatiMercato) {
+    caricamentoDatiMercato = fetch("data/mercato.json", { cache: "no-store" })
+      .then((risposta) => (risposta.ok ? risposta.json() : null))
+      .catch(() => null)
+      .then((dati) => { datiMercato = dati || {}; });
+  }
+  return caricamentoDatiMercato;
+}
+
+// Le fasce dell'umore (le stesse di scripts/agenti/mercato.py): [fino a, colore]
+const FASCE_PAURA = [[25, "var(--rosso)"], [47, "var(--ambra)"], [55, "var(--testo-tenue)"], [76, "var(--verde)"], [100, "var(--verde)"]];
+
+// Un punto sul semicerchio: 0 = tutto a sinistra, 100 = tutto a destra
+function puntoArco(valore, raggio) {
+  const angolo = Math.PI * (1 - valore / 100);
+  return [60 + raggio * Math.cos(angolo), 60 - raggio * Math.sin(angolo)];
+}
+
+// Il semicerchio con la lancetta, come un contachilometri
+function creaQuadrante(valore) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 120 66");
+  svg.setAttribute("class", "quadrante-paura");
+  svg.setAttribute("aria-hidden", "true");
+  let inizio = 0;
+  for (const [fine, colore] of FASCE_PAURA) {
+    const [x1, y1] = puntoArco(inizio + 0.8, 48);
+    const [x2, y2] = puntoArco(fine - 0.8, 48);
+    const arco = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    arco.setAttribute("d", `M ${x1.toFixed(2)} ${y1.toFixed(2)} A 48 48 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`);
+    arco.setAttribute("class", "fascia-paura");
+    arco.style.stroke = colore;
+    // La fascia in cui sta il valore è piena, le altre più chiare
+    arco.style.opacity = valore >= inizio && valore <= fine ? "1" : "0.3";
+    svg.appendChild(arco);
+    inizio = fine;
+  }
+  const [x, y] = puntoArco(valore, 40);
+  const lancetta = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  lancetta.setAttribute("x1", "60"); lancetta.setAttribute("y1", "60");
+  lancetta.setAttribute("x2", x.toFixed(2)); lancetta.setAttribute("y2", y.toFixed(2));
+  lancetta.setAttribute("class", "lancetta-paura");
+  const perno = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  perno.setAttribute("cx", "60"); perno.setAttribute("cy", "60"); perno.setAttribute("r", "3.5");
+  perno.setAttribute("class", "perno-paura");
+  svg.append(lancetta, perno);
+  return svg;
+}
+
+// Un indicatore: titolo, semicerchio, numero, parola e com'era prima
+function disegnaIndicatorePaura(contenitore, titolo, dato) {
+  contenitore.innerHTML = "";
+  contenitore.appendChild(crea("div", "titolo-paura", titolo));
+  if (!dato || typeof dato.valore !== "number") {
+    contenitore.appendChild(crea("p", "vuoto", "Non ancora disponibile."));
+    return;
+  }
+  contenitore.appendChild(creaQuadrante(dato.valore));
+  const numero = crea("div", "valore-paura");
+  numero.append(crea("b", "", String(dato.valore)), crea("span", "", dato.umore || ""));
+  contenitore.appendChild(numero);
+  contenitore.setAttribute("aria-label", `${titolo}: ${dato.valore} su 100, ${dato.umore}`);
+  const prima = [["ieri", "ieri"], ["settimana", "1 settimana fa"], ["mese", "1 mese fa"]]
+    .filter(([k]) => typeof dato[k] === "number").map(([k, nome]) => `${nome} ${dato[k]}`);
+  if (prima.length) contenitore.appendChild(crea("div", "prima-paura", prima.join(" · ")));
+}
+
+// "2026-10" → "ottobre 2026"
+function meseIt(testo) {
+  if (!testo) return "";
+  const [anno, mese] = testo.split("-").map(Number);
+  return new Date(anno, mese - 1, 1).toLocaleDateString("it-IT", { month: "long", year: "numeric" });
+}
+
+const tassoIt = (n) => numeroIt(n, 2) + "%";
+
+function disegnaPauraEMacro() {
+  const d = datiMercato || {};
+  const lento = d.lento || {};
+  const azioni = d.pauraAzioni, cripto = lento.cripto;
+
+  // Paura e avidità
+  $("sezione-paura").hidden = !azioni && !cripto;
+  disegnaIndicatorePaura($("paura-azioni"), "Azioni (S&P 500)", azioni);
+  disegnaIndicatorePaura($("paura-cripto"), "Criptovalute", cripto);
+  const pezzi = $("pezzi-paura");
+  pezzi.innerHTML = "";
+  for (const p of (azioni && azioni.pezzi) || []) {
+    const voce = crea("li");
+    voce.append(crea("b", "", `${p.nome}: ${p.valore}`), crea("span", "", ` (${p.testo})`));
+    pezzi.appendChild(voce);
+  }
+  $("spiega-paura").hidden = !azioni;
+  $("fonte-paura").textContent = [
+    azioni ? `Azioni: calcolo nostro su prezzi Yahoo Finance fino al ${dataBreve(azioni.giorno)}` : "",
+    cripto ? `Cripto: alternative.me, ${dataBreve(cripto.giorno)}` : "",
+  ].filter(Boolean).join(" · ");
+
+  // I numeri dell'economia
+  const griglia = $("numeri-macro");
+  griglia.innerHTML = "";
+  const { bce, fed, inflazioneEuro: ie, inflazioneUsa: iu } = lento;
+  if (bce) aggiungiDato(griglia, "Tasso BCE (depositi)", tassoIt(bce.valore), "",
+    `dal ${dataBreve(bce.data)}` + (typeof bce.prima === "number" && bce.prima !== bce.valore ? `, prima ${tassoIt(bce.prima)}` : ""));
+  if (fed) aggiungiDato(griglia, "Tasso Fed", `${numeroIt(fed.da, 2)}–${tassoIt(fed.a)}`, "",
+    typeof fed.effettivo === "number" ? `effettivo ${tassoIt(fed.effettivo)} il ${dataBreve(fed.data)}` : "");
+  const inflazione = (nome, dato) => {
+    if (!dato) return;
+    const nota = meseIt(dato.mese) + (typeof dato.prima === "number" ? `, il mese prima ${numeroIt(dato.prima, 1)}%` : "");
+    aggiungiDato(griglia, nome, numeroIt(dato.valore, 1) + "%", "", nota);
+  };
+  inflazione("Inflazione area euro", ie);
+  inflazione("Inflazione USA", iu);
+  for (const m of d.mercati || []) {
+    const valore = m.sigla === "EURUSD=X" ? numeroIt(m.prezzo, 4) : numeroIt(m.prezzo, m.prezzo >= 1000 ? 0 : 2) + " " + m.unita;
+    const nota = [typeof m.oggi === "number" ? `${testoVariazione(m.oggi)} oggi` : "",
+                  typeof m.anno === "number" ? `${percUno(m.anno, true)} da inizio anno` : ""].filter(Boolean).join(" · ");
+    aggiungiDato(griglia, m.nome, valore, "", nota);
+  }
+  $("sezione-macro").hidden = griglia.children.length === 0;
+  $("fonte-macro").textContent = "Fonti: BCE, Fed di New York, Eurostat, ufficio statistico USA (BLS), Yahoo Finance" +
+    (d.aggiornato ? ` · controllati ${momento(d.aggiornato)}` : "");
 }
