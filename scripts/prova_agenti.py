@@ -15,7 +15,9 @@ Con l'opzione --dal-vivo fa anche una prova vera con Yahoo Finance su pochi tito
 import os
 import sys
 
-from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
+from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, mercato, tecnico
+from agenti.finnhub import TitoloNonCoperto
+from agenti.yahoo import leggi_gruppo
 
 OGGI = "2026-11-14"
 
@@ -340,11 +342,240 @@ def prova_ai_freni():
     os.environ.pop("AI_MODELLO")
 
 
+# ---------- La pagina Mercato: la mappa ----------
+
+def prova_mercato_elenchi():
+    # S&P 500: il punto della sigla diventa trattino per Yahoo, ma resta per Finnhub; il settore si traduce
+    testo = ("Symbol,Security,GICS Sector,GICS Sub-Industry\n"
+             "AAPL,Apple Inc.,Information Technology,Tech Hardware\n"
+             "BRK.B,Berkshire Hathaway,Financials,Multi-Sector Holdings\n"
+             ",riga vuota,,\n")
+    elenco = mercato.leggi_sp500(testo)
+    assert [v["ticker"] for v in elenco] == ["AAPL", "BRK-B"]
+    assert elenco[1]["usa"] == "BRK.B" and elenco[0]["settore"] == "Tecnologia" and elenco[1]["settore"] == "Finanza"
+
+    # Euro Stoxx 50: la tabella di Wikipedia, con celle su righe diverse e comandi da pulire
+    wiki = ('intro\n{| class="wikitable" id="constituents"\n! Ticker !! Main listing !! Name !! Form !! Office !! Sector\n'
+            '|-\n| ADS.DE || [[Xetra]] || [[Adidas]] || AG || {{Flagicon|Germany}} Herzogenaurach || Consumer Discretionary\n'
+            '|-\n| SU.PA\n| Euronext\n| [[Schneider Electric|Schneider]]\n| SE\n| Rueil\n| Industrials\n'
+            '|-\n| sbagliata || x || y || z || w || Energy\n|}\naltro testo')
+    elenco = mercato.leggi_eurostoxx50(wiki, {"SU.PA": "SBGSY-PROVA"})
+    assert [v["ticker"] for v in elenco] == ["ADS.DE", "SU.PA"]
+    assert elenco[0]["nome"] == "Adidas" and elenco[0]["usa"] == "ADDYY" and elenco[0]["settore"] == "Beni voluttuari"
+    assert elenco[1]["nome"] == "Schneider" and elenco[1]["usa"] == "SBGSY-PROVA" and elenco[1]["settore"] == "Industria"
+    assert mercato.leggi_eurostoxx50("pagina senza tabella") == []
+
+    # I settori di Finnhub finiscono negli stessi 11 grandi settori; quelli sconosciuti in "Altro"
+    assert mercato.settore_italiano("Semiconductors") == "Tecnologia"
+    assert mercato.settore_italiano("Banking") == "Finanza"
+    assert mercato.settore_italiano("Qualcosa di nuovo") == mercato.ALTRO
+
+
+def prova_mercato_nasdaq():
+    # L'elenco del Nasdaq: capitalizzazione in dollari → miliardi; la barra delle classi diventa punto; i vuoti si saltano
+    risposta = {"data": {"rows": [
+        {"symbol": "AAPL", "marketCap": "5167353275560.00"},
+        {"symbol": "BRK/B", "marketCap": "1278072050993.00"},
+        {"symbol": "VUOTA", "marketCap": ""},
+        {"symbol": "STRANA", "marketCap": "NA"},
+    ]}}
+    assert mercato.leggi_nasdaq(risposta) == {"AAPL": 5167.4, "BRK.B": 1278.1}
+    assert mercato.leggi_nasdaq({}) == {}
+
+
+def prova_mercato_variazioni():
+    # 300 sedute: dal 2 gennaio 2025, un giorno di Borsa dopo l'altro, prezzo che sale di 1 al giorno
+    from datetime import datetime, timedelta, timezone
+    inizio = datetime(2025, 1, 2, 21, tzinfo=timezone.utc)
+    giorni, tempi = [], []
+    giorno = inizio
+    while len(tempi) < 300:
+        if giorno.weekday() < 5:
+            tempi.append(int(giorno.timestamp()))
+            giorni.append(giorno.date())
+        giorno += timedelta(days=1)
+    chiusure = [100.0 + i for i in range(300)]
+    chiusure[150] = None                       # un buco nei dati di Yahoo non deve rompere i conti
+    v = mercato.variazioni(tempi, chiusure)
+    assert v["giorno"] == giorni[-1].isoformat() and v["prezzo"] == 399
+    assert uguale(v["oggi"], round(399 / 398 - 1, 5)) and uguale(v["settimana"], round(399 / 394 - 1, 5))
+    assert uguale(v["mese"], round(399 / 378 - 1, 5)) and len(v["linea"]) == mercato.PUNTI_LINEA
+    # Da inizio anno: rispetto all'ultima chiusura dell'anno prima
+    ultima_2025 = max(i for i, g in enumerate(giorni) if g.year == 2025)
+    assert uguale(v["anno"], round(399 / chiusure[ultima_2025] - 1, 5))
+    # Pochi dati: niente variazioni lunghe, ma niente errori
+    corto = mercato.variazioni(tempi[-3:], [10, 11, 12])
+    assert corto["settimana"] is None and corto["anno"] is None and uguale(corto["oggi"], round(12 / 11 - 1, 5))
+    assert mercato.variazioni([], []) is None
+
+
+def prova_mercato_riquadri():
+    # Il profilo di Finnhub: la capitalizzazione arriva in milioni, la teniamo in miliardi
+    profilo = mercato.profilo_breve({"marketCapitalization": 2_500_000, "logo": "https://logo/x.png",
+                                     "finnhubIndustry": "Technology"}, OGGI)
+    assert profilo == {"cap": 2500.0, "logo": "https://logo/x.png", "industria": "Technology", "giorno": OGGI}
+    scheda = mercato.scheda_mappa({"ticker": "AAPL", "nome": "Apple", "settore": "Tecnologia", "usa": "AAPL"},
+                                  {"prezzo": 10, "oggi": 0.01}, profilo)
+    assert scheda["cap"] == 2500.0 and scheda["logo"] and scheda["oggi"] == 0.01 and "industria" not in scheda
+    # Senza profilo e senza prezzo il riquadro c'è lo stesso (grandezza media, cerchio con l'iniziale)
+    vuota = mercato.scheda_mappa({"ticker": "X", "nome": "X", "settore": ""}, None, None)
+    assert vuota == {"nome": "X", "settore": mercato.ALTRO}
+
+    # Yahoo risponde ai gruppi di 20 titoli in due forme diverse: le leggiamo tutte e due
+    nuova = {"AAPL": {"timestamp": [1, 2], "close": [10, 11]}, "nota": "non è un titolo"}
+    vecchia = {"spark": {"result": [{"symbol": "SAP.DE", "response": [
+        {"timestamp": [1, 2], "indicators": {"quote": [{"close": [5, 6]}]}}]}]}}
+    assert leggi_gruppo(nuova) == {"AAPL": {"tempi": [1, 2], "chiusure": [10, 11]}}
+    assert leggi_gruppo(vecchia) == {"SAP.DE": {"tempi": [1, 2], "chiusure": [5, 6]}}
+
+
+# ---------- La pagina Mercato: paura e avidità, numeri dell'economia ----------
+
+def prova_mercato_paura():
+    # Mercato calmo e in salita: indice 10% sopra la sua media, VIX più basso del solito, tutti i titoli ai massimi
+    salita = [100 + i * 0.1 for i in range(250)]
+    vix = [20.0] * 249 + [14.0]
+    titoli = [[50 + i * 0.2 for i in range(250)] for _ in range(60)]
+    p = mercato.paura_azioni(salita, vix, titoli)
+    assert len(p["pezzi"]) == 4 and p["valore"] >= 76 and p["umore"] == "Avidità estrema"
+    assert {x["chiave"]: x["valore"] for x in p["pezzi"]}["massimi"] == 100
+
+    # Mercato in caduta: indice sotto la media, VIX che schizza, titoli ai minimi
+    discesa = [125 - i * 0.1 for i in range(250)]
+    titoli_giu = [[90 - i * 0.2 for i in range(250)] for _ in range(60)]
+    p = mercato.paura_azioni(discesa, [15.0] * 249 + [30.0], titoli_giu)
+    assert p["valore"] < 25 and p["umore"] == "Paura estrema"
+
+    # Una settimana fa: si tolgono le ultime 5 sedute (qui il VIX era ancora normale)
+    prima = mercato.paura_azioni(discesa, [15.0] * 245 + [30.0] * 5, titoli_giu, indietro=5)
+    assert prima["valore"] > p["valore"]
+
+    # Senza i titoli (meno di 50) restano due pezzi su quattro: troppo pochi, nessun numero
+    assert mercato.paura_azioni(salita, vix, []) is None
+    assert mercato.umore(50) == "Neutrale" and mercato.umore(None) is None
+
+    # Le criptovalute: dal più recente al più vecchio, con la parola tradotta
+    giorni = [{"value": str(20 + i), "value_classification": "Fear", "timestamp": str(1_790_000_000 - i * 86400)}
+              for i in range(31)]
+    c = mercato.paura_cripto({"data": giorni})
+    assert c["valore"] == 20 and c["umore"] == "Paura" and c["ieri"] == 21 and c["settimana"] == 27 and c["mese"] == 50
+    assert mercato.paura_cripto({"data": []}) is None
+
+
+def prova_mercato_macro():
+    bce = mercato.leggi_bce("KEY,TIME_PERIOD,OBS_VALUE\nFM.DFR,2026-06-17,2.25\nFM.DFR,2026-09-16,2.5\n")
+    assert bce == {"valore": 2.5, "data": "2026-09-16", "prima": 2.25}
+    assert mercato.leggi_bce("KEY,TIME_PERIOD,OBS_VALUE\n") is None
+
+    fed = mercato.leggi_fed({"refRates": [{"effectiveDate": "2026-11-24", "percentRate": 3.88,
+                                           "targetRateFrom": 3.75, "targetRateTo": 4.0}]})
+    assert fed == {"da": 3.75, "a": 4.0, "effettivo": 3.88, "data": "2026-11-24"}
+    assert mercato.leggi_fed({}) is None
+
+    euro = mercato.leggi_eurostat({"value": {"0": 3.8, "1": 4.0},
+                                   "dimension": {"time": {"category": {"index": {"2026-09": 0, "2026-10": 1}}}}})
+    assert euro == {"valore": 4.0, "mese": "2026-10", "prima": 3.8}
+
+    # USA: l'inflazione è la crescita dell'indice rispetto allo stesso mese dell'anno prima.
+    # Ottobre 2025 manca (succede): ottobre 2026 non si può calcolare, si usa settembre.
+    dati = [{"year": "2026", "period": "M10", "value": "340"}, {"year": "2026", "period": "M09", "value": "330"},
+            {"year": "2026", "period": "M08", "value": "320"}, {"year": "2025", "period": "M09", "value": "300"},
+            {"year": "2025", "period": "M08", "value": "300"}, {"year": "2025", "period": "M13", "value": "999"}]
+    usa = mercato.leggi_bls({"Results": {"series": [{"data": dati}]}})
+    assert usa == {"valore": 10.0, "mese": "2026-09", "prima": 6.7}
+    assert mercato.leggi_bls({"status": "errore"}) is None
+
+
+# ---------- La pagina Mercato: le nuove quotazioni ----------
+
+def calendario_finto():
+    """Un calendario delle quotazioni inventato, nella forma di Finnhub (/calendar/ipo)."""
+    voce = lambda nome, sigla, data, valore, stato="expected": {
+        "name": nome, "symbol": sigla, "date": data, "exchange": "NASDAQ Global", "price": "15.00-17.00",
+        "numberOfShares": 1e7, "totalSharesValue": valore, "status": stato}
+    return [
+        voce("Gigante Pagamenti Inc", "GIGA", "2026-11-20", 2.5e9, "priced"),   # grande per la raccolta
+        voce("Famosa Bevande Corp", "FAMO", "2026-11-28", 3e8),                 # grande per le notizie
+        voce("Acme AI Labs Inc", "ACME", "2026-12-02", 1.2e8),                  # piccola, intelligenza artificiale (dal nome)
+        voce("Scudo Systems Inc", "SCUD", "2026-12-03", 9e7),                   # piccola, difesa (dal settore di Finnhub)
+        voce("Panetteria Rossi Inc", "PANE", "2026-12-04", 5e7),                # piccola, settore che non seguiamo
+        voce("Futuro Acquisition Corp", "FUTU", "2026-12-04", 2e9),             # SPAC: saltata anche se grande
+        voce("Ritirata Energy Inc", "RITI", "2026-12-05", 5e8, "withdrawn"),    # ritirata
+        voce("Troppo Lontana Tech", "LONT", "2027-02-01", 5e9),                 # fuori dal periodo
+    ]
+
+
+def prova_mercato_quotazioni():
+    assert mercato.settore_seguito("Thai Food Co") is None and mercato.settore_seguito("Acme AI Labs") == "Intelligenza artificiale"
+    assert mercato.settore_seguito("Qualcosa", "Aerospace & Defense") == "Difesa"
+    assert mercato.e_spac("Futuro Acquisition Corp") and not mercato.e_spac("Acme AI Labs")
+
+    dettagli = {"FAMO": {"notizie": 25}, "SCUD": {"industria": "Aerospace & Defense", "descrizione": "Fa scudi"}}
+    scelte = mercato.scegli_quotazioni(calendario_finto(), dettagli, OGGI)
+    assert [q["sigla"] for q in scelte] == ["GIGA", "FAMO", "ACME", "SCUD"]
+    assert [q["tipo"] for q in scelte] == ["grande", "grande", "piccola", "piccola"]
+    assert scelte[0]["motivo"] == "raccoglie 2,5 miliardi di dollari" and scelte[1]["motivo"].startswith("molto seguita")
+    assert scelte[3]["settore"] == "Difesa" and scelte[3]["descrizione"] == "Fa scudi"
+
+    # Wikipedia: la descrizione vale solo se la pagina trovata è proprio quella dell'azienda
+    giusta = {"query": {"pages": [{"title": "Figma", "description": "editor grafico collaborativo online", "extract": "..."}]}}
+    sbagliata = {"query": {"pages": [{"title": "NVIDIA", "description": "azienda di processori"}]}}
+    assert mercato.descrizione_wiki(giusta, "Figma Inc") == "Editor grafico collaborativo online"
+    assert mercato.descrizione_wiki(sbagliata, "CoreWeave Inc") is None
+    assert mercato.descrizione_wiki({}, "Figma Inc") is None
+    corta = {"query": {"pages": [{"title": "Figma", "description": "app", "extract": "figma è un'applicazione web per il design."}]}}
+    assert mercato.descrizione_wiki(corta, "Figma") == "Figma è un'applicazione web per il design."
+
+
+class FinnhubFinto:
+    """Un Finnhub inventato per le quotazioni: conta le richieste, senza internet."""
+    def __init__(self):
+        self.richieste = []
+
+    def quotazioni(self, da, a):
+        self.richieste.append(("calendario", da, a))
+        return calendario_finto()
+
+    def profilo(self, sigla):
+        self.richieste.append(("profilo", sigla))
+        if sigla == "SCUD":
+            return {"finnhubIndustry": "Aerospace & Defense"}
+        raise TitoloNonCoperto(sigla)
+
+    def notizie(self, sigla, da, a):
+        self.richieste.append(("notizie", sigla))
+        return [{}] * (30 if sigla == "FAMO" else 1)
+
+
+def prova_mercato_quotazioni_giro():
+    import aggiorna_mercato
+    cercate = []
+    vera = aggiorna_mercato.cerca_descrizione
+    aggiorna_mercato.cerca_descrizione = lambda nome: (cercate.append(nome) or ("Riga di prova", "Wikipedia"))
+    try:
+        finto, archivio, errori = FinnhubFinto(), {}, []
+        scelte = aggiorna_mercato.aggiorna_quotazioni(finto, archivio, OGGI, errori)
+        assert [q["sigla"] for q in scelte] == ["GIGA", "FAMO", "ACME", "SCUD"] and errori == []
+        assert all(q["descrizione"] == "Riga di prova" for q in scelte) and len(cercate) == 4
+        # Settore e notizie solo per le candidate: niente SPAC né ritirate (5 su 8 nel periodo, più quella lontana)
+        sigle_chieste = {r[1] for r in finto.richieste if r[0] == "profilo"}
+        assert "FUTU" not in sigle_chieste and "RITI" not in sigle_chieste and "PANE" in sigle_chieste
+
+        # Il giro dopo, lo stesso giorno: niente richieste nuove di settore, notizie e descrizioni
+        prima = len(finto.richieste)
+        aggiorna_mercato.aggiorna_quotazioni(finto, archivio, OGGI, errori)
+        assert len(finto.richieste) == prima + 1 and len(cercate) == 4   # solo il calendario
+    finally:
+        aggiorna_mercato.cerca_descrizione = vera
+
+
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
          prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_storia, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
-         prova_ai_spenta_senza_chiave, prova_ai_freni]
+         prova_ai_spenta_senza_chiave, prova_ai_freni,
+         prova_mercato_elenchi, prova_mercato_nasdaq, prova_mercato_variazioni, prova_mercato_riquadri,
+         prova_mercato_paura, prova_mercato_macro, prova_mercato_quotazioni, prova_mercato_quotazioni_giro]
 
 
 # ---------- Prova dal vivo (con internet) ----------
@@ -396,7 +627,17 @@ def prova_dal_vivo():
         storia_ok = len(storia["giorni"]) > 1000
     except Exception as errore:
         stato_storia, storia_ok = f"ERRORE {type(errore).__name__}: {errore}", False
+    # Le capitalizzazioni della mappa del mercato: il Nasdaq risponde? (solo informativo: se non risponde c'è Finnhub)
+    try:
+        import aggiorna_mercato
+        errori_nasdaq = []
+        capitali = aggiorna_mercato.aggiorna_capitalizzazioni({}, ["AAPL", "MSFT", "BRK.B"], oggi, errori_nasdaq)
+        stato_nasdaq = f"{len(capitali.get('valori') or {})} su 3 (AAPL {(capitali.get('valori') or {}).get('AAPL')} miliardi $)" \
+            if not errori_nasdaq else f"ERRORE {errori_nasdaq[0]}"
+    except Exception as errore:
+        stato_nasdaq = f"ERRORE {type(errore).__name__}: {errore}"
     righe += ["", f"Prezzi storici (analisi tecnica): {prezzi_ok} titoli su {len(campione)}.",
+              f"Capitalizzazioni dal Nasdaq (mappa del mercato): {stato_nasdaq}.",
               f"Fondamentali e analisti: {conti_ok} titoli su {len(campione)}.",
               f"Grafico a 5 anni (SAP.DE): {stato_storia}."]
     testo = "\n".join(righe)

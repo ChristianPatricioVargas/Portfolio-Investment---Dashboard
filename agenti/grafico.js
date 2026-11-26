@@ -874,6 +874,9 @@ function cambiaMedia(quale) {
 }
 
 function disegnaGraficoTecnico() {
+  // Senza l'analisi tecnica il riquadro del grafico è nascosto: non serve scaricare niente
+  // (succede con le aziende della mappa del mercato che gli agenti non seguono)
+  if (!(analisi.titoli[tickerAperto] || {}).tecnica) return;
   disegnaGraficoPrezzo($("grafico-tecnico"), tickerAperto);
 }
 

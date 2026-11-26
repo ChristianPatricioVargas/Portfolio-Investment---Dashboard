@@ -265,8 +265,9 @@ function calcola(posizione) {
 function infoTitolo(ticker) {
   const indice = titoli.findIndex((t) => t.ticker === ticker);
   // Se non è tra i titoli del portafoglio, può essere uno della watchlist (lo conoscono gli agenti)
-  const scheda = analisi.titoli[ticker];
-  const info = titoli[indice] || { nome: scheda ? scheda.nome : ticker, tipo: scheda ? scheda.tipo : "", ticker };
+  // oppure un'azienda della mappa del mercato
+  const scheda = analisi.titoli[ticker] || datiMappa(ticker);
+  const info = titoli[indice] || { nome: scheda ? scheda.nome : ticker, tipo: scheda ? scheda.tipo || "Azione" : "", ticker };
   return { ...info, colori: COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length] };
 }
 
@@ -393,12 +394,13 @@ function disegna() {
 //   .../  oppure #oggi    la pagina Oggi: il riepilogo (è la pagina iniziale)
 //   .../#portafoglio      la panoramica del portafoglio
 //   .../#occasioni        la classifica del cacciatore
+//   .../#mercato          la mappa del mercato, paura e avidità, macro, nuove quotazioni
 //   .../#disciplina       la pagina Disciplina: diario, punteggio, revisione mensile
 //   .../#titolo=SAP.DE    la pagina di un titolo (tuo, oppure della watchlist)
 // Così il gesto "indietro" dell'iPad funziona come in un'app.
 
 let tickerAperto = null;          // il titolo di cui stai guardando la pagina (null = nessuno)
-let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni", "disciplina" o "titolo"
+let vistaAperta = "oggi";         // la pagina che stai guardando: "oggi", "portafoglio", "occasioni", "mercato", "disciplina" o "titolo"
 let arrivatoDaDentro = false;     // true = sei arrivato al titolo toccandolo in un'altra pagina
 
 function vaiAlTitolo(ticker) {
@@ -416,6 +418,7 @@ function tornaAllaPanoramica() {
 function disegnaVista() {
   if (vistaAperta === "titolo") disegnaTitolo();
   else if (vistaAperta === "occasioni") disegnaOccasioni();
+  else if (vistaAperta === "mercato") disegnaMercato();
   else if (vistaAperta === "oggi") disegnaOggi();
   else if (vistaAperta === "disciplina") disegnaDisciplina();
   else disegnaGrafico();
@@ -426,12 +429,14 @@ function mostraVista() {
   const indirizzo = location.hash.slice(1);
   const trovato = indirizzo.match(/^titolo=(.+)$/);
   const ticker = trovato ? decodeURIComponent(trovato[1]) : null;
-  // Un titolo si può aprire se lo possiedi, se è nell'elenco o se lo seguono gli agenti
+  // Un titolo si può aprire se lo possiedi, se è nell'elenco, se lo seguono gli agenti o se è nella mappa del mercato
   const esiste = Boolean(ticker) && (posizioni.some((p) => p.ticker === ticker) ||
-    titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
+    titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]) || Boolean(datiMappa(ticker)));
+  // Forse è un'azienda della mappa, che non è ancora stata scaricata: la scarichiamo e riproviamo
+  if (ticker && !esiste && mappa === null) caricaMappa().then(() => { if (datiMappa(ticker)) mostraVista(); });
   if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
-  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni", "disciplina"].includes(indirizzo) ? indirizzo : "oggi";
+  vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni", "mercato", "disciplina"].includes(indirizzo) ? indirizzo : "oggi";
 
   chiudiModulo();
   $("modulo-tesi").hidden = true;
@@ -439,6 +444,7 @@ function mostraVista() {
   $("vista-oggi").hidden = vistaAperta !== "oggi";
   $("vista-panoramica").hidden = vistaAperta !== "portafoglio";
   $("vista-occasioni").hidden = vistaAperta !== "occasioni";
+  $("vista-mercato").hidden = vistaAperta !== "mercato";
   $("vista-disciplina").hidden = vistaAperta !== "disciplina";
   $("vista-titolo").hidden = vistaAperta !== "titolo";
   if (vistaAperta !== "titolo") document.body.classList.remove("dettaglio");   // pagina di nuovo stretta
@@ -477,6 +483,7 @@ function disegnaTitolo() {
   disegnaCacciatore();
   disegnaAvvocato();
   disegnaTesi();
+  disegnaDallaMappa();
 }
 
 // La parte della pagina del titolo che riguarda la TUA posizione
@@ -1514,6 +1521,7 @@ async function avvia() {
   collegaFondamentale();
   collegaTecnico();
   collegaCacciatore();
+  collegaMercato();
   collegaOggi();
   collegaDisciplina();
   // Il selettore del tema; se cambi le impostazioni del dispositivo, "Automatico" si adegua subito

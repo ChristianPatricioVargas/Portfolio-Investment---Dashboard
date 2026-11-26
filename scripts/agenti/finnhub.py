@@ -8,7 +8,9 @@ Quasi tutte le grandi aziende europee e asiatiche ne hanno una (es. SAP → SAP,
 
 Cosa dà gratis:  numeri di bilancio, giudizi degli analisti, sorprese sulle trimestrali,
                  data della prossima trimestrale, settore.
-Cosa NON dà:     il target price medio degli analisti (è a pagamento).
+                 Per la pagina Mercato: logo e capitalizzazione di un'azienda, calendario delle
+                 nuove quotazioni (IPO) e notizie di un'azienda.
+Cosa NON dà:     il target price medio degli analisti (è a pagamento) e la descrizione dell'azienda.
 
 La chiave NON sta nel codice: arriva dal segreto FINNHUB_API_KEY di GitHub e viaggia in
 un'intestazione della richiesta (non nell'indirizzo), così non può finire stampata per sbaglio.
@@ -75,3 +77,21 @@ class Finnhub:
             "calendar": (self._chiedi("/calendar/earnings", symbol=sigla, **{"from": oggi, "to": tra_4_mesi}) or {}).get("earningsCalendar") or [],
             "profile": (self._chiedi("/stock/profile2", symbol=sigla) or {}) if con_profilo else {},
         }
+
+    # ---------- Per la pagina Mercato ----------
+
+    def profilo(self, sigla):
+        """Nome, settore, logo e capitalizzazione (in milioni di dollari) di un'azienda."""
+        dati = self._chiedi("/stock/profile2", symbol=sigla) or {}
+        if not dati.get("name") and not dati.get("marketCapitalization"):
+            raise TitoloNonCoperto(f"Finnhub non ha il profilo di {sigla}")
+        return dati
+
+    def quotazioni(self, da, a):
+        """Il calendario delle nuove quotazioni in Borsa (IPO) tra due date ("2026-11-24")."""
+        return (self._chiedi("/calendar/ipo", **{"from": da, "to": a}) or {}).get("ipoCalendar") or []
+
+    def notizie(self, sigla, da, a):
+        """Le notizie di un'azienda tra due date (servono solo a contarle)."""
+        risposta = self._chiedi("/company-news", symbol=sigla, **{"from": da, "to": a})
+        return risposta if isinstance(risposta, list) else []

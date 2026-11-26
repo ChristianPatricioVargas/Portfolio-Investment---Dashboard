@@ -60,6 +60,11 @@
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><circle cx="10" cy="10" r="3.5"></circle><circle cx="10" cy="10" r="0.6"></circle></svg>
       <span>Occasioni</span>
     </a>
+    <a href="#mercato" data-vista="mercato">
+      <!-- Riquadri di grandezze diverse: la "mappa" del mercato -->
+      <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="8" rx="1"></rect><rect x="12.5" y="2.5" width="5" height="8" rx="1"></rect><rect x="2.5" y="11.5" width="5" height="6" rx="1"></rect><rect x="8.5" y="11.5" width="9" height="6" rx="1"></rect></svg>
+      <span>Mercato</span>
+    </a>
     <a href="#disciplina" data-vista="disciplina">
       <!-- Un segno di spunta dentro un cerchio: "ho seguito le mie regole" -->
       <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"></circle><path d="M6.5 10.2 l2.4 2.4 l4.6 -5"></path></svg>
@@ -90,11 +95,17 @@
         <div class="numero-chiave"><span class="etichetta">Oggi</span><b id="oggi-variazione">–</b><small id="oggi-variazione-perc"></small></div>
       </div>
 
-      <!-- 2. Il mercato di oggi in una riga: indici e watchlist. Toccandola vai alla pagina del mercato
-           (per ora la pagina Occasioni: la pagina Mercato arriverà più avanti) -->
-      <a class="riga-mercato" id="oggi-mercato" href="#occasioni">
+      <!-- 2. Il mercato di oggi in una riga: indici e watchlist. Toccandola vai alla pagina Mercato -->
+      <a class="riga-mercato" id="oggi-mercato" href="#mercato">
         <span class="etichetta">Mercato oggi</span>
         <span class="voci-mercato" id="voci-mercato"></span>
+        <span class="freccia-mercato" aria-hidden="true">›</span>
+      </a>
+
+      <!-- L'avviso delle nuove quotazioni in Borsa di questa settimana (lo riempie agenti/mercato.js) -->
+      <a class="riga-mercato riga-quotazioni" id="oggi-quotazioni" href="#mercato" hidden>
+        <span class="etichetta">Nuove quotazioni</span>
+        <span class="voci-mercato" id="voci-quotazioni"></span>
         <span class="freccia-mercato" aria-hidden="true">›</span>
       </a>
 
@@ -266,18 +277,30 @@
       <header class="testata">
         <div class="etichetta-alta">Il cacciatore</div>
         <h1 class="titolo-pagina">Occasioni</h1>
-        <p class="sotto">Le 5 aziende della watchlist che oggi rispettano meglio i tuoi criteri. Le altre sono negli elenchi chiusi più in basso.</p>
+        <p class="sotto">Le prime 20 aziende della watchlist che oggi rispettano meglio i tuoi criteri, da filtrare per settore e area.
+          Le altre sono negli elenchi chiusi più in basso. La pagina Oggi mostra le prime 5.</p>
       </header>
       <p class="avviso" id="attesa-occasioni">Le occasioni arriveranno con il prossimo giro degli agenti.</p>
       <div id="corpo-occasioni" hidden>
         <p class="avviso" id="errori-occasioni" hidden></p>
         <p class="nota-criteri" id="criteri-occasioni"></p>
 
-        <div class="intestazione-sezione"><h2>Le 5 che spiccano oggi</h2></div>
-        <p class="suggerimento">Le prime per numero di segnali e punteggio. È una selezione da studiare, non una previsione:
+        <!-- I filtri: area (Europa, USA, Asia) e settore. Valgono per tutti gli elenchi della pagina -->
+        <div class="filtri-occasioni" role="group" aria-label="Filtri">
+          <div class="selettore" id="filtro-area" role="group" aria-label="Area"></div>
+          <label class="etichetta-confronto">Settore
+            <select class="confronto-prezzo" id="filtro-settore"></select>
+          </label>
+          <span class="conta-filtri" id="conta-filtri"></span>
+          <button type="button" class="link" id="togli-filtri" hidden>Togli i filtri</button>
+        </div>
+
+        <div class="intestazione-sezione"><h2 id="titolo-classifica">Le prime 20 oggi</h2></div>
+        <p class="suggerimento">Le prime per numero di segnali e punteggio (su 100). A destra di ogni scheda, ciò che le distingue:
+          di quanto è scesa dal massimo dell'anno e il punteggio. È una selezione da studiare, non una previsione:
           nessuno sa quale salirà prima. La freccia dice solo dove sta andando il prezzo nelle ultime settimane.</p>
         <div id="elenco-classifica"></div>
-        <p class="vuoto" id="vuoto-classifica" hidden>Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede: le vere occasioni sono rare.</p>
+        <p class="vuoto" id="vuoto-classifica" hidden></p>
 
         <section class="riquadro">
           <h2>Il resto della watchlist</h2>
@@ -300,7 +323,9 @@
           </details>
         </section>
 
-        <section class="riquadro">
+        <!-- Le cose che servono di rado stanno in un pannello chiuso: si apre toccando "Avanzate" -->
+        <details class="riquadro avanzate" id="avanzate-occasioni">
+          <summary>Avanzate</summary>
           <h2>Aggiungi un titolo alla watchlist</h2>
           <p class="suggerimento">La watchlist sta nel file <code>data/watchlist.json</code> del repository: è GitHub, ogni sera,
             a scaricare i dati. Qui prepari la riga da incollare nel file. La sigla è quella di
@@ -325,12 +350,105 @@
               <li>Il titolo comparirà dopo il prossimo giro degli agenti (verso le 13 e la sera)</li>
             </ol>
           </div>
-        </section>
+        </details>
 
         <p class="fonte-notizie" id="fonte-occasioni"></p>
         <p class="avvertenza">Il cacciatore applica regole meccaniche a dati pubblici: segnala titoli da studiare, <strong>non dice cosa comprare</strong>.
           Un titolo sceso molto può scendere ancora. Non è consulenza finanziaria. La decisione è tua.</p>
       </div>
+    </div>
+
+    <!-- ===== VISTA "Mercato": la mappa del mercato, paura e avidità, macro, nuove quotazioni
+         (la riempie agenti/mercato.js; i dati li prepara scripts/aggiorna_mercato.py) ===== -->
+    <div id="vista-mercato" hidden>
+      <header class="testata-pagina">
+        <h1 class="titolo-pagina">Mercato</h1>
+        <span class="etichetta-alta" id="data-mercato"></span>
+      </header>
+      <p class="avviso" id="attesa-mercato">I dati del mercato arriveranno con il prossimo giro automatico.</p>
+
+      <!-- 1. La mappa del mercato: i settori e le loro aziende, colorati da quanto sono saliti o scesi -->
+      <section class="riquadro" id="sezione-mappa" hidden>
+        <div class="intestazione-mappa">
+          <h2>Mappa del mercato</h2>
+          <p class="riassunto-mappa" id="riassunto-mappa"></p>
+        </div>
+        <div class="comandi-mappa">
+          <div class="selettore" id="indice-mappa" role="group" aria-label="Indice"></div>
+          <div class="selettore" id="periodo-mappa" role="group" aria-label="Periodo"></div>
+          <div class="selettore" id="grandezza-mappa" role="group" aria-label="Grandezza dei riquadri"></div>
+        </div>
+        <div class="percorso-mappa" id="percorso-mappa" hidden>
+          <button type="button" class="link" id="esci-settore">‹ Tutti i settori</button>
+          <span id="nome-settore"></span>
+        </div>
+        <div class="mappa" id="mappa"></div>
+        <div class="legenda-mappa" id="legenda-mappa" aria-label="Legenda dei colori"></div>
+        <p class="suggerimento" id="aiuto-mappa"></p>
+        <p class="suggerimento" id="nota-mappa" hidden></p>
+        <details class="glossario">
+          <summary>Come si legge la mappa?</summary>
+          <p><b>Grandezza</b>: "Capitalizzazione" fa ogni riquadro grande quanto vale l'azienda in Borsa (le giganti coprono quasi tutto).
+            "Smorzata" usa la radice quadrata del valore: le grandi restano le più grandi, ma si vedono anche le piccole.
+            "Uguali" dà a tutte lo stesso spazio.</p>
+          <p><b>Colore</b>: verde se il prezzo è salito nel periodo scelto, rosso se è sceso, grigio se è quasi fermo.
+            Più il colore è acceso, più il movimento è grande (vedi la legenda).</p>
+          <p><b>Settori</b>: le aziende sono raggruppate negli 11 grandi settori dell'economia (tecnologia, finanza, salute...).</p>
+        </details>
+        <p class="fonte-notizie" id="fonte-mappa"></p>
+      </section>
+
+      <div class="griglia-mercato">
+        <!-- 2. Paura e avidità: l'umore del mercato delle azioni (calcolato da noi) e delle criptovalute -->
+        <section class="riquadro" id="sezione-paura" hidden>
+          <h2>Paura e avidità</h2>
+          <p class="suggerimento">L'umore del mercato, da 0 (paura estrema: si vende) a 100 (avidità estrema: si compra).
+            Descrive il presente: non dice dove andranno i prezzi.</p>
+          <div class="indicatori-paura">
+            <div class="indicatore-paura" id="paura-azioni"></div>
+            <div class="indicatore-paura" id="paura-cripto"></div>
+          </div>
+          <details class="glossario" id="spiega-paura">
+            <summary>Come è calcolato quello delle azioni?</summary>
+            <p>È la media di quattro pezzi, ognuno da 0 a 100, calcolati ogni 30 minuti con i prezzi gratuiti di Yahoo
+              (l'indice "Fear &amp; Greed" della CNN funziona in modo simile, ma non è gratuito da scaricare):</p>
+            <ul class="pezzi-paura" id="pezzi-paura"></ul>
+            <p>Quello delle criptovalute è l'indice di alternative.me: guarda volatilità, volumi e umore sui social del Bitcoin.</p>
+          </details>
+          <p class="fonte-notizie" id="fonte-paura"></p>
+        </section>
+
+        <!-- 3. I numeri dell'economia: tassi, inflazione, cambio, petrolio, oro -->
+        <section class="riquadro" id="sezione-macro" hidden>
+          <h2>I numeri dell'economia</h2>
+          <dl class="numeri-agente" id="numeri-macro"></dl>
+          <details class="glossario">
+            <summary>Cosa significano?</summary>
+            <p><b>Tassi</b>: il "prezzo" del denaro deciso dalle banche centrali (BCE per l'euro, Fed per il dollaro).
+              Tassi più alti frenano l'economia e l'inflazione, e di solito pesano sulle Borse; tassi più bassi le aiutano.</p>
+            <p><b>Inflazione</b>: di quanto sono saliti i prezzi rispetto a un anno prima. L'obiettivo delle banche centrali è il 2%.</p>
+            <p><b>Euro/dollaro</b>: quanti dollari vale un euro. Se sale, le azioni americane valgono un po' meno in euro.</p>
+            <p><b>Petrolio e oro</b>: il petrolio pesa sui costi di aziende e famiglie; l'oro sale spesso quando c'è paura.</p>
+          </details>
+          <p class="fonte-notizie" id="fonte-macro"></p>
+        </section>
+      </div>
+
+      <!-- 4. Le nuove quotazioni in Borsa (IPO): le grandi e le piccole nei settori che seguiamo -->
+      <section class="riquadro" id="sezione-quotazioni" hidden>
+        <h2>Nuove quotazioni</h2>
+        <p class="suggerimento">Le aziende che entrano in Borsa dalla settimana scorsa al prossimo mese: le grandi (almeno 1 miliardo
+          di dollari raccolto, o molto seguite dalle notizie) e le più piccole nei settori intelligenza artificiale, tecnologia,
+          difesa ed energia, segnate "da osservare". Un'azienda appena quotata non ha una storia di prezzi: nei primi mesi
+          il prezzo può muoversi molto.</p>
+        <div id="elenco-quotazioni"></div>
+        <p class="vuoto" id="vuoto-quotazioni" hidden></p>
+        <p class="fonte-notizie" id="fonte-quotazioni"></p>
+      </section>
+
+      <footer>
+        <p>Questa pagina mostra dati pubblici: <strong>non è consulenza finanziaria</strong>.</p>
+      </footer>
     </div>
 
     <!-- ===== VISTA "Disciplina": quanto seguo le MIE regole (la riempie agenti/disciplina.js) =====
@@ -438,6 +556,17 @@
 
           <!-- Una griglia di numeri: quote, prezzo medio, ecc. (la riempie app.js) -->
           <dl class="numeri-titolo" id="numeri-titolo"></dl>
+
+          <!-- Un'azienda della mappa del mercato che gli agenti non seguono (la riempie agenti/mercato.js) -->
+          <section class="riquadro" id="sezione-dalla-mappa" hidden>
+            <h2>Dalla mappa del mercato</h2>
+            <dl class="numeri-agente" id="numeri-dalla-mappa"></dl>
+            <svg class="linea-mappa" id="linea-dalla-mappa" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Il prezzo nell'ultimo mese"></svg>
+            <p class="suggerimento">Gli agenti non analizzano questa azienda perché non è nella tua watchlist: qui vedi solo i prezzi.
+              Per avere analisi tecnica, conti e rischi puoi aggiungerla alla watchlist (pagina Occasioni, pannello "Avanzate").
+              <a id="yahoo-dalla-mappa" target="_blank" rel="noopener noreferrer">Vedi su Yahoo Finance</a></p>
+            <p class="fonte-notizie" id="fonte-dalla-mappa"></p>
+          </section>
 
           <!-- "Se vendo oggi": quanto resta in tasca dopo tasse e commissione (lo calcola agenti/fondamentale.js) -->
           <section class="riquadro" id="sezione-se-vendo" hidden>
@@ -555,7 +684,7 @@
           </section>
 
           <!-- Le notizie sul titolo: le riempie app.js -->
-          <section class="notizie" aria-labelledby="titolo-notizie">
+          <section class="notizie" id="sezione-notizie-titolo" aria-labelledby="titolo-notizie">
             <h2 id="titolo-notizie">Notizie</h2>
             <ul id="elenco-notizie"></ul>
             <p class="vuoto" id="nessuna-notizia" hidden></p>
@@ -726,6 +855,7 @@
   <script src="agenti/grafico.js"></script>
   <script src="agenti/cacciatore.js"></script>
   <script src="agenti/avvocato.js"></script>
+  <script src="agenti/mercato.js"></script>
   <script src="agenti/oggi.js"></script>
   <script src="agenti/disciplina.js"></script>
   <!-- Carichiamo il "cervello" della pagina per ultimo, quando l'HTML è pronto -->

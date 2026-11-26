@@ -74,11 +74,13 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
 (dettagli più sotto, in "Il grafico del prezzo").
 
 - **Oggi** (pagina iniziale), a riquadri come una piattaforma di trading: quattro numeri chiave (valore, guadagno,
-  oggi, netto se vendessi tutto), grafico a candele di un mio titolo, tabella delle posizioni (prezzo, variazione,
+  oggi, netto se vendessi tutto), la riga "Mercato oggi" (e "Nuove quotazioni" la settimana di una quotazione), grafico a candele di un mio titolo, tabella delle posizioni (prezzo, variazione,
   RSI, mini-grafico del mese, avanzamento verso il mio target, rischi), le 5 occasioni, i campanelli d'allarme,
   la composizione del portafoglio, le prossime trimestrali, lo stato delle tesi e **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
-- **Occasioni**: le 5 aziende della watchlist che oggi spiccano (più segnali e punteggio più alto), ciascuna con la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali.
+- **Occasioni**: le **prime 20** aziende della watchlist (più segnali e punteggio più alto), con **filtri per area** (Europa, USA, Asia) **e settore**; ogni scheda mette in evidenza ciò che la distingue (calo dal massimo e punteggio) e mostra la direzione recente del prezzo e il rischio principale. Il resto della watchlist sta in elenchi chiusi: altre con 3 o 4 segnali, con 1 o 2, senza segnali. Il modulo per aggiungere un titolo sta nel pannello chiuso **Avanzate**. La pagina Oggi continua a mostrare le prime 5.
+- **Mercato** (sotto Occasioni nel menu): la mappa del mercato, l'indice "paura e avidità", i numeri dell'economia
+  e le nuove quotazioni (dettagli più sotto, in "La pagina Mercato"). La riga "Mercato oggi" della pagina Oggi porta qui.
 - **Disciplina**: punteggio di disciplina, cose da fare, revisione mensile guidata, diario delle operazioni,
   statistiche sugli errori e titoli venduti del tutto (dettagli più sotto, in "Disciplina e tesi").
 - **Pagina di un titolo** (mio o della watchlist): analista tecnico, analista fondamentale, criteri del cacciatore,
@@ -144,11 +146,15 @@ I quattro segnali (le soglie sono in cima a `scripts/agenti/cacciatore.py`):
 3. **Conti solidi**: in utile e con debito netto non oltre 3 volte l'EBITDA (per banche e assicurazioni conta solo l'utile)
 4. **Analisti positivi**: almeno il 60% degli analisti (e almeno 5 analisti) ha un giudizio positivo
 
-La pagina mette in cima le 5 aziende con più segnali e punteggio più alto. È una selezione da studiare, non una previsione.
+La pagina Occasioni mette in cima le **prime 20** aziende con almeno 3 segnali, dal maggior numero di segnali e dal punteggio
+più alto (la pagina Oggi ne mostra 5). È una selezione da studiare, non una previsione. A destra di ogni scheda: il **calo dal
+massimo** dell'anno (grande) e il **punteggio** con la sua barretta. I **filtri** per area e settore valgono per tutti gli elenchi
+della pagina e restano scelti su questo dispositivo. Il settore è uno degli 11 grandi settori della mappa del mercato,
+ricavato dal settore di Finnhub (lo scrive `aggiorna_analisi.py` nella scheda di ogni titolo, campo `settore`).
 Il punteggio (0-100) ordina le aziende a parità di segnali: più calo, più crescita, meno debito e più analisti positivi = più punti.
 
 **Togliere un titolo**: nella pagina Occasioni, "Togli" lo nasconde su questo dispositivo (si può rimettere).
-**Aggiungere un titolo**: la pagina Occasioni prepara la riga da incollare in `data/watchlist.json`
+**Aggiungere un titolo**: la pagina Occasioni (pannello **Avanzate**) prepara la riga da incollare in `data/watchlist.json`
 (servono la sigla di Yahoo Finance sulla Borsa principale, es. `MC.PA`, e la sigla americana per i fondamentali,
 es. `LVMUY`). Deve stare nel repository perché è GitHub, non il browser, a scaricare i dati.
 Se non si è sicuri della sigla (o un titolo dà "errore 404"): **Actions → Prova agenti → Run workflow**,
@@ -258,6 +264,105 @@ L'anello va dal rosso (0) al verde (100); il voto e la frase dicono la stessa co
 Frasi: 85 e più "Stai seguendo bene le tue regole", 65-84 "Quasi", 40-64 "Alcune regole sono rimaste indietro",
 sotto 40 "Le regole sono poco seguite".
 
+## La pagina Mercato
+
+Uno sguardo d'insieme sulle Borse, con **solo dati pubblici**. Non è consulenza finanziaria: la pagina mostra
+cosa è successo, non dice cosa comprare. I dati li prepara `scripts/aggiorna_mercato.py` su GitHub; la pagina
+scarica `data/mappa.json` solo quando apro Mercato (o un'azienda della mappa).
+
+### La mappa del mercato
+
+Un grande rettangolo diviso negli **11 settori** dell'economia (tecnologia, finanza, salute...), e ogni settore
+diviso nelle sue aziende, come la "heatmap" di TradingView.
+
+- **Indice**: S&P 500 (circa 500 aziende americane), Euro Stoxx 50 (le 50 più grandi dell'area euro) o la mia
+  watchlist (senza i titoli che ho tolto con "Togli"). Gli elenchi arrivano da liste pubbliche gratuite e si
+  riscaricano una volta a settimana: l'S&P 500 dal file CSV di
+  [datasets/s-and-p-500-companies](https://github.com/datasets/s-and-p-500-companies), l'Euro Stoxx 50 dalla
+  tabella di Wikipedia. Un elenco che arriva troppo corto (meno di 450 o 45 aziende) viene scartato: resta quello di prima.
+- **Periodo**: oggi (ultima seduta), 1 settimana (5 sedute), 1 mese (21 sedute), da inizio anno
+  (rispetto all'ultima chiusura dell'anno prima).
+- **Colore** dal rosso al verde passando per il grigio. Il colore più acceso vale ±3% per oggi, ±6% per la settimana,
+  ±10% per il mese e ±30% da inizio anno (la legenda sotto la mappa lo mostra).
+- **Grandezza** dei riquadri: *Smorzata* (predefinita: la radice quadrata della capitalizzazione, così le grandi
+  restano grandi ma si vedono anche le piccole), *Capitalizzazione* (pura) o *Uguali*. Un'azienda senza
+  capitalizzazione prende quella mediana dell'indice.
+- In ogni riquadro, se c'è posto: **logo** (da Finnhub; se manca, un cerchio con l'iniziale), **sigla** e **variazione**.
+  Il carattere si adatta al riquadro (da 24 pixel fino a 7), così la sigla compare quasi ovunque. Sui riquadri dove non
+  si legge tutto, il **primo tocco** apre un **fumetto** con nome, settore, capitalizzazione e le variazioni dei quattro
+  periodi, più il pulsante "Apri la pagina"; con il mouse il fumetto compare passandoci sopra.
+  Toccando un riquadro si apre la **pagina del titolo**. Se gli agenti non seguono quell'azienda (non è nella
+  watchlist) la pagina mostra prezzo, variazioni, settore, capitalizzazione e la linea dell'ultimo mese,
+  al posto delle analisi.
+- **Sul telefono** la mappa mostra prima solo i settori: tocco un settore e si ingrandisce. Su iPad e computer
+  si vedono tutti i settori con le loro aziende, e toccando il nome di un settore lo si ingrandisce.
+
+Da dove arrivano i dati:
+
+- **Prezzi**: Yahoo Finance, a **gruppi di 20 titoli** per richiesta (circa 600 titoli, una trentina di richieste),
+  a ogni giro (ogni 30 minuti nei giorni di Borsa). Se Yahoo non dà un titolo, restano i suoi numeri del giro prima.
+- **Capitalizzazione**: dall'**elenco pubblico del Nasdaq** (`api.nasdaq.com/api/screener/stocks`, gratuito, senza chiave):
+  **una sola richiesta** dà tutte le aziende quotate in America, nei due giri degli agenti. Copre quasi tutto l'S&P 500
+  (502 su 503) e le europee quotate in America con un ADR "di listino" (ASML, SAP, TotalEnergies...).
+  Così l'S&P 500 ha subito le grandezze giuste, senza aspettare Finnhub.
+- **Logo** (e capitalizzazione di chi manca al Nasdaq): Finnhub (`/stock/profile2`, gratuito), **una volta a settimana**
+  per azienda, nei due giri degli agenti, al massimo 150 aziende per giro e una richiesta al secondo (il limite gratuito
+  è 60 al minuto), prima quelle che il Nasdaq non conosce (le europee quotate solo "fuori listino", es. LVMH → `LVMUY`).
+  La capitalizzazione è in dollari ed è indicativa. Finché manca, la pagina lo dice e usa la grandezza media.
+- Con molte aziende (S&P 500) la mappa è **più alta**, così i riquadri non diventano minuscoli.
+- `data/mappa.json` (i riquadri) e `data/anagrafica.json` (elenchi e profili già chiesti, serve solo ai giri
+  successivi) non sono nel repository: vivono nel sito pubblicato, come gli altri dati.
+
+### Paura e avidità
+
+Due indicatori a semicerchio, da 0 (**paura estrema**: si vende) a 100 (**avidità estrema**: si compra), con il valore
+di una settimana e di un mese prima. Descrivono l'umore di adesso: non dicono dove andranno i prezzi.
+Fasce: sotto 25 paura estrema, 25-46 paura, 47-54 neutrale, 55-75 avidità, da 76 avidità estrema.
+
+- **Criptovalute**: l'indice gratuito di [alternative.me](https://alternative.me/crypto/fear-and-greed-index/)
+  (uno al giorno), scaricato nei due giri degli agenti.
+- **Azioni**: calcolato da noi a ogni giro (l'indice della CNN non è scaricabile gratis), media di quattro pezzi da 0 a 100:
+  1. *Andamento*: l'S&P 500 rispetto alla sua media di 125 sedute (+8% sopra = 100, −8% sotto = 0);
+  2. *Volatilità*: il VIX rispetto alla sua media di 50 sedute (30% sotto = 100, 30% sopra = 0);
+  3. *Ampiezza*: quante aziende dell'S&P 500 sono sopra la loro media a 50 giorni (20% = 0, 80% = 100);
+  4. *Massimi e minimi*: tra le aziende entro il 3% dal massimo o dal minimo di un anno, la quota di quelle vicine al massimo.
+
+  Le soglie stanno in `PAURA` dentro `scripts/agenti/mercato.py`. Con meno di tre pezzi disponibili il numero non viene mostrato.
+
+### I numeri dell'economia
+
+| Numero | Fonte (gratuita, senza chiave) | Quando |
+|---|---|---|
+| Tasso BCE (sui depositi) | Portale dati della BCE (`FM.B.U2.EUR.4F.KR.DFR.LEV`) | due volte al giorno |
+| Tasso Fed (forchetta e tasso effettivo) | Fed di New York (`markets.newyorkfed.org`, EFFR) | due volte al giorno |
+| Inflazione area euro | Eurostat (`prc_hicp_minr`, variazione annua) | due volte al giorno |
+| Inflazione USA | Ufficio statistico USA, BLS (indice `CUUR0000SA0`, variazione rispetto allo stesso mese dell'anno prima) | due volte al giorno |
+| Euro/dollaro, petrolio Brent, oro | Yahoo Finance (`EURUSD=X`, `BZ=F`, `GC=F`) | a ogni giro |
+
+FRED (la banca dati della Fed di St. Louis) sarebbe stata comoda, ma nelle prove non rispondeva: per questo si usano
+direttamente le fonti ufficiali. La vecchia serie dell'inflazione della BCE (`ICP`) è ferma a dicembre 2025, sostituita
+da quella di Eurostat. Se una fonte non risponde resta il suo valore di prima. Tutto finisce in `data/mercato.json`
+(pochi kB, non nel repository).
+
+### Le nuove quotazioni (IPO)
+
+Dal **calendario gratuito di Finnhub** (`/calendar/ipo`), dalla settimana scorsa al prossimo mese, due volte al giorno
+(serve il segreto `FINNHUB_API_KEY`). Restano:
+
+- le **grandi**: almeno **1 miliardo di dollari** raccolto, oppure almeno **10 notizie** nell'ultimo mese (Finnhub `/company-news`);
+- le **più piccole** solo nei settori **intelligenza artificiale, tecnologia, difesa, energia** (dal settore di Finnhub,
+  se c'è già, o dalle parole del nome: "AI", "Software", "Defense", "Solar"...), segnate **"da osservare"**.
+
+Le SPAC (società di acquisizione, "scatole vuote" quotate per comprare un'altra azienda) e le quotazioni ritirate
+vengono saltate. Per ogni quotazione scelta c'è **una riga su cosa fa l'azienda**, presa da Wikipedia (prima in italiano,
+poi in inglese, gratuita), perché Finnhub gratis non dà la descrizione. La riga si accetta solo se la pagina trovata
+ha nel titolo il nome dell'azienda; altrimenti la scheda dice "descrizione non ancora disponibile".
+Per stare nei limiti, settore e notizie si chiedono al massimo per 40 quotazioni a giro e ognuna ogni 3 giorni
+(l'archivio sta in `data/anagrafica.json`). Le soglie sono in `IPO` dentro `scripts/agenti/mercato.py`.
+
+Nella pagina **Oggi**, la settimana della quotazione compare la riga **Nuove quotazioni** (bordo giallo), che porta
+direttamente al riquadro nella pagina Mercato.
+
 ## Le fonti dei dati e i loro limiti
 
 | Dato | Fonte | Note |
@@ -265,6 +370,9 @@ sotto 40 "Le regole sono poco seguite".
 | Prezzi, storico, analisi tecnica | Yahoo Finance (grafico) | Senza chiave. Funziona dai server di GitHub |
 | Conti delle aziende, giudizi degli analisti, trimestrali | **Finnhub**, con chiave gratuita (`FINNHUB_API_KEY` nei Secrets) | Il piano gratuito copre le aziende quotate negli Stati Uniti: per questo ogni titolo ha una sigla americana (campo `usa`) |
 | Notizie | Google News, Bing News, Yahoo Finance | Senza chiave |
+| Nuove quotazioni (IPO) | Finnhub (calendario, settore, notizie), Wikipedia (descrizione) | Con la chiave gratuita di Finnhub |
+| Paura e avidità, numeri dell'economia | alternative.me, BCE, Fed di New York, Eurostat, BLS, Yahoo Finance | Senza chiave. Vedi "La pagina Mercato" |
+| Mappa del mercato | Yahoo Finance (prezzi, a gruppi di 20), Nasdaq (capitalizzazioni), Finnhub (loghi), liste pubbliche (elenchi degli indici) | Vedi "La pagina Mercato" |
 
 **Come ci si è arrivati** (prove dal vivo del 14-15 novembre 2026, fatte dai server di GitHub):
 
@@ -306,16 +414,17 @@ trimestrali viste). Un backup più vecchio si può ancora ripristinare: le parti
 
 | File | A cosa serve |
 |---|---|
-| `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni e Titolo |
+| `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni, Mercato, Disciplina e Titolo |
 | `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina). I caratteri (IBM Plex Sans e Mono) sono caricati da Google Fonts |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
-| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo; `agenti/disciplina.js` è la pagina Disciplina (solo dati personali, niente agenti su GitHub) |
+| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo; `agenti/disciplina.js` è la pagina Disciplina (solo dati personali, niente agenti su GitHub); `agenti/mercato.js` è la pagina Mercato |
 | `librerie/` | Lightweight Charts di TradingView (la libreria del grafico del prezzo) e la sua licenza |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
 | `data/watchlist.json` | Le grandi aziende che il cacciatore tiene d'occhio |
-| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
+| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `mappa.json`, `anagrafica.json`, `mercato.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
 | `scripts/aggiorna_prezzi.py` | Scarica prezzi, storico e notizie e manda gli allarmi (ogni 30 minuti) |
 | `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
+| `scripts/aggiorna_mercato.py` | Il direttore della pagina Mercato: prezzi della mappa, paura e avidità delle azioni, cambio, petrolio e oro a ogni giro; elenchi degli indici, profili Finnhub, tassi, inflazione, paura delle cripto e nuove quotazioni due volte al giorno |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
 | `scripts/prova_agenti.py` | Le prove automatiche degli agenti |
 | `scripts/trova_sigla.py` | Programma di prova: dice quali sigle riconosce Yahoo Finance |
@@ -417,3 +526,5 @@ Gli allarmi contengono solo prezzi pubblici: le tue quote e i tuoi importi non l
 16. ⏳ Più strumenti di analisi sul grafico (altri disegni e indicatori), da fare più avanti
 17. ✅ Disciplina e tesi: tesi leggera, promemoria quando compro, vendite con motivo, diario con voto ed errori,
     pagina Disciplina (punteggio, revisione mensile, promemoria su trimestrali e tesi di 12 mesi), anello nella pagina Oggi
+18. ✅ Pagina Mercato: mappa del mercato (S&P 500, Euro Stoxx 50, watchlist), paura e avidità (azioni e cripto),
+    numeri dell'economia, nuove quotazioni con l'avviso in Oggi; Occasioni con le prime 20 e i filtri per area e settore

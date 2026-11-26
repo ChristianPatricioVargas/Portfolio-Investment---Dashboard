@@ -1,6 +1,6 @@
 // agenti/cacciatore.js = la parte della pagina del CACCIATORE (le occasioni).
-//   - la pagina "Occasioni": la classifica dei titoli della watchlist che rispettano i criteri,
-//     quelli che ci vanno vicino, e tutta la watchlist (con "togli" e "aggiungi")
+//   - la pagina "Occasioni": le prime 20 della classifica, i filtri per area e settore,
+//     quelle che ci vanno vicino, e tutta la watchlist (con "togli" e, nel pannello "Avanzate", "aggiungi")
 //   - nella pagina di un titolo: il riquadro con i quattro criteri, uno per uno
 //   - la pagina di un titolo che NON hai in portafoglio (stesse analisi, senza la parte personale)
 // I criteri li controlla ogni sera scripts/agenti/cacciatore.py: qui li mostriamo soltanto.
@@ -61,7 +61,24 @@ function creaSigla(ticker) {
   return sigla;
 }
 
-const QUANTE_SPICCANO = 5;   // quante aziende mostrare in cima alla pagina Occasioni
+const QUANTE_SPICCANO = 5;          // quante occasioni mostra la pagina Oggi
+const QUANTE_IN_CLASSIFICA = 20;    // quante schede grandi mostra la pagina Occasioni
+
+// I filtri della pagina Occasioni ("" = tutti). Li ricordiamo su questo dispositivo: non sono dati personali.
+const CHIAVE_FILTRI = "occasioni-filtri-v1";
+const filtroOccasioni = { area: "", settore: "" };
+const AREE = ["Europa", "USA", "Asia"];
+
+// Vero se un titolo passa i filtri scelti
+function passaFiltri(ticker) {
+  const s = analisi.titoli[ticker] || {};
+  return (!filtroOccasioni.area || s.area === filtroOccasioni.area) &&
+    (!filtroOccasioni.settore || (s.settore || "") === filtroOccasioni.settore);
+}
+
+function salvaFiltri() {
+  try { localStorage.setItem(CHIAVE_FILTRI, JSON.stringify(filtroOccasioni)); } catch (errore) { /* pazienza */ }
+}
 
 // Dove sta andando il prezzo adesso (dall'analisi tecnica). Non è una previsione: descrive le ultime settimane.
 function testoDirezione(ticker) {
@@ -87,7 +104,7 @@ function creaSchedaOccasione(ticker, posto = null, extra = "") {
     <div class="dettaglio motivo"></div><div class="criteri-brevi"></div><div class="dettaglio extra"></div>`;
   info.querySelector(".nome span").textContent = (posto ? posto + ". " : "") + s.nome;
   scheda.classList.toggle("tutti-i-segnali", c.rispettati === 4);
-  info.querySelector(".tag").textContent = s.area || "";
+  info.querySelector(".tag").textContent = [s.area, s.settore, `${c.rispettati} su 4`].filter(Boolean).join(" · ");
   info.querySelector(".motivo").textContent = c.motivo;
   const brevi = info.querySelector(".criteri-brevi");
   // Se li rispetta tutti lo dice già la frase: l'elenco serve solo quando ne manca qualcuno
@@ -101,11 +118,17 @@ function creaSchedaOccasione(ticker, posto = null, extra = "") {
   }
   info.querySelector(".extra").textContent = extra;
   scheda.appendChild(info);
+  // A destra ciò che distingue un'occasione dall'altra: quanto è scesa dal massimo e il punteggio
   const cifre = document.createElement("div");
-  cifre.className = "cifre";
-  cifre.innerHTML = `<span class="valore"></span><span class="chip"></span>`;
-  cifre.querySelector(".valore").textContent = `${c.rispettati} su 4`;
-  cifre.querySelector(".chip").textContent = c.punteggio + " punti";
+  cifre.className = "cifre cifre-occasione";
+  const dalMassimo = s.tecnica ? s.tecnica.dalMassimo : null;
+  cifre.innerHTML = `<span class="valore"></span><small>dal massimo</small>
+    <span class="punteggio"><b></b> punti</span><span class="barra-punti" aria-hidden="true"><span></span></span>`;
+  cifre.querySelector(".valore").textContent = typeof dalMassimo === "number" ? percUno(dalMassimo, true) : "–";
+  cifre.querySelector(".valore").classList.toggle("negativo", typeof dalMassimo === "number" && dalMassimo < 0);
+  cifre.querySelector(".punteggio b").textContent = c.punteggio;
+  cifre.querySelector(".barra-punti span").style.width = Math.max(0, Math.min(100, c.punteggio)) + "%";
+  cifre.title = `${c.rispettati} segnali su 4, ${c.punteggio} punti su 100`;
   scheda.appendChild(cifre);
   scheda.onclick = () => vaiAlTitolo(ticker);
   return scheda;
@@ -148,23 +171,32 @@ function disegnaOccasioni() {
     return riga;
   };
 
-  // 1. Le 5 che spiccano: le prime per numero di segnali e punteggio (schede grandi)
-  const forti = occasioni(3);
-  const spiccano = forti.slice(0, QUANTE_SPICCANO);
+  // 0. I filtri (area e settore): valgono per tutti gli elenchi qui sotto
+  disegnaFiltriOccasioni();
+  const filtriAttivi = Boolean(filtroOccasioni.area || filtroOccasioni.settore);
+
+  // 1. Le prime 20: le prime per numero di segnali e punteggio (schede grandi)
+  const forti = occasioni(3).filter(passaFiltri);
+  const spiccano = forti.slice(0, QUANTE_IN_CLASSIFICA);
+  $("titolo-classifica").textContent = spiccano.length === QUANTE_IN_CLASSIFICA ? `Le prime ${QUANTE_IN_CLASSIFICA} oggi`
+    : spiccano.length > 1 ? `Le ${spiccano.length} che spiccano oggi` : "Le occasioni di oggi";
   $("elenco-classifica").innerHTML = "";
   spiccano.forEach((ticker, i) => $("elenco-classifica").appendChild(creaSchedaOccasione(ticker, i + 1,
     [testoDirezione(ticker), rischioPrincipale(ticker) ? "⚠ Rischio principale: " + rischioPrincipale(ticker) : ""]
       .filter(Boolean).join("\n"))));
   $("vuoto-classifica").hidden = spiccano.length > 0;
+  $("vuoto-classifica").textContent = filtriAttivi
+    ? "Con questi filtri nessuna azienda della watchlist ha almeno 3 segnali. Prova a togliere un filtro."
+    : "Oggi nessuna azienda della watchlist ha almeno 3 segnali. Succede: le vere occasioni sono rare.";
 
   // 2. Le altre con 3 o 4 segnali, e quelle con 1 o 2: elenchi chiusi, righe compatte
-  const altreForti = forti.slice(QUANTE_SPICCANO);
+  const altreForti = forti.slice(QUANTE_IN_CLASSIFICA);
   $("titolo-altre-forti").textContent = `Altre ${altreForti.length} con 3 o 4 segnali`;
   $("elenco-altre-forti").innerHTML = "";
   for (const ticker of altreForti) $("elenco-altre-forti").appendChild(creaRiga(ticker));
   $("sezione-altre-forti").hidden = altreForti.length === 0;
 
-  const conSegnali = occasioni(1, 2);
+  const conSegnali = occasioni(1, 2).filter(passaFiltri);
   $("titolo-quasi").textContent = `${conSegnali.length} con 1 o 2 segnali`;
   $("elenco-quasi").innerHTML = "";
   for (const ticker of conSegnali) $("elenco-quasi").appendChild(creaRiga(ticker));
@@ -172,7 +204,7 @@ function disegnaOccasioni() {
 
   // 3. Tutte le altre: nessun segnale. Stanno in un elenco chiuso, da aprire solo se serve.
   const tutti = Object.entries(analisi.titoli).filter(([, s]) => s.gruppo === "watchlist");
-  const senza = tutti.filter(([t]) => !nascosto(t) && segnali(t) === 0).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
+  const senza = tutti.filter(([t]) => !nascosto(t) && segnali(t) === 0 && passaFiltri(t)).sort(([, a], [, b]) => a.nome.localeCompare(b.nome));
   $("titolo-watchlist").textContent = `${senza.length} senza segnali`;
   const elenco = $("elenco-watchlist");
   elenco.innerHTML = "";
@@ -210,6 +242,40 @@ function disegnaOccasioni() {
     : senzaConti.length
       ? `Senza fondamentali (la fonte gratuita non le copre): ${senzaConti.join(", ")}. Per loro vale solo il segnale del calo dai massimi.`
       : `⚠ All'ultimo giro ${errori.length} ${errori.length === 1 ? "dato non è arrivato" : "dati non sono arrivati"}: per quei titoli vedi i dati di prima.`;
+}
+
+// I filtri in cima alla pagina: l'area con tre pulsanti, il settore con un menu
+function disegnaFiltriOccasioni() {
+  const watchlist = Object.entries(analisi.titoli).filter(([t, s]) => s.gruppo === "watchlist" && !nascosto(t));
+  // Un filtro su un settore che non c'è più (o un'area sparita) si toglie da solo
+  const settori = [...new Set(watchlist.map(([, s]) => s.settore).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  if (filtroOccasioni.settore && !settori.includes(filtroOccasioni.settore)) filtroOccasioni.settore = "";
+
+  const aree = $("filtro-area");
+  aree.innerHTML = "";
+  for (const area of ["", ...AREE]) {
+    const pulsante = crea("button", filtroOccasioni.area === area ? "attivo" : "", area || "Tutte");
+    pulsante.type = "button";
+    pulsante.setAttribute("aria-pressed", String(filtroOccasioni.area === area));
+    pulsante.onclick = () => { filtroOccasioni.area = area; salvaFiltri(); disegnaOccasioni(); };
+    aree.appendChild(pulsante);
+  }
+
+  // Il menu dei settori: c'è solo quando gli agenti hanno già scritto il settore delle aziende
+  const menu = $("filtro-settore");
+  menu.innerHTML = "";
+  menu.add(new Option("Tutti", ""));
+  for (const settore of settori) {
+    const quanti = watchlist.filter(([, s]) => s.settore === settore).length;
+    menu.add(new Option(`${settore} (${quanti})`, settore));
+  }
+  menu.value = filtroOccasioni.settore;
+  menu.closest("label").hidden = settori.length === 0;
+
+  const attivi = Boolean(filtroOccasioni.area || filtroOccasioni.settore);
+  const passano = watchlist.filter(([t]) => passaFiltri(t)).length;
+  $("conta-filtri").textContent = attivi ? `${passano} aziende su ${watchlist.length}` : "";
+  $("togli-filtri").hidden = !attivi;
 }
 
 // ---------- Aggiungere un titolo alla watchlist ----------
@@ -259,8 +325,8 @@ function disegnaCacciatore() {
   const posto = occasioni(3).indexOf(tickerAperto);
   $("frase-cacciatore").textContent = s.gruppo !== "watchlist"
     ? `È un titolo del tuo elenco: oggi avrebbe ${quanti} del cacciatore.`
-    : posto >= 0 && posto < QUANTE_SPICCANO ? `Tra le ${QUANTE_SPICCANO} che spiccano (${posto + 1}º posto): ha ${quanti}, ${c.punteggio} punti su 100.`
-    : c.rispettati >= 3 ? `Ha ${quanti} (${c.punteggio} punti su 100), ma non è tra le prime ${QUANTE_SPICCANO}.`
+    : posto >= 0 && posto < QUANTE_IN_CLASSIFICA ? `Tra le prime ${QUANTE_IN_CLASSIFICA} delle occasioni (${posto + 1}º posto): ha ${quanti}, ${c.punteggio} punti su 100.`
+    : c.rispettati >= 3 ? `Ha ${quanti} (${c.punteggio} punti su 100), ma non è tra le prime ${QUANTE_IN_CLASSIFICA}.`
     : c.rispettati > 0 ? `Da tenere d'occhio: ha ${quanti}.`
     : "Oggi non ha nessun segnale del cacciatore.";
   const elenco = $("elenco-criteri");
@@ -284,20 +350,22 @@ function disegnaTitoloOsservato() {
   const s = analisi.titoli[tickerAperto] || {};
   const t = s.tecnica, f = s.fondamentali;
   const p = prezzi[tickerAperto];
-  const prezzo = p ? p.prezzo : t ? t.prezzo : f ? f.prezzo : null;
-  const valuta = p ? "EUR" : (t && t.valuta) || (f && f.valuta) || "";
+  const m = datiMappa(tickerAperto);    // i numeri della mappa del mercato, se è un'azienda della mappa
+  const prezzo = p ? p.prezzo : t ? t.prezzo : f ? f.prezzo : m && m.prezzo ? m.prezzo : null;
+  const valuta = p ? "EUR" : (t && t.valuta) || (f && f.valuta) || (m ? valutaDaSigla(tickerAperto) : "");
   $("valore-titolo").textContent = prezzo === null ? "–" : prezzoIn(prezzo, valuta);
   const chip = $("gp-titolo");
-  chip.textContent = t ? `${percUno(t.dalMassimo, true)} dal massimo dell'anno` : "";
-  chip.className = "chip";
-  $("fonte-prezzi-titolo").textContent = (p ? testoFonte([tickerAperto]) : t ? `Prezzo di chiusura del ${dataBreve(t.data)}` : "") +
-    " · non hai questo titolo in portafoglio";
+  const oggiMappa = !t && m && typeof m.oggi === "number" ? m.oggi : null;
+  chip.textContent = t ? `${percUno(t.dalMassimo, true)} dal massimo dell'anno` : oggiMappa !== null ? `${testoVariazione(oggiMappa)} all'ultima seduta` : "";
+  chip.className = "chip " + (oggiMappa !== null ? classeColore(oggiMappa) : "");
+  $("fonte-prezzi-titolo").textContent = (p ? testoFonte([tickerAperto]) : t ? `Prezzo di chiusura del ${dataBreve(t.data)}`
+    : m && m.giorno ? `Prezzo di chiusura del ${dataBreve(m.giorno)}` : "") + " · non hai questo titolo in portafoglio";
 
   const griglia = $("numeri-titolo");
   griglia.innerHTML = "";
   const numeri = [
-    ["Area", s.area || "–"],
-    ["Settore", (f && f.settore) || "–"],
+    ["Area", s.area || (m ? areaDaSigla(tickerAperto) : "") || "–"],
+    ["Settore", (f && f.settore) || (m && m.settore) || "–"],
     ["Valuta", valuta || "–"],
   ];
   for (const dato of numeri) aggiungiDato(griglia, ...dato);
@@ -305,6 +373,13 @@ function disegnaTitoloOsservato() {
 
 // Collega i pulsanti della pagina Occasioni (lo chiama app.js all'avvio)
 function collegaCacciatore() {
+  try {
+    const salvati = JSON.parse(localStorage.getItem(CHIAVE_FILTRI) || "{}");
+    if (AREE.includes(salvati.area)) filtroOccasioni.area = salvati.area;
+    if (typeof salvati.settore === "string") filtroOccasioni.settore = salvati.settore;
+  } catch (errore) { /* si parte senza filtri */ }
+  $("filtro-settore").onchange = () => { filtroOccasioni.settore = $("filtro-settore").value; salvaFiltri(); disegnaOccasioni(); };
+  $("togli-filtri").onclick = () => { filtroOccasioni.area = filtroOccasioni.settore = ""; salvaFiltri(); disegnaOccasioni(); };
   $("modulo-watchlist").addEventListener("submit", preparaRigaWatchlist);
   $("copia-riga").onclick = copiaRigaWatchlist;
 }

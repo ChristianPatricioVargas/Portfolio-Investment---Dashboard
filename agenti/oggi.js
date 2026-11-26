@@ -340,6 +340,8 @@ function disegnaOggi() {
   // ---- 2. Il mercato di oggi (la watchlist arriva appena sono scaricate le linee dei grafici) ----
   disegnaRigaMercato();
   if (serieTecniche === null) caricaSerie().then(disegnaRigaMercato);
+  // e, se ce ne sono, le nuove quotazioni in Borsa di questa settimana (agenti/mercato.js)
+  disegnaAvvisoQuotazioni();
 
   // ---- 3. Il grafico ----
   disegnaGraficoOggi();

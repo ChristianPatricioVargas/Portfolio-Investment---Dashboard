@@ -56,12 +56,12 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
-      - name: Recupera i dati già pubblicati (prezzi, storico, allarmi, notizie, analisi)
+      - name: Recupera i dati già pubblicati (prezzi, storico, allarmi, notizie, analisi, mercato)
         env:
           SITO: ${{ steps.pages.outputs.base_url }}
         run: |
           mkdir -p data
-          for nome in prezzi storico intraday allarmi notizie analisi serie ai; do
+          for nome in prezzi storico intraday allarmi notizie analisi serie ai mappa anagrafica mercato; do
             # "?t=..." evita di ricevere una copia vecchia dalla memoria di GitHub
             if curl -fsSL "$SITO/data/$nome.json?t=$(date +%s)" -o "/tmp/$nome.json" \
                && python3 -c "import json, sys; json.load(open(sys.argv[1]))" "/tmp/$nome.json" 2>/dev/null; then
@@ -115,6 +115,22 @@ jobs:
             # Negli altri giri (ogni 30 minuti) gli agenti lavorano solo se l'analisi manca
             # o è vecchia: così non si sprecano minuti di GitHub Actions
             python3 scripts/aggiorna_analisi.py --se-vecchia
+          fi
+
+      - name: Prepara la pagina Mercato (mappa, paura e avidità, numeri dell'economia)
+        # Ogni giro: i prezzi delle ~600 aziende della mappa, a gruppi di 20.
+        # Nei due giri degli agenti anche il lavoro lento: elenchi degli indici e loghi/capitalizzazioni da Finnhub.
+        # Se qualcosa non risponde, la pagina mostra i dati del giro prima.
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          GIRO_SERALE: ${{ github.event.schedule == '53 11 * * 1-5' || github.event.schedule == '23 21 * * 1-5' || inputs.agenti == true }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        run: |
+          if [ "$GIRO_SERALE" = "true" ]; then
+            python3 scripts/aggiorna_mercato.py --completo
+          else
+            python3 scripts/aggiorna_mercato.py
           fi
 
       - name: Controlla che ci siano i prezzi
