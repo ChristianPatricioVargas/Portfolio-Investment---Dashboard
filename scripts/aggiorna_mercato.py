@@ -19,10 +19,14 @@ E poi le altre parti della pagina:
     e quello delle criptovalute di alternative.me (gratuito, due volte al giorno)
   - i numeri dell'economia: euro/dollaro, petrolio e oro (Yahoo, ogni giro); tassi della BCE e della Fed,
     inflazione dell'area euro e americana (fonti ufficiali gratuite, due volte al giorno)
+  - le nuove quotazioni in Borsa (IPO) dal calendario gratuito di Finnhub, due volte al giorno:
+    per le candidate chiede anche settore e numero di notizie (ognuna al massimo ogni 3 giorni),
+    e per quelle scelte una riga su cosa fa l'azienda (da Wikipedia, gratuita)
 
 Cosa scrive:
   data/mappa.json        i riquadri della mappa (la pagina lo scarica solo quando apri Mercato)
-  data/mercato.json      paura e avidità, numeri dell'economia (piccolo: lo legge anche la pagina Oggi)
+  data/mercato.json      paura e avidità, numeri dell'economia, nuove quotazioni
+                         (piccolo: lo legge anche la pagina Oggi, per l'avviso delle quotazioni della settimana)
   data/anagrafica.json   gli elenchi degli indici e i profili (logo, capitalizzazione) già chiesti
                          a Finnhub: serve solo ai giri successivi, la pagina non lo usa
 
@@ -33,6 +37,7 @@ import gzip
 import json
 import os
 import sys
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
@@ -59,6 +64,12 @@ INDIRIZZO_EUROSTAT = ("https://ec.europa.eu/eurostat/api/dissemination/statistic
                       "?geo=EA&coicop18=TOTAL&unit=RCH_A&lastTimePeriod=2")   # inflazione dell'area euro
 INDIRIZZO_BLS = "https://api.bls.gov/publicAPI/v1/timeseries/data/CUUR0000SA0"   # prezzi al consumo USA
 INDIRIZZO_CRIPTO = "https://api.alternative.me/fng/?limit=31"     # paura e avidità delle criptovalute
+
+# Wikipedia (gratuita): una riga su cosa fa un'azienda appena quotata
+INDIRIZZO_WIKIPEDIA = "https://{lingua}.wikipedia.org/w/api.php?{parametri}"
+IPO_DA_CONTROLLARE = 40    # al massimo quante quotazioni per giro guardiamo da vicino (2 richieste a Finnhub ciascuna)
+GIORNI_DETTAGLI_IPO = 3    # ogni quanto richiedere settore e notizie di una quotazione
+GIORNI_ARCHIVIO_IPO = 60   # dopo quanto dimenticare una quotazione
 
 # Le sigle di Yahoo che servono oltre alle aziende: l'S&P 500 e il VIX per "paura e avidità",
 # euro/dollaro, petrolio e oro per i numeri dell'economia
@@ -248,6 +259,79 @@ def aggiorna_lento(vecchio, errori):
     return risultato
 
 
+def cerca_descrizione(nome):
+    """Una riga su cosa fa l'azienda: prima da Wikipedia in italiano, poi da quella in inglese."""
+    for lingua, fonte in (("it", "Wikipedia"), ("en", "Wikipedia in inglese")):
+        parametri = urllib.parse.urlencode({
+            "action": "query", "generator": "search", "gsrsearch": nome, "gsrlimit": 1,
+            "prop": "extracts|description", "exintro": 1, "explaintext": 1, "exsentences": 1,
+            "format": "json", "formatversion": 2})
+        try:
+            testo = mercato.descrizione_wiki(json.loads(scarica_testo(INDIRIZZO_WIKIPEDIA.format(lingua=lingua, parametri=parametri))), nome)
+        except Exception as errore:
+            print(f"ERRORE Wikipedia ({lingua}) per {nome}: {errore}")
+            continue
+        if testo:
+            return testo, fonte
+    return None, None
+
+
+def aggiorna_quotazioni(finnhub, archivio, oggi, errori):
+    """Le nuove quotazioni da mostrare. "archivio" ricorda, per ogni quotazione, settore, notizie e descrizione
+    già chiesti: così non si richiedono a ogni giro. Restituisce None se Finnhub non risponde."""
+    giorno = datetime.strptime(oggi, "%Y-%m-%d")
+    da = (giorno - timedelta(days=mercato.IPO["giorniPrima"])).strftime("%Y-%m-%d")
+    a = (giorno + timedelta(days=mercato.IPO["giorniDopo"])).strftime("%Y-%m-%d")
+    mese_fa = (giorno - timedelta(days=30)).strftime("%Y-%m-%d")
+    try:
+        calendario = finnhub.quotazioni(da, a)
+    except Exception as errore:
+        errori.append(f"quotazioni: {errore}")
+        print(f"ERRORE calendario delle quotazioni: {errore} (tengo quelle di prima)")
+        return None
+
+    # 1. Settore e notizie delle candidate (quelle con la sigla, non ritirate, non SPAC), dalle più vicine
+    candidate = sorted((v for v in calendario if (v.get("symbol") or "").strip() and v.get("status") != "withdrawn"
+                        and not mercato.e_spac(v.get("name"))), key=lambda v: abs((datetime.strptime(v["date"], "%Y-%m-%d") - giorno).days)
+                       if v.get("date") else 999)
+    chieste = 0
+    for voce in candidate[:IPO_DA_CONTROLLARE]:
+        sigla = voce["symbol"].strip()
+        d = archivio.setdefault(sigla, {})
+        if not vecchio_di(d.get("giorno"), GIORNI_DETTAGLI_IPO, oggi):
+            continue
+        try:
+            try:
+                d["industria"] = finnhub.profilo(sigla).get("finnhubIndustry") or None
+            except TitoloNonCoperto:
+                d["industria"] = None
+            d["notizie"] = len(finnhub.notizie(sigla, mese_fa, oggi))
+            d["giorno"] = oggi
+            chieste += 1
+        except FonteNonDisponibile as errore:
+            errori.append(str(errore))
+            print(f"ERRORE quotazioni: {errore}. Riprovo al prossimo giro.")
+            break
+        except Exception as errore:
+            print(f"ERRORE dettagli quotazione {sigla}: {errore}")
+
+    # 2. Le quotazioni scelte, e per ognuna (una volta sola) la riga su cosa fa l'azienda
+    scelte = mercato.scegli_quotazioni(calendario, archivio, oggi)
+    for q in scelte:
+        d = archivio.setdefault(q["sigla"] or q["nome"], {})
+        if d.get("descrizione") or not vecchio_di(d.get("cercata"), GIORNI_DETTAGLI_IPO, oggi):
+            continue
+        d["descrizione"], d["fonteDescrizione"] = cerca_descrizione(q["nome"])
+        d["cercata"] = oggi
+    scelte = mercato.scegli_quotazioni(calendario, archivio, oggi)
+
+    # 3. Dimentichiamo le quotazioni vecchie
+    for chiave in [k for k, d in archivio.items() if vecchio_di(d.get("giorno") or d.get("cercata"), GIORNI_ARCHIVIO_IPO, oggi)]:
+        del archivio[chiave]
+    print(f"QUOTAZIONI: {len(calendario)} in calendario, {chieste} controllate da vicino, {len(scelte)} scelte.")
+    return scelte
+
+
 def lavoro_lento_da_fare(mappa):
     """Vero se il lavoro lento (elenchi, profili) non si fa da più di ORE_COMPLETO ore."""
     try:
@@ -310,7 +394,6 @@ def main():
         "titoli": titoli,
     }
     scrivi_compatto(FILE_MAPPA, risultato)
-    scrivi_compatto(FILE_ANAGRAFICA, {"elenchi": {k: e for k, e in elenchi.items() if k in INDICI}, "profili": profili})
 
     # 4. Paura e avidità, numeri dell'economia: il file piccolo data/mercato.json
     vecchio_mercato = leggi_json(FILE_MERCATO, {})
@@ -318,14 +401,25 @@ def main():
     if completo or not lento:
         lento = aggiorna_lento(lento, errori)
     paura = calcola_paura(serie, elenchi) or vecchio_mercato.get("pauraAzioni")
+    # Le nuove quotazioni: due volte al giorno, solo con la chiave di Finnhub
+    quotazioni = vecchio_mercato.get("quotazioni") or {}
+    archivio_ipo = archivio.get("ipo") or {}
+    if completo and chiave:
+        scelte = aggiorna_quotazioni(Finnhub(chiave), archivio_ipo, oggi, errori)
+        if scelte is not None:
+            quotazioni = {"aggiornato": oggi, "elenco": scelte}
     mercati = calcola_mercati(serie) or vecchio_mercato.get("mercati") or []
     scrivi_compatto(FILE_MERCATO, {
         "aggiornato": adesso.strftime(FORMATO_ORA),
         "pauraAzioni": paura,
         "mercati": mercati,
         "lento": lento,      # tassi, inflazione e paura delle cripto (aggiornati due volte al giorno)
+        "quotazioni": quotazioni,
     })
     print(f"Paura e avidità delle azioni: {(paura or {}).get('valore')} ({(paura or {}).get('umore')}).")
+    # L'archivio per i giri successivi: elenchi, profili Finnhub e quotazioni già controllate
+    scrivi_compatto(FILE_ANAGRAFICA, {"elenchi": {k: e for k, e in elenchi.items() if k in INDICI}, "profili": profili,
+                                      "ipo": archivio_ipo})
 
     con_prezzo = sum(1 for t in titoli.values() if t.get("giorno"))
     con_cap = sum(1 for t in titoli.values() if t.get("cap"))

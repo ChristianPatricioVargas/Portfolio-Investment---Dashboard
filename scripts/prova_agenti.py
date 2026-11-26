@@ -16,6 +16,7 @@ import os
 import sys
 
 from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, mercato, tecnico
+from agenti.finnhub import TitoloNonCoperto
 from agenti.yahoo import leggi_gruppo
 
 OGGI = "2026-11-14"
@@ -473,13 +474,96 @@ def prova_mercato_macro():
     assert mercato.leggi_bls({"status": "errore"}) is None
 
 
+# ---------- La pagina Mercato: le nuove quotazioni ----------
+
+def calendario_finto():
+    """Un calendario delle quotazioni inventato, nella forma di Finnhub (/calendar/ipo)."""
+    voce = lambda nome, sigla, data, valore, stato="expected": {
+        "name": nome, "symbol": sigla, "date": data, "exchange": "NASDAQ Global", "price": "15.00-17.00",
+        "numberOfShares": 1e7, "totalSharesValue": valore, "status": stato}
+    return [
+        voce("Gigante Pagamenti Inc", "GIGA", "2026-11-20", 2.5e9, "priced"),   # grande per la raccolta
+        voce("Famosa Bevande Corp", "FAMO", "2026-11-28", 3e8),                 # grande per le notizie
+        voce("Acme AI Labs Inc", "ACME", "2026-12-02", 1.2e8),                  # piccola, intelligenza artificiale (dal nome)
+        voce("Scudo Systems Inc", "SCUD", "2026-12-03", 9e7),                   # piccola, difesa (dal settore di Finnhub)
+        voce("Panetteria Rossi Inc", "PANE", "2026-12-04", 5e7),                # piccola, settore che non seguiamo
+        voce("Futuro Acquisition Corp", "FUTU", "2026-12-04", 2e9),             # SPAC: saltata anche se grande
+        voce("Ritirata Energy Inc", "RITI", "2026-12-05", 5e8, "withdrawn"),    # ritirata
+        voce("Troppo Lontana Tech", "LONT", "2027-02-01", 5e9),                 # fuori dal periodo
+    ]
+
+
+def prova_mercato_quotazioni():
+    assert mercato.settore_seguito("Thai Food Co") is None and mercato.settore_seguito("Acme AI Labs") == "Intelligenza artificiale"
+    assert mercato.settore_seguito("Qualcosa", "Aerospace & Defense") == "Difesa"
+    assert mercato.e_spac("Futuro Acquisition Corp") and not mercato.e_spac("Acme AI Labs")
+
+    dettagli = {"FAMO": {"notizie": 25}, "SCUD": {"industria": "Aerospace & Defense", "descrizione": "Fa scudi"}}
+    scelte = mercato.scegli_quotazioni(calendario_finto(), dettagli, OGGI)
+    assert [q["sigla"] for q in scelte] == ["GIGA", "FAMO", "ACME", "SCUD"]
+    assert [q["tipo"] for q in scelte] == ["grande", "grande", "piccola", "piccola"]
+    assert scelte[0]["motivo"] == "raccoglie 2,5 miliardi di dollari" and scelte[1]["motivo"].startswith("molto seguita")
+    assert scelte[3]["settore"] == "Difesa" and scelte[3]["descrizione"] == "Fa scudi"
+
+    # Wikipedia: la descrizione vale solo se la pagina trovata è proprio quella dell'azienda
+    giusta = {"query": {"pages": [{"title": "Figma", "description": "editor grafico collaborativo online", "extract": "..."}]}}
+    sbagliata = {"query": {"pages": [{"title": "NVIDIA", "description": "azienda di processori"}]}}
+    assert mercato.descrizione_wiki(giusta, "Figma Inc") == "Editor grafico collaborativo online"
+    assert mercato.descrizione_wiki(sbagliata, "CoreWeave Inc") is None
+    assert mercato.descrizione_wiki({}, "Figma Inc") is None
+    corta = {"query": {"pages": [{"title": "Figma", "description": "app", "extract": "figma è un'applicazione web per il design."}]}}
+    assert mercato.descrizione_wiki(corta, "Figma") == "Figma è un'applicazione web per il design."
+
+
+class FinnhubFinto:
+    """Un Finnhub inventato per le quotazioni: conta le richieste, senza internet."""
+    def __init__(self):
+        self.richieste = []
+
+    def quotazioni(self, da, a):
+        self.richieste.append(("calendario", da, a))
+        return calendario_finto()
+
+    def profilo(self, sigla):
+        self.richieste.append(("profilo", sigla))
+        if sigla == "SCUD":
+            return {"finnhubIndustry": "Aerospace & Defense"}
+        raise TitoloNonCoperto(sigla)
+
+    def notizie(self, sigla, da, a):
+        self.richieste.append(("notizie", sigla))
+        return [{}] * (30 if sigla == "FAMO" else 1)
+
+
+def prova_mercato_quotazioni_giro():
+    import aggiorna_mercato
+    cercate = []
+    vera = aggiorna_mercato.cerca_descrizione
+    aggiorna_mercato.cerca_descrizione = lambda nome: (cercate.append(nome) or ("Riga di prova", "Wikipedia"))
+    try:
+        finto, archivio, errori = FinnhubFinto(), {}, []
+        scelte = aggiorna_mercato.aggiorna_quotazioni(finto, archivio, OGGI, errori)
+        assert [q["sigla"] for q in scelte] == ["GIGA", "FAMO", "ACME", "SCUD"] and errori == []
+        assert all(q["descrizione"] == "Riga di prova" for q in scelte) and len(cercate) == 4
+        # Settore e notizie solo per le candidate: niente SPAC né ritirate (5 su 8 nel periodo, più quella lontana)
+        sigle_chieste = {r[1] for r in finto.richieste if r[0] == "profilo"}
+        assert "FUTU" not in sigle_chieste and "RITI" not in sigle_chieste and "PANE" in sigle_chieste
+
+        # Il giro dopo, lo stesso giorno: niente richieste nuove di settore, notizie e descrizioni
+        prima = len(finto.richieste)
+        aggiorna_mercato.aggiorna_quotazioni(finto, archivio, OGGI, errori)
+        assert len(finto.richieste) == prima + 1 and len(cercate) == 4   # solo il calendario
+    finally:
+        aggiorna_mercato.cerca_descrizione = vera
+
+
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
          prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_storia, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
          prova_ai_spenta_senza_chiave, prova_ai_freni,
          prova_mercato_elenchi, prova_mercato_variazioni, prova_mercato_riquadri,
-         prova_mercato_paura, prova_mercato_macro]
+         prova_mercato_paura, prova_mercato_macro, prova_mercato_quotazioni, prova_mercato_quotazioni_giro]
 
 
 # ---------- Prova dal vivo (con internet) ----------

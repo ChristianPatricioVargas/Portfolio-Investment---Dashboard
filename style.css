@@ -1435,3 +1435,36 @@ a.link { text-decoration: none; font-size: 12px; }
 .pezzi-paura { margin: 8px 0 0; padding-left: 18px; }
 .pezzi-paura li { margin-top: 4px; }
 #numeri-macro { margin-top: 4px; }
+
+/* ---------- La pagina Mercato: le nuove quotazioni ---------- */
+.scheda-quotazione { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--bordo); }
+.scheda-quotazione:first-child { border-top: none; }
+/* La data, come un foglietto di calendario */
+.data-quotazione {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 48px;
+  padding: 4px 0;
+  border-radius: 6px;
+  background: var(--carta-2);
+  color: var(--testo-tenue);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.giorno-quotazione { color: var(--testo); font-family: var(--carattere-numeri); font-size: 1.2rem; font-weight: 600; }
+.info-quotazione { display: grid; gap: 3px; min-width: 0; }
+.nome-quotazione { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.nome-quotazione b { font-weight: 600; }
+.etichetta-quotazione { border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.etichetta-quotazione.grande { background: var(--carta-2); color: var(--accento); }
+.etichetta-quotazione.piccola { background: var(--ambra-sfondo); color: var(--ambra); }
+.etichetta-quotazione.settimana { background: var(--accento-forte); color: #fff; }
+.descrizione-quotazione { font-size: 13px; }
+.dettagli-quotazione { color: var(--testo-tenue); font-size: 12px; }
+/* L'avviso nella pagina Oggi: un bordo giallo, come le cose "da osservare" */
+.riga-quotazioni { border-left: 3px solid var(--ambra); }
+.riga-quotazioni .voce-mercato { white-space: normal; }
+/* Quando la pagina scorre fino a un riquadro, si ferma sotto la striscia dei prezzi */
+#sezione-quotazioni, #sezione-mappa { scroll-margin-top: calc(var(--sotto-striscia) + 8px); }

@@ -74,7 +74,7 @@ si ingrandisce con due dita, si trascina nel tempo, ha candele o linea per ogni 
 (dettagli più sotto, in "Il grafico del prezzo").
 
 - **Oggi** (pagina iniziale), a riquadri come una piattaforma di trading: quattro numeri chiave (valore, guadagno,
-  oggi, netto se vendessi tutto), grafico a candele di un mio titolo, tabella delle posizioni (prezzo, variazione,
+  oggi, netto se vendessi tutto), la riga "Mercato oggi" (e "Nuove quotazioni" la settimana di una quotazione), grafico a candele di un mio titolo, tabella delle posizioni (prezzo, variazione,
   RSI, mini-grafico del mese, avanzamento verso il mio target, rischi), le 5 occasioni, i campanelli d'allarme,
   la composizione del portafoglio, le prossime trimestrali, lo stato delle tesi e **Copia per l'analisi**.
 - **Portafoglio**: totale, grafico, schede dei titoli, backup (com'era prima).
@@ -332,6 +332,25 @@ direttamente le fonti ufficiali. La vecchia serie dell'inflazione della BCE (`IC
 da quella di Eurostat. Se una fonte non risponde resta il suo valore di prima. Tutto finisce in `data/mercato.json`
 (pochi kB, non nel repository).
 
+### Le nuove quotazioni (IPO)
+
+Dal **calendario gratuito di Finnhub** (`/calendar/ipo`), dalla settimana scorsa al prossimo mese, due volte al giorno
+(serve il segreto `FINNHUB_API_KEY`). Restano:
+
+- le **grandi**: almeno **1 miliardo di dollari** raccolto, oppure almeno **10 notizie** nell'ultimo mese (Finnhub `/company-news`);
+- le **più piccole** solo nei settori **intelligenza artificiale, tecnologia, difesa, energia** (dal settore di Finnhub,
+  se c'è già, o dalle parole del nome: "AI", "Software", "Defense", "Solar"...), segnate **"da osservare"**.
+
+Le SPAC (società di acquisizione, "scatole vuote" quotate per comprare un'altra azienda) e le quotazioni ritirate
+vengono saltate. Per ogni quotazione scelta c'è **una riga su cosa fa l'azienda**, presa da Wikipedia (prima in italiano,
+poi in inglese, gratuita), perché Finnhub gratis non dà la descrizione. La riga si accetta solo se la pagina trovata
+ha nel titolo il nome dell'azienda; altrimenti la scheda dice "descrizione non ancora disponibile".
+Per stare nei limiti, settore e notizie si chiedono al massimo per 40 quotazioni a giro e ognuna ogni 3 giorni
+(l'archivio sta in `data/anagrafica.json`). Le soglie sono in `IPO` dentro `scripts/agenti/mercato.py`.
+
+Nella pagina **Oggi**, la settimana della quotazione compare la riga **Nuove quotazioni** (bordo giallo), che porta
+direttamente al riquadro nella pagina Mercato.
+
 ## Le fonti dei dati e i loro limiti
 
 | Dato | Fonte | Note |
@@ -339,6 +358,7 @@ da quella di Eurostat. Se una fonte non risponde resta il suo valore di prima. T
 | Prezzi, storico, analisi tecnica | Yahoo Finance (grafico) | Senza chiave. Funziona dai server di GitHub |
 | Conti delle aziende, giudizi degli analisti, trimestrali | **Finnhub**, con chiave gratuita (`FINNHUB_API_KEY` nei Secrets) | Il piano gratuito copre le aziende quotate negli Stati Uniti: per questo ogni titolo ha una sigla americana (campo `usa`) |
 | Notizie | Google News, Bing News, Yahoo Finance | Senza chiave |
+| Nuove quotazioni (IPO) | Finnhub (calendario, settore, notizie), Wikipedia (descrizione) | Con la chiave gratuita di Finnhub |
 | Paura e avidità, numeri dell'economia | alternative.me, BCE, Fed di New York, Eurostat, BLS, Yahoo Finance | Senza chiave. Vedi "La pagina Mercato" |
 | Mappa del mercato | Yahoo Finance (prezzi, a gruppi di 20), Finnhub (logo e capitalizzazione), liste pubbliche (elenchi degli indici) | Vedi "La pagina Mercato" |
 
@@ -392,7 +412,7 @@ trimestrali viste). Un backup più vecchio si può ancora ripristinare: le parti
 | `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `mappa.json`, `anagrafica.json`, `mercato.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
 | `scripts/aggiorna_prezzi.py` | Scarica prezzi, storico e notizie e manda gli allarmi (ogni 30 minuti) |
 | `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
-| `scripts/aggiorna_mercato.py` | Il direttore della pagina Mercato: prezzi della mappa, paura e avidità delle azioni, cambio, petrolio e oro a ogni giro; elenchi degli indici, profili Finnhub, tassi, inflazione e paura delle cripto due volte al giorno |
+| `scripts/aggiorna_mercato.py` | Il direttore della pagina Mercato: prezzi della mappa, paura e avidità delle azioni, cambio, petrolio e oro a ogni giro; elenchi degli indici, profili Finnhub, tassi, inflazione, paura delle cripto e nuove quotazioni due volte al giorno |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
 | `scripts/prova_agenti.py` | Le prove automatiche degli agenti |
 | `scripts/trova_sigla.py` | Programma di prova: dice quali sigle riconosce Yahoo Finance |

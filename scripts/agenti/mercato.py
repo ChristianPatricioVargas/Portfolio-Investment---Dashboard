@@ -13,7 +13,7 @@ La mappa del mercato:
 import csv
 import io
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # ---------- I settori ----------
 # Le liste pubbliche usano i nomi inglesi dei settori "GICS" (la classificazione più diffusa).
@@ -383,4 +383,115 @@ def leggi_bls(risposta):
             if prima is not None:
                 dato["prima"] = prima
             return dato
+    return None
+
+
+# ---------- Le nuove quotazioni in Borsa (IPO) ----------
+# Dal calendario gratuito di Finnhub teniamo:
+#   - le GRANDI: raccolgono almeno 1 miliardo di dollari, oppure se ne parla molto (tante notizie)
+#   - le più PICCOLE solo se sono nei settori che seguiamo: intelligenza artificiale, tecnologia, difesa, energia.
+#     Sono segnate "da osservare": una quotazione nuova non ha storia, i prezzi spesso ballano molto.
+
+IPO = {
+    "raccoltaGrande": 1_000_000_000,   # dollari raccolti per essere "grande"
+    "notizieMolte": 10,                # notizie nell'ultimo mese per essere "molto seguita"
+    "giorniPrima": 7,                  # mostriamo anche quelle della settimana passata
+    "giorniDopo": 30,                  # e quelle del prossimo mese
+}
+
+# Le parole nel nome (o il settore di Finnhub) che indicano i settori che seguiamo.
+# "AI" va cercato come parola intera: altrimenti "Thai" o "Dubai" sembrerebbero intelligenza artificiale.
+PAROLE_SETTORI = [
+    ("Intelligenza artificiale", r"\bAI\b|artificial|intelligence|machine learning|neural|robot"),
+    ("Difesa", r"defen[cs]e|aerospace|drone|missile|armament|space\b"),
+    ("Energia", r"energy|power|solar|nuclear|uranium|\boil\b|\bgas\b|petroleum|battery|hydrogen|renewable|fusion|grid"),
+    ("Tecnologia", r"tech|software|semiconductor|\bchip|cloud|cyber|quantum|digital|data\b|network|photonic|computing"),
+]
+INDUSTRIE_SEGUITE = {
+    "Technology": "Tecnologia", "Semiconductors": "Tecnologia", "Communications": "Tecnologia",
+    "Aerospace & Defense": "Difesa", "Energy": "Energia", "Oil & Gas": "Energia", "Utilities": "Energia",
+}
+
+
+def settore_seguito(nome, industria=None):
+    """Il settore "seguito" di una nuova quotazione (dal settore di Finnhub o dalle parole del nome), o None."""
+    if industria in INDUSTRIE_SEGUITE:
+        # Un'azienda tecnologica con "AI" nel nome è di intelligenza artificiale
+        if INDUSTRIE_SEGUITE[industria] == "Tecnologia" and re.search(PAROLE_SETTORI[0][1], nome or "", re.I):
+            return PAROLE_SETTORI[0][0]
+        return INDUSTRIE_SEGUITE[industria]
+    for settore, parole in PAROLE_SETTORI:
+        if re.search(parole, nome or "", re.I):
+            return settore
+    return None
+
+
+def e_spac(nome):
+    """Le "SPAC" (società di acquisizione) sono scatole vuote che si quotano per comprare un'altra azienda: le saltiamo."""
+    return bool(re.search(r"acquisition|blank check|\bSPAC\b", nome or "", re.I))
+
+
+def numero(valore):
+    try:
+        return float(valore)
+    except (TypeError, ValueError):
+        return None
+
+
+def scegli_quotazioni(calendario, dettagli, oggi):
+    """Dal calendario di Finnhub le quotazioni da mostrare, dalla più vicina alla più lontana.
+    dettagli = {sigla: {"industria", "notizie", "descrizione", "fonteDescrizione"}} (quello che sappiamo in più)."""
+    inizio = (datetime.strptime(oggi, "%Y-%m-%d") - timedelta(days=IPO["giorniPrima"])).strftime("%Y-%m-%d")
+    fine = (datetime.strptime(oggi, "%Y-%m-%d") + timedelta(days=IPO["giorniDopo"])).strftime("%Y-%m-%d")
+    scelte = []
+    for voce in calendario or []:
+        nome, data, stato = (voce.get("name") or "").strip(), voce.get("date") or "", voce.get("status") or ""
+        if not nome or not (inizio <= data <= fine) or stato == "withdrawn" or e_spac(nome):
+            continue
+        sigla = (voce.get("symbol") or "").strip()
+        d = dettagli.get(sigla or nome) or {}
+        raccolta = numero(voce.get("totalSharesValue"))
+        notizie = d.get("notizie") or 0
+        settore = settore_seguito(nome, d.get("industria"))
+        if raccolta and raccolta >= IPO["raccoltaGrande"]:
+            tipo, motivo = "grande", f"raccoglie {raccolta / 1e9:.1f} miliardi di dollari".replace(".", ",")
+        elif notizie >= IPO["notizieMolte"]:
+            tipo, motivo = "grande", f"molto seguita: {notizie} notizie nell'ultimo mese"
+        elif settore:
+            tipo, motivo = "piccola", f"settore {settore.lower()}"
+        else:
+            continue
+        scelte.append({
+            "nome": nome, "sigla": sigla, "data": data, "borsa": voce.get("exchange") or "",
+            "prezzo": voce.get("price") or "", "azioni": numero(voce.get("numberOfShares")), "raccolta": raccolta,
+            "stato": stato, "tipo": tipo, "motivo": motivo, "settore": settore,
+            "descrizione": d.get("descrizione"), "fonteDescrizione": d.get("fonteDescrizione"),
+        })
+    return sorted(scelte, key=lambda q: (q["data"], q["tipo"] != "grande", q["nome"]))
+
+
+# La parte "vera" del nome di un'azienda: senza Inc, Corp, Holdings... ("Figma Inc" → "figma")
+FORME_SOCIETARIE = r"\b(inc|corp|corporation|co|company|holdings?|group|plc|ltd|limited|llc|n\.?v|s\.?a|se|ag|the|class [a-z])\b\.?"
+
+
+def nome_proprio(nome):
+    pulito = re.sub(FORME_SOCIETARIE, " ", (nome or "").lower())
+    parole = [p for p in re.findall(r"[a-z0-9]+", pulito) if len(p) >= 3]
+    return parole[0] if parole else ""
+
+
+def descrizione_wiki(risposta, nome):
+    """Dalla ricerca di Wikipedia, la descrizione breve dell'azienda ("società fintech svedese").
+    La accettiamo solo se il titolo della pagina contiene il nome dell'azienda: la ricerca a volte
+    trova tutt'altro (cercando un'azienda piccola può uscire quella famosa dello stesso settore)."""
+    chiave = nome_proprio(nome)
+    for pagina in ((risposta or {}).get("query") or {}).get("pages") or []:
+        if not chiave or chiave not in re.sub(r"[^a-z0-9]", "", (pagina.get("title") or "").lower()):
+            continue
+        testo = (pagina.get("description") or "").strip()
+        if len(testo) < 12:
+            testo = (pagina.get("extract") or "").strip()
+        if testo:
+            testo = testo[0].upper() + testo[1:]
+            return testo if len(testo) <= 160 else testo[:157].rsplit(" ", 1)[0] + "…"
     return None

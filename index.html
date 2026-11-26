@@ -102,6 +102,13 @@
         <span class="freccia-mercato" aria-hidden="true">›</span>
       </a>
 
+      <!-- L'avviso delle nuove quotazioni in Borsa di questa settimana (lo riempie agenti/mercato.js) -->
+      <a class="riga-mercato riga-quotazioni" id="oggi-quotazioni" href="#mercato" hidden>
+        <span class="etichetta">Nuove quotazioni</span>
+        <span class="voci-mercato" id="voci-quotazioni"></span>
+        <span class="freccia-mercato" aria-hidden="true">›</span>
+      </a>
+
       <!-- Due colonne affiancate sull'iPad (una sotto l'altra sul telefono) -->
       <div class="griglia-oggi">
         <div class="colonna-oggi">
@@ -412,6 +419,18 @@
           <p class="fonte-notizie" id="fonte-macro"></p>
         </section>
       </div>
+
+      <!-- 4. Le nuove quotazioni in Borsa (IPO): le grandi e le piccole nei settori che seguiamo -->
+      <section class="riquadro" id="sezione-quotazioni" hidden>
+        <h2>Nuove quotazioni</h2>
+        <p class="suggerimento">Le aziende che entrano in Borsa dalla settimana scorsa al prossimo mese: le grandi (almeno 1 miliardo
+          di dollari raccolto, o molto seguite dalle notizie) e le più piccole nei settori intelligenza artificiale, tecnologia,
+          difesa ed energia, segnate "da osservare". Un'azienda appena quotata non ha una storia di prezzi: nei primi mesi
+          il prezzo può muoversi molto.</p>
+        <div id="elenco-quotazioni"></div>
+        <p class="vuoto" id="vuoto-quotazioni" hidden></p>
+        <p class="fonte-notizie" id="fonte-quotazioni"></p>
+      </section>
 
       <footer>
         <p>Questa pagina mostra dati pubblici: <strong>non è consulenza finanziaria</strong>.</p>

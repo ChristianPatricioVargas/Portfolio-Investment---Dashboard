@@ -381,8 +381,14 @@ function disegnaMercato() {
     return;
   }
   disegnaPauraEMacro();
+  disegnaQuotazioni();
   const pronta = Object.keys(mappa.titoli).length > 0;
   $("attesa-mercato").hidden = pronta || !$("sezione-paura").hidden || !$("sezione-macro").hidden;
+  // Arrivi dall'avviso della pagina Oggi: scendiamo subito alle quotazioni
+  if (vaiAlleQuotazioni) {
+    vaiAlleQuotazioni = false;
+    requestAnimationFrame(() => $("sezione-quotazioni").scrollIntoView({ block: "start" }));
+  }
   $("sezione-mappa").hidden = !pronta;
   if (!pronta) return;
   disegnaSelettoriMappa();
@@ -462,6 +468,7 @@ function collegaMercato() {
     if (GRANDEZZE_MAPPA.some(([k]) => k === salvate.grandezza)) sceltaMappa.grandezza = salvate.grandezza;
   } catch (errore) { /* si parte dalle scelte predefinite */ }
   $("esci-settore").onclick = () => { settoreAperto = null; disegnaMappa(); };
+  $("oggi-quotazioni").addEventListener("click", () => { vaiAlleQuotazioni = true; });
   // Se giri l'iPad (o allarghi la finestra), la mappa si ridisegna con la nuova larghezza
   let inAttesa = false;
   window.addEventListener("resize", () => {
@@ -600,4 +607,102 @@ function disegnaPauraEMacro() {
   $("sezione-macro").hidden = griglia.children.length === 0;
   $("fonte-macro").textContent = "Fonti: BCE, Fed di New York, Eurostat, ufficio statistico USA (BLS), Yahoo Finance" +
     (d.aggiornato ? ` · controllati ${momento(d.aggiornato)}` : "");
+}
+
+// ---------- Le nuove quotazioni in Borsa (IPO) ----------
+
+let vaiAlleQuotazioni = false;    // true = hai toccato l'avviso nella pagina Oggi
+
+const STATI_QUOTAZIONE = { expected: "prevista", priced: "prezzo fissato", filed: "domanda depositata" };
+
+// "2026-12-03" → la data di quel giorno a mezzanotte (ora del dispositivo)
+const giornoDa = (testo) => { const [a, m, g] = testo.split("-").map(Number); return new Date(a, m - 1, g); };
+
+// Le quotazioni della settimana in corso (da lunedì a domenica)
+function quotazioniDellaSettimana(elenco) {
+  const oggi = new Date();
+  const lunedi = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() - ((oggi.getDay() + 6) % 7));
+  const lunediDopo = new Date(lunedi.getFullYear(), lunedi.getMonth(), lunedi.getDate() + 7);
+  return (elenco || []).filter((q) => q.data && giornoDa(q.data) >= lunedi && giornoDa(q.data) < lunediDopo);
+}
+
+// 125000000 → "125 milioni $", 2500000000 → "2,5 miliardi $"
+function soldiInDollari(numero) {
+  if (!(numero > 0)) return "";
+  return numero >= 1e9 ? numeroIt(numero / 1e9, 1) + " miliardi $" : numeroIt(numero / 1e6, 0) + " milioni $";
+}
+
+// Il prezzo (o la forchetta di prezzo) di Finnhub all'italiana: "15.00-17.00" → "15–17 $"
+function prezzoQuotazione(testo) {
+  const numeri = String(testo).split("-").map(Number);
+  if (numeri.some((n) => !Number.isFinite(n) || n <= 0)) return String(testo);
+  return numeri.map((n) => numeroIt(n, n % 1 ? 2 : 0)).join("–") + " $";
+}
+
+function creaSchedaQuotazione(q, settimana) {
+  const scheda = crea("div", "scheda-quotazione" + (q.tipo === "piccola" ? " da-osservare" : ""));
+  const giorno = giornoDa(q.data);
+  const passata = giorno < new Date(new Date().toDateString());
+  // A sinistra la data, come un foglio di calendario
+  const data = crea("div", "data-quotazione");
+  data.append(crea("span", "giorno-quotazione", String(giorno.getDate())),
+    crea("span", "", giorno.toLocaleDateString("it-IT", { month: "short" })),
+    crea("span", "", giorno.toLocaleDateString("it-IT", { weekday: "short" })));
+  scheda.appendChild(data);
+
+  const info = crea("div", "info-quotazione");
+  const nome = crea("div", "nome-quotazione");
+  nome.append(crea("b", "", q.nome));
+  if (q.sigla) nome.append(crea("span", "tag", q.sigla));
+  nome.append(crea("span", "etichetta-quotazione " + q.tipo, q.tipo === "grande" ? "Grande quotazione" : "Da osservare"));
+  if (settimana.includes(q)) nome.append(crea("span", "etichetta-quotazione settimana", passata ? "Quotata questa settimana" : "Questa settimana"));
+  info.appendChild(nome);
+  info.appendChild(crea("div", "descrizione-quotazione", q.descrizione || "Cosa fa: descrizione non ancora disponibile."));
+  const dettagli = [
+    q.motivo,
+    q.borsa,
+    q.prezzo ? `prezzo ${prezzoQuotazione(q.prezzo)}` : "",
+    q.raccolta ? `raccolta ${soldiInDollari(q.raccolta)}` : "",
+    passata ? "già quotata" : STATI_QUOTAZIONE[q.stato] || "",
+  ].filter(Boolean);
+  info.appendChild(crea("div", "dettagli-quotazione", dettagli.join(" · ")));
+  if (q.fonteDescrizione) info.lastChild.title = "Descrizione: " + q.fonteDescrizione;
+  scheda.appendChild(info);
+  return scheda;
+}
+
+function disegnaQuotazioni() {
+  const quotazioni = (datiMercato || {}).quotazioni || {};
+  const elenco = quotazioni.elenco || [];
+  const settimana = quotazioniDellaSettimana(elenco);
+  const contenitore = $("elenco-quotazioni");
+  contenitore.innerHTML = "";
+  for (const q of elenco) contenitore.appendChild(creaSchedaQuotazione(q, settimana));
+  // Il riquadro si vede sempre (se la pagina ha i dati del mercato), anche vuoto: così sai che la funzione c'è
+  $("sezione-quotazioni").hidden = !datiMercato || !datiMercato.aggiornato;
+  const vuoto = $("vuoto-quotazioni");
+  vuoto.hidden = elenco.length > 0;
+  vuoto.textContent = quotazioni.aggiornato
+    ? "Nessuna quotazione che rispetta i filtri tra la settimana scorsa e il prossimo mese."
+    : "Le nuove quotazioni arriveranno con il prossimo giro degli agenti (verso le 13 e la sera).";
+  $("fonte-quotazioni").textContent = quotazioni.aggiornato
+    ? `Fonti: calendario delle quotazioni di Finnhub, descrizioni da Wikipedia · controllate il ${dataBreve(quotazioni.aggiornato)}` : "";
+}
+
+// L'avviso nella pagina Oggi: le quotazioni di questa settimana
+function disegnaAvvisoQuotazioni() {
+  if (datiMercato === null) {
+    caricaDatiMercato().then(() => { if (vistaAperta === "oggi") disegnaAvvisoQuotazioni(); });
+    return;
+  }
+  const settimana = quotazioniDellaSettimana(((datiMercato || {}).quotazioni || {}).elenco);
+  const voci = $("voci-quotazioni");
+  voci.innerHTML = "";
+  for (const q of settimana) {
+    const voce = crea("span", "voce-mercato");
+    const giorno = giornoDa(q.data).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
+    voce.append(crea("b", "", q.nome), crea("span", "tenue", `${giorno}${q.tipo === "piccola" ? " · da osservare" : ""}`));
+    voci.appendChild(voce);
+  }
+  $("oggi-quotazioni").hidden = settimana.length === 0;
 }
