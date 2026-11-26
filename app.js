@@ -265,8 +265,9 @@ function calcola(posizione) {
 function infoTitolo(ticker) {
   const indice = titoli.findIndex((t) => t.ticker === ticker);
   // Se non è tra i titoli del portafoglio, può essere uno della watchlist (lo conoscono gli agenti)
-  const scheda = analisi.titoli[ticker];
-  const info = titoli[indice] || { nome: scheda ? scheda.nome : ticker, tipo: scheda ? scheda.tipo : "", ticker };
+  // oppure un'azienda della mappa del mercato
+  const scheda = analisi.titoli[ticker] || datiMappa(ticker);
+  const info = titoli[indice] || { nome: scheda ? scheda.nome : ticker, tipo: scheda ? scheda.tipo || "Azione" : "", ticker };
   return { ...info, colori: COLORI_SIGLA[Math.max(indice, 0) % COLORI_SIGLA.length] };
 }
 
@@ -428,9 +429,11 @@ function mostraVista() {
   const indirizzo = location.hash.slice(1);
   const trovato = indirizzo.match(/^titolo=(.+)$/);
   const ticker = trovato ? decodeURIComponent(trovato[1]) : null;
-  // Un titolo si può aprire se lo possiedi, se è nell'elenco o se lo seguono gli agenti
+  // Un titolo si può aprire se lo possiedi, se è nell'elenco, se lo seguono gli agenti o se è nella mappa del mercato
   const esiste = Boolean(ticker) && (posizioni.some((p) => p.ticker === ticker) ||
-    titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]));
+    titoli.some((t) => t.ticker === ticker) || Boolean(analisi.titoli[ticker]) || Boolean(datiMappa(ticker)));
+  // Forse è un'azienda della mappa, che non è ancora stata scaricata: la scarichiamo e riproviamo
+  if (ticker && !esiste && mappa === null) caricaMappa().then(() => { if (datiMappa(ticker)) mostraVista(); });
   if (!esiste) arrivatoDaDentro = false;
   tickerAperto = esiste ? ticker : null;
   vistaAperta = tickerAperto ? "titolo" : ["portafoglio", "occasioni", "mercato", "disciplina"].includes(indirizzo) ? indirizzo : "oggi";
@@ -480,6 +483,7 @@ function disegnaTitolo() {
   disegnaCacciatore();
   disegnaAvvocato();
   disegnaTesi();
+  disegnaDallaMappa();
 }
 
 // La parte della pagina del titolo che riguarda la TUA posizione

@@ -260,6 +260,47 @@ L'anello va dal rosso (0) al verde (100); il voto e la frase dicono la stessa co
 Frasi: 85 e più "Stai seguendo bene le tue regole", 65-84 "Quasi", 40-64 "Alcune regole sono rimaste indietro",
 sotto 40 "Le regole sono poco seguite".
 
+## La pagina Mercato
+
+Uno sguardo d'insieme sulle Borse, con **solo dati pubblici**. Non è consulenza finanziaria: la pagina mostra
+cosa è successo, non dice cosa comprare. I dati li prepara `scripts/aggiorna_mercato.py` su GitHub; la pagina
+scarica `data/mappa.json` solo quando apro Mercato (o un'azienda della mappa).
+
+### La mappa del mercato
+
+Un grande rettangolo diviso negli **11 settori** dell'economia (tecnologia, finanza, salute...), e ogni settore
+diviso nelle sue aziende, come la "heatmap" di TradingView.
+
+- **Indice**: S&P 500 (circa 500 aziende americane), Euro Stoxx 50 (le 50 più grandi dell'area euro) o la mia
+  watchlist (senza i titoli che ho tolto con "Togli"). Gli elenchi arrivano da liste pubbliche gratuite e si
+  riscaricano una volta a settimana: l'S&P 500 dal file CSV di
+  [datasets/s-and-p-500-companies](https://github.com/datasets/s-and-p-500-companies), l'Euro Stoxx 50 dalla
+  tabella di Wikipedia. Un elenco che arriva troppo corto (meno di 450 o 45 aziende) viene scartato: resta quello di prima.
+- **Periodo**: oggi (ultima seduta), 1 settimana (5 sedute), 1 mese (21 sedute), da inizio anno
+  (rispetto all'ultima chiusura dell'anno prima).
+- **Colore** dal rosso al verde passando per il grigio. Il colore più acceso vale ±3% per oggi, ±6% per la settimana,
+  ±10% per il mese e ±30% da inizio anno (la legenda sotto la mappa lo mostra).
+- **Grandezza** dei riquadri: *Smorzata* (predefinita: la radice quadrata della capitalizzazione, così le grandi
+  restano grandi ma si vedono anche le piccole), *Capitalizzazione* (pura) o *Uguali*. Un'azienda senza
+  capitalizzazione prende quella mediana dell'indice.
+- In ogni riquadro, se c'è posto: **logo** (da Finnhub; se manca, un cerchio con l'iniziale), **sigla** e **variazione**.
+  Toccando un riquadro si apre la **pagina del titolo**. Se gli agenti non seguono quell'azienda (non è nella
+  watchlist) la pagina mostra prezzo, variazioni, settore, capitalizzazione e la linea dell'ultimo mese,
+  al posto delle analisi.
+- **Sul telefono** la mappa mostra prima solo i settori: tocco un settore e si ingrandisce. Su iPad e computer
+  si vedono tutti i settori con le loro aziende, e toccando il nome di un settore lo si ingrandisce.
+
+Da dove arrivano i dati:
+
+- **Prezzi**: Yahoo Finance, a **gruppi di 20 titoli** per richiesta (circa 600 titoli, una trentina di richieste),
+  a ogni giro (ogni 30 minuti nei giorni di Borsa). Se Yahoo non dà un titolo, restano i suoi numeri del giro prima.
+- **Logo e capitalizzazione**: Finnhub (`/stock/profile2`, gratuito), **una volta a settimana** per azienda, nei due
+  giri degli agenti, al massimo 150 aziende per giro e una richiesta al secondo (il limite gratuito è 60 al minuto).
+  Le aziende europee si chiedono con la sigla americana (es. LVMH → `LVMUY`); la capitalizzazione è in dollari ed è
+  indicativa. Le prime volte arrivano poco per volta: finché mancano, la pagina lo dice e usa la grandezza media.
+- `data/mappa.json` (i riquadri) e `data/anagrafica.json` (elenchi e profili già chiesti, serve solo ai giri
+  successivi) non sono nel repository: vivono nel sito pubblicato, come gli altri dati.
+
 ## Le fonti dei dati e i loro limiti
 
 | Dato | Fonte | Note |
@@ -267,6 +308,7 @@ sotto 40 "Le regole sono poco seguite".
 | Prezzi, storico, analisi tecnica | Yahoo Finance (grafico) | Senza chiave. Funziona dai server di GitHub |
 | Conti delle aziende, giudizi degli analisti, trimestrali | **Finnhub**, con chiave gratuita (`FINNHUB_API_KEY` nei Secrets) | Il piano gratuito copre le aziende quotate negli Stati Uniti: per questo ogni titolo ha una sigla americana (campo `usa`) |
 | Notizie | Google News, Bing News, Yahoo Finance | Senza chiave |
+| Mappa del mercato | Yahoo Finance (prezzi, a gruppi di 20), Finnhub (logo e capitalizzazione), liste pubbliche (elenchi degli indici) | Vedi "La pagina Mercato" |
 
 **Come ci si è arrivati** (prove dal vivo del 14-15 novembre 2026, fatte dai server di GitHub):
 
@@ -311,13 +353,14 @@ trimestrali viste). Un backup più vecchio si può ancora ripristinare: le parti
 | `index.html` | Lo scheletro della pagina: le viste Oggi, Portafoglio, Occasioni, Mercato, Disciplina e Titolo |
 | `style.css` | L'aspetto: colori, spazi, tema chiaro e scuro (automatico in base al dispositivo, o scelto dal selettore in fondo alla pagina). I caratteri (IBM Plex Sans e Mono) sono caricati da Google Fonts |
 | `app.js` | Il cervello: legge i dati, fa i calcoli del portafoglio, salva sul dispositivo, cambia pagina |
-| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo; `agenti/disciplina.js` è la pagina Disciplina (solo dati personali, niente agenti su GitHub) |
+| `agenti/*.js` | La parte di pagina di ogni agente (vedi tabella sopra); `agenti/grafico.js` è il grafico del prezzo; `agenti/disciplina.js` è la pagina Disciplina (solo dati personali, niente agenti su GitHub); `agenti/mercato.js` è la pagina Mercato |
 | `librerie/` | Lightweight Charts di TradingView (la libreria del grafico del prezzo) e la sua licenza |
 | `data/titoli.json` | I titoli del portafoglio, con le parole da cercare nelle notizie |
 | `data/watchlist.json` | Le grandi aziende che il cacciatore tiene d'occhio |
-| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
+| `data/prezzi.json`, `storico.json`, `intraday.json`, `notizie.json`, `allarmi.json`, `analisi.json`, `serie.json`, `ai.json`, `mappa.json`, `anagrafica.json`, `grafici/` | **Non sono nel repository**: li crea GitHub Actions e stanno solo nel sito pubblicato (prezzi, storico, notizie, allarmi inviati, lavoro degli agenti, linee dei grafici tecnici, analisi dell'AI, candele di 5 anni di ogni titolo) |
 | `scripts/aggiorna_prezzi.py` | Scarica prezzi, storico e notizie e manda gli allarmi (ogni 30 minuti) |
 | `scripts/aggiorna_analisi.py` | Il direttore degli agenti (due volte al giorno) |
+| `scripts/aggiorna_mercato.py` | Il direttore della pagina Mercato: prezzi della mappa a ogni giro; elenchi degli indici e profili Finnhub due volte al giorno |
 | `scripts/agenti/*.py` | I calcoli di ogni agente |
 | `scripts/prova_agenti.py` | Le prove automatiche degli agenti |
 | `scripts/trova_sigla.py` | Programma di prova: dice quali sigle riconosce Yahoo Finance |

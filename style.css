@@ -1336,3 +1336,82 @@ a.link { text-decoration: none; font-size: 12px; }
 .anello-oggi .anello-disciplina { width: 104px; height: 104px; }
 .anello-oggi b { font-weight: 600; font-size: 13px; }
 .anello-oggi small { color: var(--testo-tenue); font-size: 12px; }
+
+/* ---------- La pagina Mercato: la mappa del mercato ---------- */
+.intestazione-mappa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.intestazione-mappa h2 { margin: 0; }
+.riassunto-mappa { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--testo-tenue); }
+/* I tre selettori: vanno a capo se non c'è posto, e ognuno scorre di lato sul telefono */
+.comandi-mappa { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.comandi-mappa .selettore { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.comandi-mappa .selettore::-webkit-scrollbar { display: none; }
+.comandi-mappa .selettore button { white-space: nowrap; }
+.percorso-mappa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; font-size: 13px; }
+.percorso-mappa .link { font-size: 13px; padding: 4px 0; }
+#nome-settore { color: var(--testo-tenue); }
+
+/* Il rettangolo della mappa: i riquadri ci stanno dentro "appoggiati" in posizioni calcolate da agenti/mercato.js */
+.mappa { position: relative; width: 100%; overflow: hidden; border-radius: 4px; background: var(--sfondo); }
+.riquadro-mappa {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15em;
+  overflow: hidden;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  border-radius: 2px;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.1;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.riquadro-mappa:hover { outline: 2px solid #fff; outline-offset: -2px; z-index: 1; }
+.riquadro-mappa:focus-visible { outline: 2px solid var(--accento); outline-offset: -2px; z-index: 1; }
+.sigla-mappa { font-weight: 700; letter-spacing: 0.01em; white-space: nowrap; }
+.variazione-mappa { font-size: 0.85em; font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; }
+.nome-settore-mappa { font-weight: 700; padding: 0 4px; overflow-wrap: anywhere; }
+.conta-mappa { font-size: 0.75em; opacity: 0.85; }
+/* Il logo sta in un cerchio bianco, così si vede anche quando è scuro su sfondo scuro */
+.logo-mappa, .iniziale-mappa { display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%; margin-bottom: 0.15em; }
+.logo-mappa { overflow: hidden; background: #fff; }
+.logo-mappa img { width: 78%; height: 78%; object-fit: contain; }
+.iniziale-mappa { background: rgba(255, 255, 255, 0.22); font-weight: 700; text-shadow: none; }
+/* Il nome del settore sopra il suo gruppo di aziende (iPad e computer) */
+.testa-settore-mappa {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 0 4px;
+  margin: 0;
+  border: none;
+  background: none;
+  color: var(--testo);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.testa-settore-mappa:hover { color: var(--accento); }
+.testa-settore-mappa span:last-child { font-variant-numeric: tabular-nums; text-transform: none; }
+.vuoto-mappa { padding: 24px 12px; text-align: center; }
+/* La legenda: sette quadratini, dal rosso al verde */
+.legenda-mappa { display: flex; gap: 1px; margin: 8px 0; max-width: 420px; }
+.passo-legenda { flex: 1; padding: 3px 0; border-radius: 2px; color: #fff; font-size: 10px; font-variant-numeric: tabular-nums; text-align: center; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4); }
+
+/* Nella pagina di un'azienda della mappa: la piccola linea dell'ultimo mese */
+.linea-mappa { display: block; width: 100%; height: 48px; margin-top: 10px; overflow: visible; }
+.linea-mappa polyline { fill: none; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.linea-mappa polyline.sale { stroke: var(--verde); }
+.linea-mappa polyline.scende { stroke: var(--rosso); }

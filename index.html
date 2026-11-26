@@ -346,6 +346,37 @@
       </header>
       <p class="avviso" id="attesa-mercato">I dati del mercato arriveranno con il prossimo giro automatico.</p>
 
+      <!-- 1. La mappa del mercato: i settori e le loro aziende, colorati da quanto sono saliti o scesi -->
+      <section class="riquadro" id="sezione-mappa" hidden>
+        <div class="intestazione-mappa">
+          <h2>Mappa del mercato</h2>
+          <p class="riassunto-mappa" id="riassunto-mappa"></p>
+        </div>
+        <div class="comandi-mappa">
+          <div class="selettore" id="indice-mappa" role="group" aria-label="Indice"></div>
+          <div class="selettore" id="periodo-mappa" role="group" aria-label="Periodo"></div>
+          <div class="selettore" id="grandezza-mappa" role="group" aria-label="Grandezza dei riquadri"></div>
+        </div>
+        <div class="percorso-mappa" id="percorso-mappa" hidden>
+          <button type="button" class="link" id="esci-settore">‹ Tutti i settori</button>
+          <span id="nome-settore"></span>
+        </div>
+        <div class="mappa" id="mappa"></div>
+        <div class="legenda-mappa" id="legenda-mappa" aria-label="Legenda dei colori"></div>
+        <p class="suggerimento" id="aiuto-mappa"></p>
+        <p class="suggerimento" id="nota-mappa" hidden></p>
+        <details class="glossario">
+          <summary>Come si legge la mappa?</summary>
+          <p><b>Grandezza</b>: "Capitalizzazione" fa ogni riquadro grande quanto vale l'azienda in Borsa (le giganti coprono quasi tutto).
+            "Smorzata" usa la radice quadrata del valore: le grandi restano le più grandi, ma si vedono anche le piccole.
+            "Uguali" dà a tutte lo stesso spazio.</p>
+          <p><b>Colore</b>: verde se il prezzo è salito nel periodo scelto, rosso se è sceso, grigio se è quasi fermo.
+            Più il colore è acceso, più il movimento è grande (vedi la legenda).</p>
+          <p><b>Settori</b>: le aziende sono raggruppate negli 11 grandi settori dell'economia (tecnologia, finanza, salute...).</p>
+        </details>
+        <p class="fonte-notizie" id="fonte-mappa"></p>
+      </section>
+
       <footer>
         <p>Questa pagina mostra dati pubblici: <strong>non è consulenza finanziaria</strong>.</p>
       </footer>
@@ -456,6 +487,17 @@
 
           <!-- Una griglia di numeri: quote, prezzo medio, ecc. (la riempie app.js) -->
           <dl class="numeri-titolo" id="numeri-titolo"></dl>
+
+          <!-- Un'azienda della mappa del mercato che gli agenti non seguono (la riempie agenti/mercato.js) -->
+          <section class="riquadro" id="sezione-dalla-mappa" hidden>
+            <h2>Dalla mappa del mercato</h2>
+            <dl class="numeri-agente" id="numeri-dalla-mappa"></dl>
+            <svg class="linea-mappa" id="linea-dalla-mappa" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Il prezzo nell'ultimo mese"></svg>
+            <p class="suggerimento">Gli agenti non analizzano questa azienda perché non è nella tua watchlist: qui vedi solo i prezzi.
+              Per avere analisi tecnica, conti e rischi puoi aggiungerla alla watchlist (pagina Occasioni, pannello "Avanzate").
+              <a id="yahoo-dalla-mappa" target="_blank" rel="noopener noreferrer">Vedi su Yahoo Finance</a></p>
+            <p class="fonte-notizie" id="fonte-dalla-mappa"></p>
+          </section>
 
           <!-- "Se vendo oggi": quanto resta in tasca dopo tasse e commissione (lo calcola agenti/fondamentale.js) -->
           <section class="riquadro" id="sezione-se-vendo" hidden>
@@ -573,7 +615,7 @@
           </section>
 
           <!-- Le notizie sul titolo: le riempie app.js -->
-          <section class="notizie" aria-labelledby="titolo-notizie">
+          <section class="notizie" id="sezione-notizie-titolo" aria-labelledby="titolo-notizie">
             <h2 id="titolo-notizie">Notizie</h2>
             <ul id="elenco-notizie"></ul>
             <p class="vuoto" id="nessuna-notizia" hidden></p>

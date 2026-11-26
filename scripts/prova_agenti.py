@@ -15,7 +15,8 @@ Con l'opzione --dal-vivo fa anche una prova vera con Yahoo Finance su pochi tito
 import os
 import sys
 
-from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, tecnico
+from agenti import avvocato, avvocato_ai, cacciatore, fondamentale, mercato, tecnico
+from agenti.yahoo import leggi_gruppo
 
 OGGI = "2026-11-14"
 
@@ -340,11 +341,87 @@ def prova_ai_freni():
     os.environ.pop("AI_MODELLO")
 
 
+# ---------- La pagina Mercato: la mappa ----------
+
+def prova_mercato_elenchi():
+    # S&P 500: il punto della sigla diventa trattino per Yahoo, ma resta per Finnhub; il settore si traduce
+    testo = ("Symbol,Security,GICS Sector,GICS Sub-Industry\n"
+             "AAPL,Apple Inc.,Information Technology,Tech Hardware\n"
+             "BRK.B,Berkshire Hathaway,Financials,Multi-Sector Holdings\n"
+             ",riga vuota,,\n")
+    elenco = mercato.leggi_sp500(testo)
+    assert [v["ticker"] for v in elenco] == ["AAPL", "BRK-B"]
+    assert elenco[1]["usa"] == "BRK.B" and elenco[0]["settore"] == "Tecnologia" and elenco[1]["settore"] == "Finanza"
+
+    # Euro Stoxx 50: la tabella di Wikipedia, con celle su righe diverse e comandi da pulire
+    wiki = ('intro\n{| class="wikitable" id="constituents"\n! Ticker !! Main listing !! Name !! Form !! Office !! Sector\n'
+            '|-\n| ADS.DE || [[Xetra]] || [[Adidas]] || AG || {{Flagicon|Germany}} Herzogenaurach || Consumer Discretionary\n'
+            '|-\n| SU.PA\n| Euronext\n| [[Schneider Electric|Schneider]]\n| SE\n| Rueil\n| Industrials\n'
+            '|-\n| sbagliata || x || y || z || w || Energy\n|}\naltro testo')
+    elenco = mercato.leggi_eurostoxx50(wiki, {"SU.PA": "SBGSY-PROVA"})
+    assert [v["ticker"] for v in elenco] == ["ADS.DE", "SU.PA"]
+    assert elenco[0]["nome"] == "Adidas" and elenco[0]["usa"] == "ADDYY" and elenco[0]["settore"] == "Beni voluttuari"
+    assert elenco[1]["nome"] == "Schneider" and elenco[1]["usa"] == "SBGSY-PROVA" and elenco[1]["settore"] == "Industria"
+    assert mercato.leggi_eurostoxx50("pagina senza tabella") == []
+
+    # I settori di Finnhub finiscono negli stessi 11 grandi settori; quelli sconosciuti in "Altro"
+    assert mercato.settore_italiano("Semiconductors") == "Tecnologia"
+    assert mercato.settore_italiano("Banking") == "Finanza"
+    assert mercato.settore_italiano("Qualcosa di nuovo") == mercato.ALTRO
+
+
+def prova_mercato_variazioni():
+    # 300 sedute: dal 2 gennaio 2025, un giorno di Borsa dopo l'altro, prezzo che sale di 1 al giorno
+    from datetime import datetime, timedelta, timezone
+    inizio = datetime(2025, 1, 2, 21, tzinfo=timezone.utc)
+    giorni, tempi = [], []
+    giorno = inizio
+    while len(tempi) < 300:
+        if giorno.weekday() < 5:
+            tempi.append(int(giorno.timestamp()))
+            giorni.append(giorno.date())
+        giorno += timedelta(days=1)
+    chiusure = [100.0 + i for i in range(300)]
+    chiusure[150] = None                       # un buco nei dati di Yahoo non deve rompere i conti
+    v = mercato.variazioni(tempi, chiusure)
+    assert v["giorno"] == giorni[-1].isoformat() and v["prezzo"] == 399
+    assert uguale(v["oggi"], round(399 / 398 - 1, 5)) and uguale(v["settimana"], round(399 / 394 - 1, 5))
+    assert uguale(v["mese"], round(399 / 378 - 1, 5)) and len(v["linea"]) == mercato.PUNTI_LINEA
+    # Da inizio anno: rispetto all'ultima chiusura dell'anno prima
+    ultima_2025 = max(i for i, g in enumerate(giorni) if g.year == 2025)
+    assert uguale(v["anno"], round(399 / chiusure[ultima_2025] - 1, 5))
+    # Pochi dati: niente variazioni lunghe, ma niente errori
+    corto = mercato.variazioni(tempi[-3:], [10, 11, 12])
+    assert corto["settimana"] is None and corto["anno"] is None and uguale(corto["oggi"], round(12 / 11 - 1, 5))
+    assert mercato.variazioni([], []) is None
+
+
+def prova_mercato_riquadri():
+    # Il profilo di Finnhub: la capitalizzazione arriva in milioni, la teniamo in miliardi
+    profilo = mercato.profilo_breve({"marketCapitalization": 2_500_000, "logo": "https://logo/x.png",
+                                     "finnhubIndustry": "Technology"}, OGGI)
+    assert profilo == {"cap": 2500.0, "logo": "https://logo/x.png", "industria": "Technology", "giorno": OGGI}
+    scheda = mercato.scheda_mappa({"ticker": "AAPL", "nome": "Apple", "settore": "Tecnologia", "usa": "AAPL"},
+                                  {"prezzo": 10, "oggi": 0.01}, profilo)
+    assert scheda["cap"] == 2500.0 and scheda["logo"] and scheda["oggi"] == 0.01 and "industria" not in scheda
+    # Senza profilo e senza prezzo il riquadro c'è lo stesso (grandezza media, cerchio con l'iniziale)
+    vuota = mercato.scheda_mappa({"ticker": "X", "nome": "X", "settore": ""}, None, None)
+    assert vuota == {"nome": "X", "settore": mercato.ALTRO}
+
+    # Yahoo risponde ai gruppi di 20 titoli in due forme diverse: le leggiamo tutte e due
+    nuova = {"AAPL": {"timestamp": [1, 2], "close": [10, 11]}, "nota": "non è un titolo"}
+    vecchia = {"spark": {"result": [{"symbol": "SAP.DE", "response": [
+        {"timestamp": [1, 2], "indicators": {"quote": [{"close": [5, 6]}]}}]}]}}
+    assert leggi_gruppo(nuova) == {"AAPL": {"tempi": [1, 2], "chiusure": [10, 11]}}
+    assert leggi_gruppo(vecchia) == {"SAP.DE": {"tempi": [1, 2], "chiusure": [5, 6]}}
+
+
 PROVE = [prova_fondamentale, prova_fondamentale_dati_mancanti,
          prova_tecnico_medie_e_rsi, prova_tecnico_scheda, prova_tecnico_candele, prova_tecnico_storia, prova_tecnico_livelli,
          prova_cacciatore, prova_classifica, prova_watchlist,
          prova_avvocato_azienda_sana, prova_avvocato_campanelli, prova_avvocato_target_e_etf,
-         prova_ai_spenta_senza_chiave, prova_ai_freni]
+         prova_ai_spenta_senza_chiave, prova_ai_freni,
+         prova_mercato_elenchi, prova_mercato_variazioni, prova_mercato_riquadri]
 
 
 # ---------- Prova dal vivo (con internet) ----------

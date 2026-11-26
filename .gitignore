@@ -12,6 +12,8 @@ data/notizie.json
 data/analisi.json
 data/serie.json
 data/ai.json
+data/mappa.json
+data/anagrafica.json
 data/grafici/
 data/grafici.tar.gz
 _site/

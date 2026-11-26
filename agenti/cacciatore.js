@@ -284,20 +284,22 @@ function disegnaTitoloOsservato() {
   const s = analisi.titoli[tickerAperto] || {};
   const t = s.tecnica, f = s.fondamentali;
   const p = prezzi[tickerAperto];
-  const prezzo = p ? p.prezzo : t ? t.prezzo : f ? f.prezzo : null;
-  const valuta = p ? "EUR" : (t && t.valuta) || (f && f.valuta) || "";
+  const m = datiMappa(tickerAperto);    // i numeri della mappa del mercato, se è un'azienda della mappa
+  const prezzo = p ? p.prezzo : t ? t.prezzo : f ? f.prezzo : m && m.prezzo ? m.prezzo : null;
+  const valuta = p ? "EUR" : (t && t.valuta) || (f && f.valuta) || (m ? valutaDaSigla(tickerAperto) : "");
   $("valore-titolo").textContent = prezzo === null ? "–" : prezzoIn(prezzo, valuta);
   const chip = $("gp-titolo");
-  chip.textContent = t ? `${percUno(t.dalMassimo, true)} dal massimo dell'anno` : "";
-  chip.className = "chip";
-  $("fonte-prezzi-titolo").textContent = (p ? testoFonte([tickerAperto]) : t ? `Prezzo di chiusura del ${dataBreve(t.data)}` : "") +
-    " · non hai questo titolo in portafoglio";
+  const oggiMappa = !t && m && typeof m.oggi === "number" ? m.oggi : null;
+  chip.textContent = t ? `${percUno(t.dalMassimo, true)} dal massimo dell'anno` : oggiMappa !== null ? `${testoVariazione(oggiMappa)} all'ultima seduta` : "";
+  chip.className = "chip " + (oggiMappa !== null ? classeColore(oggiMappa) : "");
+  $("fonte-prezzi-titolo").textContent = (p ? testoFonte([tickerAperto]) : t ? `Prezzo di chiusura del ${dataBreve(t.data)}`
+    : m && m.giorno ? `Prezzo di chiusura del ${dataBreve(m.giorno)}` : "") + " · non hai questo titolo in portafoglio";
 
   const griglia = $("numeri-titolo");
   griglia.innerHTML = "";
   const numeri = [
-    ["Area", s.area || "–"],
-    ["Settore", (f && f.settore) || "–"],
+    ["Area", s.area || (m ? areaDaSigla(tickerAperto) : "") || "–"],
+    ["Settore", (f && f.settore) || (m && m.settore) || "–"],
     ["Valuta", valuta || "–"],
   ];
   for (const dato of numeri) aggiungiDato(griglia, ...dato);
