@@ -202,21 +202,91 @@ function creaRiquadroAzienda(a, r, scala) {
   riquadro.style.background = coloreVariazione(a.variazione, scala);
   posiziona(riquadro, r);
   const testo = `${a.t.nome} (${a.ticker}): ${percMappa(a.variazione)} ${testoPeriodo()}`;
-  riquadro.title = [testo, capitalizzazione(a.t.cap)].filter(Boolean).join(" · ");
   riquadro.setAttribute("aria-label", testo);
-  riquadro.onclick = () => vaiAlTitolo(a.ticker);
 
+  // Il carattere più grande che ci sta: cresce con il riquadro, ma la sigla deve entrare in larghezza
+  // (una lettera è larga circa 0,65 volte il carattere) e, se c'è posto, anche la variazione sotto.
   const { w, h } = r;
-  if (w >= 30 && h >= 18) {
-    // Il carattere cresce con il riquadro, entro certi limiti
-    const carattere = Math.max(9, Math.min(24, Math.sqrt(w * h) / 5.5, w / 4.2));
+  const sigla = siglaCorta(a.ticker);
+  const variazione = percMappa(a.variazione);
+  const perLarghezza = (w - 4) / (Math.max(sigla.length, 3) * 0.65);
+  // Nei riquadri piccoli si parte da 9 pixel e si scende solo se la sigla non ci sta (fino a 7, poi niente testo)
+  const carattere = Math.min(24, Math.max(Math.sqrt(w * h) / 5.5, 9), perLarghezza, (h - 2) / 1.15);
+  let completo = false;
+  if (carattere >= 7) {
     riquadro.style.fontSize = carattere.toFixed(1) + "px";
     const latoLogo = Math.min(40, Math.round(Math.min(w, h) / 3));
     if (w >= 60 && h >= carattere * 2.6 + latoLogo + 8 && latoLogo >= 16) riquadro.appendChild(creaLogo(a.t, latoLogo));
-    riquadro.appendChild(crea("span", "sigla-mappa", siglaCorta(a.ticker)));
-    if (h >= carattere * 2.4) riquadro.appendChild(crea("span", "variazione-mappa", percMappa(a.variazione)));
+    riquadro.appendChild(crea("span", "sigla-mappa", sigla));
+    // La variazione si scrive un po' più piccola (0,85): deve stare sotto la sigla e in larghezza
+    if (h >= carattere * 2.3 && w - 4 >= variazione.length * carattere * 0.85 * 0.6) {
+      riquadro.appendChild(crea("span", "variazione-mappa", variazione));
+      completo = true;
+    }
   }
+  // Sui riquadri dove non si legge tutto, il primo tocco mostra il fumetto con i numeri; il secondo apre la pagina
+  riquadro.onclick = () => {
+    if (!completo && ultimoPuntatore !== "mouse" && fumettoAperto !== a.ticker) mostraFumettoMappa(a, riquadro, false);
+    else vaiAlTitolo(a.ticker);
+  };
+  // Con il mouse il fumetto compare passandoci sopra
+  riquadro.addEventListener("pointerenter", (evento) => { if (evento.pointerType === "mouse") mostraFumettoMappa(a, riquadro, true); });
   return riquadro;
+}
+
+// ---------- Il fumetto della mappa: i numeri di un'azienda, anche quando il riquadro è troppo piccolo ----------
+
+let fumettoAperto = null;       // la sigla dell'azienda nel fumetto (null = chiuso)
+let ultimoPuntatore = "";       // "mouse", "touch" o "pen": come hai toccato la mappa l'ultima volta
+
+function chiudiFumettoMappa() {
+  fumettoAperto = null;
+  const fumetto = $("fumetto-mappa");
+  if (fumetto) fumetto.hidden = true;
+}
+
+// conMouse = true: compare passando con il mouse (niente pulsante: basta un clic sul riquadro per aprire)
+function mostraFumettoMappa(a, riquadro, conMouse) {
+  const area = $("mappa");
+  let fumetto = $("fumetto-mappa");
+  if (!fumetto) {
+    fumetto = crea("div", "fumetto-mappa");
+    fumetto.id = "fumetto-mappa";
+    fumetto.setAttribute("role", "status");
+  }
+  area.appendChild(fumetto);      // la mappa si ridisegna spesso: il fumetto torna sempre in cima
+  fumetto.innerHTML = "";
+  fumettoAperto = a.ticker;
+
+  const testa = crea("div", "testa-fumetto");
+  testa.append(crea("b", "", a.t.nome), crea("span", "tag", siglaCorta(a.ticker)));
+  fumetto.appendChild(testa);
+  fumetto.appendChild(crea("div", "tenue", [a.t.settore, capitalizzazione(a.t.cap)].filter(Boolean).join(" · ")));
+  const righe = crea("dl", "periodi-fumetto");
+  for (const [chiave, nome] of PERIODI_MAPPA) {
+    const blocco = crea("div", chiave === sceltaMappa.periodo ? "scelto" : "");
+    const v = a.t[chiave];
+    blocco.append(crea("dt", "", nome), crea("dd", typeof v === "number" ? classeColore(v) : "", percMappa(v)));
+    righe.appendChild(blocco);
+  }
+  fumetto.appendChild(righe);
+  if (!conMouse) {
+    const apri = crea("button", "pulsante apri-fumetto", "Apri la pagina ›");
+    apri.type = "button";
+    apri.onclick = () => vaiAlTitolo(a.ticker);
+    fumetto.appendChild(apri);
+  }
+  // Con il mouse il fumetto non deve "rubare" il puntatore ai riquadri sotto
+  fumetto.style.pointerEvents = conMouse ? "none" : "auto";
+  fumetto.hidden = false;
+
+  // Il fumetto sta sopra il riquadro (o sotto, se sopra non c'è posto), sempre dentro la mappa
+  const larghezza = area.clientWidth, altezza = area.clientHeight;
+  const x = riquadro.offsetLeft + riquadro.offsetWidth / 2, y = riquadro.offsetTop;
+  const lf = fumetto.offsetWidth, hf = fumetto.offsetHeight;
+  fumetto.style.left = Math.max(4, Math.min(larghezza - lf - 4, x - lf / 2)) + "px";
+  const sopra = y - hf - 6;
+  fumetto.style.top = (sopra >= 4 ? sopra : Math.min(altezza - hf - 4, y + riquadro.offsetHeight + 6)) + "px";
 }
 
 // Il riquadro di un settore intero (sul telefono, prima di ingrandire)
@@ -248,6 +318,7 @@ function apriSettore(nome) {
 function disegnaMappa() {
   const area = $("mappa");
   area.innerHTML = "";
+  fumettoAperto = null;
   const larghezza = area.clientWidth;
   if (!larghezza) return;
   const stretta = larghezza < MAPPA_STRETTA;
@@ -261,14 +332,14 @@ function disegnaMappa() {
   // Con tante aziende (l'S&P 500 ne ha circa 500) la mappa è più alta, così i riquadri non diventano minuscoli.
   const tante = aziende.length > 150;
   const altezza = stretta ? Math.round(Math.min(Math.max(larghezza * (tante && settoreAperto ? 1.6 : 1.25), 380), 760))
-    : Math.round(Math.min(Math.max(larghezza * (tante ? 0.82 : 0.6), 420), tante ? 940 : 780));
+    : Math.round(Math.min(Math.max(larghezza * (tante ? (larghezza < 900 ? 1.05 : 0.82) : 0.6), 420), tante ? 940 : 780));
   area.style.height = altezza + "px";
 
   $("percorso-mappa").hidden = !settoreAperto;
   $("aiuto-mappa").textContent = settoreAperto
-    ? "Tocca un'azienda per aprire la sua pagina."
+    ? "Tocca un'azienda per aprire la sua pagina. Sui riquadri piccoli il primo tocco mostra i numeri."
     : stretta ? "Tocca un settore per ingrandirlo, poi un'azienda per aprire la sua pagina."
-      : "Tocca un'azienda per aprire la sua pagina, o il nome di un settore per ingrandirlo.";
+      : "Tocca un'azienda per aprire la sua pagina, o il nome di un settore per ingrandirlo. Sui riquadri piccoli il primo tocco mostra i numeri.";
 
   if (!aziende.length) {
     area.appendChild(crea("p", "vuoto vuoto-mappa", sceltaMappa.indice === "watchlist"
@@ -371,7 +442,8 @@ function disegnaFonteMappa() {
   nota.hidden = sceltaMappa.grandezza === "uguali" || mancano === 0;
   nota.textContent = conCap === 0
     ? "Le capitalizzazioni non sono ancora arrivate da Finnhub: per ora i riquadri sono tutti della stessa grandezza."
-    : `${mancano} aziende su ${sigle.length} non hanno ancora la capitalizzazione: hanno un riquadro di grandezza media.`;
+    : mancano === 1 ? `1 azienda su ${sigle.length} non ha ancora la capitalizzazione: ha un riquadro di grandezza media.`
+      : `${mancano} aziende su ${sigle.length} non hanno ancora la capitalizzazione: hanno un riquadro di grandezza media.`;
 }
 
 // ---------- La pagina "Mercato" ----------
@@ -470,6 +542,13 @@ function collegaMercato() {
     if (GRANDEZZE_MAPPA.some(([k]) => k === salvate.grandezza)) sceltaMappa.grandezza = salvate.grandezza;
   } catch (errore) { /* si parte dalle scelte predefinite */ }
   $("esci-settore").onclick = () => { settoreAperto = null; disegnaMappa(); };
+  // Ricordiamo se stai usando il mouse o il dito: il fumetto si comporta in modo diverso
+  $("mappa").addEventListener("pointerdown", (evento) => { ultimoPuntatore = evento.pointerType; }, true);
+  $("mappa").addEventListener("pointerleave", (evento) => { if (evento.pointerType === "mouse") chiudiFumettoMappa(); });
+  // Un tocco fuori dalla mappa chiude il fumetto
+  document.addEventListener("pointerdown", (evento) => {
+    if (fumettoAperto && !evento.target.closest("#mappa")) chiudiFumettoMappa();
+  });
   $("oggi-quotazioni").addEventListener("click", () => { vaiAlleQuotazioni = true; });
   // Se giri l'iPad (o allarghi la finestra), la mappa si ridisegna con la nuova larghezza
   let inAttesa = false;

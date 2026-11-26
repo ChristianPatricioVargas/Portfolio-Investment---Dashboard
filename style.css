@@ -1489,3 +1489,28 @@ a.link { text-decoration: none; font-size: 12px; }
 /* Nome e etichette: se non c'è posto, le etichette vanno sulla riga sotto (intere, senza spezzarsi) */
 .scheda-occasione .nome { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
 .scheda-occasione .nome .tag { white-space: nowrap; }
+
+/* Il fumetto della mappa: i numeri di un'azienda (si apre toccando un riquadro piccolo, o passandoci con il mouse) */
+.fumetto-mappa {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 6px;
+  width: max-content;
+  max-width: min(280px, calc(100% - 8px));
+  padding: 10px 12px;
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+  background: var(--carta);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  color: var(--testo);
+  font-size: 12px;
+  pointer-events: auto;
+}
+.testa-fumetto { display: flex; align-items: center; gap: 8px; }
+.testa-fumetto b { font-size: 13px; font-weight: 600; }
+.periodi-fumetto { display: grid; grid-template-columns: repeat(4, auto); gap: 4px 12px; margin: 0; }
+.periodi-fumetto dt { color: var(--testo-tenue); font-size: 10px; }
+.periodi-fumetto dd { margin: 0; font-family: var(--carattere-numeri); font-weight: 600; }
+.periodi-fumetto .scelto dt { color: var(--accento); font-weight: 600; }
+.apri-fumetto { justify-self: start; padding: 6px 12px; font-size: 12px; }

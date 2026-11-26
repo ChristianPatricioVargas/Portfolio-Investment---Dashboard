@@ -288,6 +288,9 @@ diviso nelle sue aziende, come la "heatmap" di TradingView.
   restano grandi ma si vedono anche le piccole), *Capitalizzazione* (pura) o *Uguali*. Un'azienda senza
   capitalizzazione prende quella mediana dell'indice.
 - In ogni riquadro, se c'è posto: **logo** (da Finnhub; se manca, un cerchio con l'iniziale), **sigla** e **variazione**.
+  Il carattere si adatta al riquadro (da 24 pixel fino a 7), così la sigla compare quasi ovunque. Sui riquadri dove non
+  si legge tutto, il **primo tocco** apre un **fumetto** con nome, settore, capitalizzazione e le variazioni dei quattro
+  periodi, più il pulsante "Apri la pagina"; con il mouse il fumetto compare passandoci sopra.
   Toccando un riquadro si apre la **pagina del titolo**. Se gli agenti non seguono quell'azienda (non è nella
   watchlist) la pagina mostra prezzo, variazioni, settore, capitalizzazione e la linea dell'ultimo mese,
   al posto delle analisi.
